@@ -9,12 +9,11 @@ assignees: ''
 
 <!-- Thank you for reporting! -->
 
-<!-- For support with crashes and issues, please make a post in #user-support channel in NeoForge Discord instead: -->
-<!-- https://discord.gg/UvedJ9m -->
-
 **Minecraft Version:** {Minecraft version}
 
 **NeoForge Version:** {NeoForge version. *Version number, not latest/rb*}
+
+(If Server) **NeoRusty Version:** {NeoRusty Version *Version number, not latest/rb*}
 
 **Logs:** {Link(s) to GitHub Gist with full latest.log and/or crash report}
 
