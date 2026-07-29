@@ -34,13 +34,13 @@ jobs:
           cache-read-only: false
 
       - name: Setup with Gradle
-        run: ./gradlew setup
+        run: ./gradlew setup -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
 
       - name: Build with Gradle
-        run: ./gradlew assemble checkFormatting
+        run: ./gradlew assemble checkFormatting -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
 
       - name: Run tests
-        run: ./gradlew :tests:runUnitTests
+        run: ./gradlew :tests:runUnitTests -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -51,9 +51,10 @@ jobs:
       - name: Create nightly release
         run: |
           TAG="nightly-$(date +'%Y%m%d')"
+          VERSION="0.0.0-nightly-$(date +'%Y%m%d')"
           gh release create "$TAG" \
             --title "Nightly Build $(date +'%Y-%m-%d')" \
-            --notes "Automated nightly build from ${{ github.ref_name }} (${{ github.sha }})" \
+            --notes "Automated nightly build from ${{ github.ref_name }} (${{ github.sha }})\nVersion: $VERSION" \
             --target "${{ github.sha }}" \
             neoforge-source/build/libs/*.jar || true
         env:
