@@ -14,7 +14,11 @@ ext.isPreReleaseVersion = project.minecraft_version.contains('w') || project.min
 if (isPreReleaseVersion) {
     project.version = "${project.neoforge_snapshot_next_stable}.0-alpha.${project.minecraft_version}.${(new Date()).format('yyyyMMdd.HHmmss', TimeZone.getTimeZone('UTC'))}"
 } else {
-    project.version = gradleutils.version.toString()
+    try {
+        project.version = gradleutils.version.toString()
+    } catch (Exception e) {
+        project.version = "0.0.0-${project.minecraft_version}-SNAPSHOT"
+    }
 }
 
 // Print version, generally useful to know - also appears on CI
