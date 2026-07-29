@@ -1,0 +1,13 @@
+[package]
+name = "neorusty"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+neorusty-core = { path = "../core" }
+neorusty-plugin-system = { path = "../plugin-system" }
+neorusty-api = { path = "../api" }
+neorusty-server-core = { path = "../server-core" }
+
+[dev-dependencies]
+neorusty-macros = { path = "../neorusty-macros" }
