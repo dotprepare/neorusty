@@ -11,7 +11,7 @@ import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.core.WritableRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.Event;
 import net.neoforged.fml.event.IModBusEvent;
 
@@ -56,7 +56,7 @@ public class NewRegistryEvent extends Event implements IModBusEvent {
     }
 
     void fill() {
-        ((BaseMappedRegistry<?>) BuiltInRegistries.REGISTRY).unfreeze(true);
+        ((BaseMappedRegistry<?>) BuiltInRegistries.REGISTRY).unfreeze();
 
         for (final var registry : this.registries) {
             registerToRootRegistry(registry);
@@ -67,7 +67,7 @@ public class NewRegistryEvent extends Event implements IModBusEvent {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private void registerToRootRegistry(Registry<?> registry) {
-        Identifier registryName = registry.key().identifier();
+        ResourceLocation registryName = registry.key().location();
         if (BuiltInRegistries.REGISTRY.containsKey(registryName))
             throw new IllegalStateException("Attempted duplicate registration of registry " + registryName);
 

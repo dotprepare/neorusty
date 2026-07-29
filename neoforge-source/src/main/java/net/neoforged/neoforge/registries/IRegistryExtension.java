@@ -7,14 +7,14 @@ package net.neoforged.neoforge.registries;
 
 import java.util.Map;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.registries.callback.AddCallback;
 import net.neoforged.neoforge.registries.callback.BakeCallback;
 import net.neoforged.neoforge.registries.callback.ClearCallback;
 import net.neoforged.neoforge.registries.callback.RegistryCallback;
 import net.neoforged.neoforge.registries.datamaps.DataMapType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An extension for {@link Registry}, adding some additional functionality to vanilla registries, such as
@@ -64,15 +64,17 @@ public interface IRegistryExtension<T> {
         addCallback(callback);
     }
 
-    /// Adds an alias that maps from the name specified by `from` to the name specified by `to`.
-    ///
-    /// Any registry lookups that target the first name will resolve as the second name, if the first name is not present.
-    ///
-    /// @param from the source registry name to alias from
-    /// @param to   the target registry name to alias to
-    /// @throws IllegalArgumentException if an alias already exists for the source registry name that does not point to the
-    ///                                  same target registry name, or if the alias would cause a resolution loop
-    void addAlias(Identifier from, Identifier to);
+    /**
+     * Adds an alias that maps from the name specified by <code>from</code> to the name specified by <code>to</code>.
+     * <p>
+     * Any registry lookups that target the first name will resolve as the second name, if the first name is not present.
+     *
+     * @param from the source registry name to alias from
+     * @param to   the target registry name to alias to
+     * @throws IllegalArgumentException if an alias already exists for the source registry name that does not point to the
+     *                                  same target registry name, or if the alias would cause a resolution loop
+     */
+    void addAlias(ResourceLocation from, ResourceLocation to);
 
     /**
      * Resolves a registry name of a potential object in this registry.
@@ -84,7 +86,7 @@ public interface IRegistryExtension<T> {
      * @param name the input registry name of a potential object in this registry
      * @return the resolved registry name
      */
-    Identifier resolve(Identifier name);
+    ResourceLocation resolve(ResourceLocation name);
 
     /**
      * Resolves a registry key of a potential object in this registry.
@@ -114,7 +116,7 @@ public interface IRegistryExtension<T> {
      * @param name the resource name to lookup
      * @return the integer id linked to the given name
      */
-    int getId(Identifier name);
+    int getId(ResourceLocation name);
 
     /**
      * {@return {@code true} if this registry contains the {@code value}}
@@ -122,6 +124,16 @@ public interface IRegistryExtension<T> {
      * @param value the object whose existence to check for
      */
     boolean containsValue(T value);
+
+    /**
+     * {@return the data map value attached with the object with the key, or {@code null} if there's no attached value}
+     *
+     * @param type the type of the data map
+     * @param key  the object to get the value for
+     * @param <A>  the data type
+     */
+    @Nullable
+    <A> A getData(DataMapType<T, A> type, ResourceKey<T> key);
 
     /**
      * {@return the data map of the given {@code type}}
@@ -137,7 +149,7 @@ public interface IRegistryExtension<T> {
      *          {@link net.minecraft.core.DefaultedRegistry defaulted registries}
      */
     @Nullable
-    default Identifier getKeyOrNull(T element) {
+    default ResourceLocation getKeyOrNull(T element) {
         //Note: We override the cases when getKey would return the default rather than just going via getResourceKey to find it
         return self().getKey(element);
     }

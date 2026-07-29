@@ -1,22 +1,15 @@
 --- a/net/minecraft/core/HolderLookup.java
 +++ b/net/minecraft/core/HolderLookup.java
-@@ -96,6 +_,18 @@
+@@ -96,6 +_,11 @@
              };
          }
  
-+        /**
-+         * {@return the data map value attached with the object with the key, or {@code null} if there's no attached value}
-+         *
-+         * @param type the type of the data map
-+         * @param key  the object to get the value for
-+         * @param <A>  the data type
-+         */
-+        @org.jspecify.annotations.Nullable
-+        default <A> A getData(net.neoforged.neoforge.registries.datamaps.DataMapType<T, A> type, ResourceKey<T> key) {
++        @org.jetbrains.annotations.Nullable
++        default <A> A getData(net.neoforged.neoforge.registries.datamaps.DataMapType<T, A> attachment, ResourceKey<T> key) {
 +            return null;
 +        }
 +
-         interface Delegate<T> extends HolderLookup.RegistryLookup<T> {
+         public interface Delegate<T> extends HolderLookup.RegistryLookup<T> {
              HolderLookup.RegistryLookup<T> parent();
  
 @@ -127,6 +_,12 @@
@@ -26,7 +19,7 @@
 +            }
 +
 +            @Override
-+            @org.jspecify.annotations.Nullable
++            @org.jetbrains.annotations.Nullable
 +            default <A> A getData(net.neoforged.neoforge.registries.datamaps.DataMapType<T, A> attachment, ResourceKey<T> key) {
 +                return parent().getData(attachment, key);
              }

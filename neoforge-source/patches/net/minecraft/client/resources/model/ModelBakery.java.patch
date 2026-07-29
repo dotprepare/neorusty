@@ -1,125 +1,70 @@
 --- a/net/minecraft/client/resources/model/ModelBakery.java
 +++ b/net/minecraft/client/resources/model/ModelBakery.java
-@@ -67,7 +_,11 @@
-     private final Map<Identifier, ClientItem> clientInfos;
-     private final Map<Identifier, ResolvedModel> resolvedModels;
-     private final ResolvedModel missingModel;
-+    private final net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.LoadedModels standaloneModels;
-+    private final net.neoforged.neoforge.client.entity.animation.json.AnimationLoader.PendingAnimations pendingAnimations;
- 
-+    /// @deprecated Neo: use [#ModelBakery(EntityModelSet, SpriteGetter, PlayerSkinRenderCache, Map, Map, Map, ResolvedModel, net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.LoadedModels, net.neoforged.neoforge.client.entity.animation.json.AnimationLoader.PendingAnimations)] instead
-+    @Deprecated
-     public ModelBakery(
-         EntityModelSet entityModelSet,
-         SpriteGetter sprites,
-@@ -77,6 +_,20 @@
-         Map<Identifier, ResolvedModel> resolvedModels,
-         ResolvedModel missingModel
-     ) {
-+        this(entityModelSet, sprites, playerSkinRenderCache, unbakedBlockStateModels, clientInfos, resolvedModels, missingModel, net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.LoadedModels.EMPTY, net.neoforged.neoforge.client.entity.animation.json.AnimationLoader.PendingAnimations.EMPTY);
-+    }
-+
-+    public ModelBakery(
-+        EntityModelSet entityModelSet,
-+        SpriteGetter sprites,
-+        PlayerSkinRenderCache playerSkinRenderCache,
-+        Map<BlockState, BlockStateModel.UnbakedRoot> unbakedBlockStateModels,
-+        Map<Identifier, ClientItem> clientInfos,
-+        Map<Identifier, ResolvedModel> resolvedModels,
-+        ResolvedModel missingModel,
-+        net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.LoadedModels standaloneModels,
-+        net.neoforged.neoforge.client.entity.animation.json.AnimationLoader.PendingAnimations pendingAnimations
-+    ) {
-         this.entityModelSet = entityModelSet;
-         this.sprites = sprites;
-         this.playerSkinRenderCache = playerSkinRenderCache;
-@@ -84,6 +_,8 @@
-         this.clientInfos = clientInfos;
-         this.resolvedModels = resolvedModels;
-         this.missingModel = missingModel;
-+        this.standaloneModels = standaloneModels;
-+        this.pendingAnimations = pendingAnimations;
-     }
- 
-     public CompletableFuture<ModelBakery.BakingResult> bakeModels(MaterialBaker materials, Executor taskExecutor) {
-@@ -107,7 +_,7 @@
-                     return clientInfo.model()
-                         .bake(
-                             new ItemModel.BakingContext(
--                                baker, this.entityModelSet, this.sprites, this.playerSkinRenderCache, missingModels.item, clientInfo.registrySwapper()
-+                                baker, this.entityModelSet, this.sprites, this.playerSkinRenderCache, missingModels.item, clientInfo.registrySwapper(), this.pendingAnimations
-                             ),
-                             IDENTITY
-                         );
-@@ -118,6 +_,8 @@
-             },
-             taskExecutor
-         );
-+        CompletableFuture<net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.BakedModels> standaloneModelsFuture =
-+                net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.bake(this.standaloneModels, baker, taskExecutor);
-         Map<Identifier, ClientItem.Properties> itemStackModelProperties = new HashMap<>(this.clientInfos.size());
-         this.clientInfos.forEach((id, clientInfo) -> {
-             ClientItem.Properties properties = clientInfo.properties();
-@@ -125,13 +_,15 @@
-                 itemStackModelProperties.put(id, properties);
-             }
-         });
-+        bakedBlockStateModelFuture = bakedBlockStateModelFuture.thenCombine(standaloneModelsFuture, (stateModels, standaloneModels) -> stateModels);
-         return bakedBlockStateModelFuture.thenCombine(
-             bakedItemStackModelFuture,
-             (bakedBlockStateModels, bakedItemStateModels) -> new ModelBakery.BakingResult(
-                 missingModels,
-                 (Map<BlockState, BlockStateModel>)bakedBlockStateModels,
-                 (Map<Identifier, ItemModel>)bakedItemStateModels,
--                itemStackModelProperties
-+                itemStackModelProperties,
-+                standaloneModelsFuture.join()
-             )
-         );
-     }
-@@ -141,7 +_,19 @@
-         Map<BlockState, BlockStateModel> blockStateModels,
-         Map<Identifier, ItemModel> itemStackModels,
-         Map<Identifier, ClientItem.Properties> itemProperties
-+        , net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.BakedModels standaloneModels
-     ) {
-+        /// @deprecated Neo: use [#BakingResult(ModelBakery.MissingModels, Map, Map, Map, net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.BakedModels)] instead
-+        @Deprecated
-+        public BakingResult(
-+                ModelBakery.MissingModels missingModels,
-+                Map<BlockState, BlockStateModel> blockStateModels,
-+                Map<Identifier, ItemModel> itemStackModels,
-+                Map<Identifier, ClientItem.Properties> itemProperties
-+        ) {
-+            this(missingModels, blockStateModels, itemStackModels, itemProperties, net.neoforged.neoforge.client.model.standalone.StandaloneModelLoader.BakedModels.EMPTY);
+@@ -117,6 +_,12 @@
+         p_252014_.popPush("special");
+         this.loadSpecialItemModelAndDependencies(ItemRenderer.TRIDENT_IN_HAND_MODEL);
+         this.loadSpecialItemModelAndDependencies(ItemRenderer.SPYGLASS_IN_HAND_MODEL);
++        Set<ModelResourceLocation> additionalModels = new HashSet<>();
++        net.neoforged.neoforge.client.ClientHooks.onRegisterAdditionalModels(additionalModels);
++        for (ModelResourceLocation rl : additionalModels) {
++            UnbakedModel unbakedmodel = this.getModel(rl.id());
++            this.registerModelAndLoadDependencies(rl, unbakedmodel);
 +        }
-+
-         public BlockStateModel getBlockStateModel(BlockState blockState) {
-             return this.blockStateModels.getOrDefault(blockState, this.missingModels.block);
+         this.topLevelModels.values().forEach(p_247954_ -> p_247954_.resolveParents(this::getModel));
+         p_252014_.pop();
+     }
+@@ -246,14 +_,30 @@
          }
-@@ -150,6 +_,8 @@
-     private static class InternerImpl implements ModelBaker.Interner {
-         private final Interner<Vector3fc> vectors = Interners.newStrongInterner();
-         private final Interner<BakedQuad.MaterialInfo> materialInfos = Interners.newStrongInterner();
-+        private final Interner<net.neoforged.neoforge.client.model.quad.BakedNormals> normals = Interners.newStrongInterner();
-+        private final Interner<net.neoforged.neoforge.client.model.quad.BakedColors> colors = Interners.newStrongInterner();
  
          @Override
-         public Vector3fc vector(Vector3fc v) {
-@@ -159,6 +_,16 @@
-         @Override
-         public BakedQuad.MaterialInfo materialInfo(BakedQuad.MaterialInfo material) {
-             return this.materialInfos.intern(material);
++        @Nullable
++        public UnbakedModel getTopLevelModel(ModelResourceLocation location) {
++            return topLevelModels.get(location);
 +        }
 +
 +        @Override
-+        public net.neoforged.neoforge.client.model.quad.BakedNormals normals(net.neoforged.neoforge.client.model.quad.BakedNormals normals) {
-+            return this.normals.intern(normals);
++        public Function<Material, TextureAtlasSprite> getModelTextureGetter() {
++            return this.modelTextureGetter;
 +        }
 +
 +        @Override
-+        public net.neoforged.neoforge.client.model.quad.BakedColors colors(net.neoforged.neoforge.client.model.quad.BakedColors colors) {
-+            return this.colors.intern(colors);
+         public BakedModel bake(ResourceLocation p_252176_, ModelState p_249765_) {
++            return bake(p_252176_, p_249765_, this.modelTextureGetter);
++        }
++
++        @Override
++        public BakedModel bake(ResourceLocation p_252176_, ModelState p_249765_, Function<Material, TextureAtlasSprite> sprites) {
+             ModelBakery.BakedCacheKey modelbakery$bakedcachekey = new ModelBakery.BakedCacheKey(p_252176_, p_249765_.getRotation(), p_249765_.isUvLocked());
+             BakedModel bakedmodel = ModelBakery.this.bakedCache.get(modelbakery$bakedcachekey);
+             if (bakedmodel != null) {
+                 return bakedmodel;
+             } else {
+                 UnbakedModel unbakedmodel = this.getModel(p_252176_);
+-                BakedModel bakedmodel1 = this.bakeUncached(unbakedmodel, p_249765_);
++                BakedModel bakedmodel1 = this.bakeUncached(unbakedmodel, p_249765_, sprites);
+                 ModelBakery.this.bakedCache.put(modelbakery$bakedcachekey, bakedmodel1);
+                 return bakedmodel1;
+             }
+@@ -261,13 +_,19 @@
+ 
+         @Nullable
+         BakedModel bakeUncached(UnbakedModel p_352386_, ModelState p_352194_) {
++            return bakeUncached(p_352386_, p_352194_, this.modelTextureGetter);
++        }
++
++        @Override
++        @Nullable
++        public BakedModel bakeUncached(UnbakedModel p_352386_, ModelState p_352194_, Function<Material, TextureAtlasSprite> sprites) {
+             if (p_352386_ instanceof BlockModel blockmodel && blockmodel.getRootModel() == ModelBakery.GENERATION_MARKER) {
+                 return ModelBakery.ITEM_MODEL_GENERATOR
+-                    .generateBlockModel(this.modelTextureGetter, blockmodel)
+-                    .bake(this, blockmodel, this.modelTextureGetter, p_352194_, false);
++                    .generateBlockModel(sprites, blockmodel)
++                    .bake(this, blockmodel, sprites, p_352194_, false);
+             }
+ 
+-            return p_352386_.bake(this, this.modelTextureGetter, p_352194_);
++            return p_352386_.bake(this, sprites, p_352194_);
          }
      }
  

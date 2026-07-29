@@ -10,34 +10,26 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
-import net.minecraft.SharedConstants;
+import net.minecraft.DetectedVersion;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.i18n.FMLTranslations;
-import net.neoforged.neoforge.common.NeoForgeVersion;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.forge.snapshots.ForgeSnapshotsMod;
+import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 
 public class BrandingControl {
-    public static final String BRANDING_NAME = "NeoForge";
-    private static final String BRANDING_ID = "neoforge";
-
-    @Nullable
-    private static String forgeStatusLine;
-
-    @Nullable
     private static List<String> brandings;
-    @Nullable
     private static List<String> brandingsNoMC;
-    @Nullable
     private static List<String> overCopyrightBrandings;
 
     private static void computeBranding() {
         if (brandings == null) {
             ImmutableList.Builder<String> brd = ImmutableList.builder();
-            brd.add("Minecraft " + SharedConstants.getCurrentVersion().name());
+            brd.add("Minecraft " + DetectedVersion.BUILT_IN.getName());
             int modCount = ModList.get().size();
-            brd.add(FMLTranslations.parseMessage("fml.menu.branding", BRANDING_NAME + ' ' + NeoForgeVersion.getVersion(), modCount));
+            brd.add(FMLTranslations.parseMessage("fml.menu.branding", ForgeSnapshotsMod.BRANDING_NAME + ' ' + NeoForgeVersion.getVersion(), modCount));
             brandings = brd.build();
             brandingsNoMC = brandings.subList(1, brandings.size());
         }
@@ -52,14 +44,10 @@ public class BrandingControl {
         }
     }
 
-    public static void setForgeStatusLine(@Nullable String forgeStatusLine) {
-        BrandingControl.forgeStatusLine = forgeStatusLine;
-    }
-
     private static void computeOverCopyrightBrandings() {
         if (overCopyrightBrandings == null) {
             ImmutableList.Builder<String> brd = ImmutableList.builder();
-            if (forgeStatusLine != null) brd.add(forgeStatusLine);
+            if (ClientHooks.forgeStatusLine != null) brd.add(ClientHooks.forgeStatusLine);
             overCopyrightBrandings = brd.build();
         }
     }
@@ -75,11 +63,11 @@ public class BrandingControl {
     }
 
     public static String getClientBranding() {
-        return BRANDING_ID;
+        return ForgeSnapshotsMod.BRANDING_ID;
     }
 
     public static String getServerBranding() {
-        return BRANDING_ID;
+        return ForgeSnapshotsMod.BRANDING_ID;
     }
 
     public static ResourceManagerReloadListener resourceManagerReloadListener() {

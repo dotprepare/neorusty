@@ -5,9 +5,12 @@ import net.neoforged.moddevgradle.internal.NeoDevFacade;
 import net.neoforged.nfrtgradle.DownloadAssets;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ProjectDependency;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.tasks.testing.Test;
+
+import java.util.function.Consumer;
 
 // TODO: the only point of this is to configure runs that depend on neoforge. Maybe this could be done with less code duplication...
 // TODO: Gradle says "thou shalt not referenceth otherth projects" yet here we are
@@ -38,15 +41,23 @@ public class NeoDevExtraPlugin implements Plugin<Project> {
             spec.getDependencies().add(projectDep(dependencyFactory, neoForgeProject, "net.neoforged:neoforge-moddev-config"));
         });
 
+        Consumer<Configuration> configureLegacyClasspath = spec -> {
+            spec.getDependencies().add(projectDep(dependencyFactory, neoForgeProject, "net.neoforged:neoforge-dependencies"));
+        };
+
+        extension.getRuns().configureEach(run -> {
+            configureLegacyClasspath.accept(run.getAdditionalRuntimeClasspathConfiguration());
+        });
         NeoDevFacade.setupRuns(
                 project,
                 neoDevBuildDir,
                 extension.getRuns(),
                 neoForgeConfigOnly,
                 modulePath -> modulePath.getDependencies().add(modulePathDependency),
-                legacyClasspath -> {},
+                configureLegacyClasspath,
                 downloadAssets.flatMap(DownloadAssets::getAssetPropertiesFile),
-                mcAndNeoFormVersion);
+                mcAndNeoFormVersion
+        );
 
         var testExtension = project.getExtensions().create(NeoDevTestExtension.NAME, NeoDevTestExtension.class);
         var testTask = tasks.register("junitTest", Test.class, test -> test.setGroup("verification"));
@@ -60,9 +71,10 @@ public class NeoDevExtraPlugin implements Plugin<Project> {
                 testExtension.getLoadedMods(),
                 testExtension.getTestedMod(),
                 modulePath -> modulePath.getDependencies().add(modulePathDependency),
-                legacyClasspath -> {},
+                configureLegacyClasspath,
                 downloadAssets.flatMap(DownloadAssets::getAssetPropertiesFile),
-                mcAndNeoFormVersion);
+                mcAndNeoFormVersion
+        );
     }
 
     private static ProjectDependency projectDep(DependencyFactory dependencyFactory, Project project, String capabilityNotation) {

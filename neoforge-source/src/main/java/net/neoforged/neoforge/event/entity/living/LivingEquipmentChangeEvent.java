@@ -8,7 +8,6 @@ package net.neoforged.neoforge.event.entity.living;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
@@ -22,6 +21,8 @@ import net.neoforged.neoforge.common.NeoForge;
  * {@link #to} contains the {@link ItemStack} that is equipped now. <br>
  * <br>
  * This event is not {@link ICancellableEvent}. <br>
+ * <br>
+ * This event does not have a result. {@link HasResult} <br>
  * <br>
  * This event is fired on the {@link NeoForge#EVENT_BUS}.
  **/

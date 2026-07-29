@@ -5,15 +5,11 @@
 
 package net.neoforged.neoforge.oldtest.client;
 
-import java.util.List;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.color.block.BlockTintSource;
-import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -35,7 +31,7 @@ public class CustomColorResolverTest {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
 
-    private static final DeferredBlock<Block> BLOCK = BLOCKS.registerBlock("test_block", Block::new, props -> props.mapColor(MapColor.STONE));
+    private static final DeferredBlock<Block> BLOCK = BLOCKS.register("test_block", () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.STONE)));
 
     public CustomColorResolverTest(IEventBus modBus) {
         ITEMS.register(modBus);
@@ -46,7 +42,7 @@ public class CustomColorResolverTest {
 
     @EventBusSubscriber(value = Dist.CLIENT, modid = MOD_ID)
     private static class ClientHandler {
-        private static final ColorResolver COLOR_RESOLVER = (biome, x, z) -> biome.getPrecipitationAt(BlockPos.containing(x, 0, z), Minecraft.getInstance().level.getSeaLevel()) == Biome.Precipitation.NONE ? 0xFF0000 : 0x0000FF;
+        private static final ColorResolver COLOR_RESOLVER = (biome, x, z) -> biome.getPrecipitationAt(BlockPos.containing(x, 0, z)) == Biome.Precipitation.NONE ? 0xFF0000 : 0x0000FF;
 
         @SubscribeEvent
         static void registerColorResolver(RegisterColorHandlersEvent.ColorResolvers event) {
@@ -54,18 +50,8 @@ public class CustomColorResolverTest {
         }
 
         @SubscribeEvent
-        static void registerBlockColor(RegisterColorHandlersEvent.BlockTintSources event) {
-            event.register(List.of(new BlockTintSource() {
-                @Override
-                public int color(BlockState state) {
-                    return -1;
-                }
-
-                @Override
-                public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
-                    return level.getBlockTint(pos, COLOR_RESOLVER);
-                }
-            }), BLOCK.get());
+        static void registerBlockColor(RegisterColorHandlersEvent.Block event) {
+            event.register(((state, btGetter, pos, tintIndex) -> btGetter == null || pos == null ? 0 : btGetter.getBlockTint(pos, COLOR_RESOLVER)), BLOCK.get());
         }
     }
 }

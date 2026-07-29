@@ -10,9 +10,11 @@ import com.mojang.serialization.Codec;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.testframework.Test;
@@ -26,8 +28,10 @@ import net.neoforged.testframework.group.Group;
  * @see FrameworkConfiguration#create()
  * @see TestFrameworkImpl
  */
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public interface MutableTestFramework extends TestFramework {
-    Codec<TestFramework> REFERENCE_CODEC = Identifier.CODEC.xmap(
+    Codec<TestFramework> REFERENCE_CODEC = ResourceLocation.CODEC.xmap(
             rl -> TestFrameworkImpl.FRAMEWORKS.stream()
                     .filter(testFramework -> testFramework.id().equals(rl))
                     .findFirst()
@@ -52,21 +56,25 @@ public interface MutableTestFramework extends TestFramework {
 
     default ClickEvent setStatusCommand(String testId, Test.Result result, String message) {
         if (message.isBlank()) {
-            return new ClickEvent.RunCommand(
+            return new ClickEvent(
+                    ClickEvent.Action.RUN_COMMAND,
                     buildCommand("status set \"" + testId + "\" " + result));
         } else {
-            return new ClickEvent.RunCommand(
+            return new ClickEvent(
+                    ClickEvent.Action.RUN_COMMAND,
                     buildCommand("status set \"" + testId + "\" " + result + " " + message));
         }
     }
 
     default ClickEvent enableCommand(String id) {
-        return new ClickEvent.RunCommand(
+        return new ClickEvent(
+                ClickEvent.Action.RUN_COMMAND,
                 buildCommand("enable " + id));
     }
 
     default ClickEvent disableCommand(String id) {
-        return new ClickEvent.RunCommand(
+        return new ClickEvent(
+                ClickEvent.Action.RUN_COMMAND,
                 buildCommand("disable " + id));
     }
 

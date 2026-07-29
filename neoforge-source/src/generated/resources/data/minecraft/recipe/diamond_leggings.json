@@ -2,7 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "key": {
-    "X": "#c:gems/diamond"
+    "X": {
+      "tag": "c:gems/diamond"
+    }
   },
   "pattern": [
     "XXX",
@@ -10,6 +12,7 @@
     "X X"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:diamond_leggings"
   }
 }

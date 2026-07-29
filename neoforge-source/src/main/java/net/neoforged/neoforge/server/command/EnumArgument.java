@@ -91,7 +91,7 @@ public class EnumArgument<T extends Enum<T>> implements ArgumentType<T> {
             }
 
             @Override
-            public EnumArgument<T> instantiate(CommandBuildContext structure) {
+            public EnumArgument<T> instantiate(CommandBuildContext p_223435_) {
                 return new EnumArgument<>(this.enumClass);
             }
 

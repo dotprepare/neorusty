@@ -1,12 +1,12 @@
 --- a/net/minecraft/util/thread/BlockableEventLoop.java
 +++ b/net/minecraft/util/thread/BlockableEventLoop.java
-@@ -64,10 +_,15 @@
+@@ -56,10 +_,15 @@
      }
  
-     public CompletableFuture<Void> submitAsync(Runnable runnable) {
+     public CompletableFuture<Void> submitAsync(Runnable p_18690_) {
 -        return CompletableFuture.supplyAsync(() -> {
 +        return CompletableFuture.<Void>supplyAsync(() -> {
-             runnable.run();
+             p_18690_.run();
              return null;
 -        }, this);
 +        }, this)

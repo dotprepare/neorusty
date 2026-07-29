@@ -1,42 +1,24 @@
 --- a/net/minecraft/client/renderer/entity/ItemEntityRenderer.java
 +++ b/net/minecraft/client/renderer/entity/ItemEntityRenderer.java
-@@ -38,6 +_,8 @@
-     public void extractRenderState(ItemEntity entity, ItemEntityRenderState state, float partialTicks) {
-         super.extractRenderState(entity, state, partialTicks);
-         state.bobOffset = entity.bobOffs;
-+        state.shouldBob = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(entity.getItem()).shouldBobAsEntity(entity.getItem());
-+        state.shouldSpread = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(entity.getItem()).shouldSpreadAsEntity(entity.getItem());
-         state.extractItemGroupRenderState(entity, entity.getItem(), this.itemModelResolver);
-     }
+@@ -45,7 +_,8 @@
+         BakedModel bakedmodel = this.itemRenderer.getModel(itemstack, p_115036_.level(), null, p_115036_.getId());
+         boolean flag = bakedmodel.isGui3d();
+         float f = 0.25F;
+-        float f1 = Mth.sin(((float)p_115036_.getAge() + p_115038_) / 10.0F + p_115036_.bobOffs) * 0.1F + 0.1F;
++        boolean shouldBob = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(itemstack).shouldBobAsEntity(itemstack);
++        float f1 = shouldBob ? Mth.sin(((float)p_115036_.getAge() + p_115038_) / 10.0F + p_115036_.bobOffs) * 0.1F + 0.1F : 0;
+         float f2 = bakedmodel.getTransforms().getTransform(ItemDisplayContext.GROUND).scale.y();
+         p_115039_.translate(0.0F, f1 + 0.25F * f2, 0.0F);
+         float f3 = p_115036_.getSpin(p_115038_);
+@@ -100,9 +_,10 @@
+             p_323733_.translate(f3, f4, f5);
+         }
  
-@@ -46,7 +_,7 @@
-             poseStack.pushPose();
-             AABB boundingBox = state.item.getModelBoundingBox();
-             float minOffsetY = -((float)boundingBox.minY) + 0.0625F;
--            float bob = Mth.sin(state.ageInTicks / 10.0F + state.bobOffset) * 0.1F + 0.1F;
-+            float bob = state.shouldBob ? Mth.sin(state.ageInTicks / 10.0F + state.bobOffset) * 0.1F + 0.1F : 0;
-             poseStack.translate(0.0F, bob + minOffsetY, 0.0F);
-             float spin = ItemEntity.getSpin(state.ageInTicks, state.bobOffset);
-             poseStack.mulPose(Axis.YP.rotation(spin));
-@@ -78,7 +_,9 @@
-                     float xo = (random.nextFloat() * 2.0F - 1.0F) * 0.15F;
-                     float yo = (random.nextFloat() * 2.0F - 1.0F) * 0.15F;
-                     float zo = (random.nextFloat() * 2.0F - 1.0F) * 0.15F;
--                    poseStack.translate(xo, yo, zo);
-+                    if (state.shouldSpread) {
-+                        poseStack.translate(xo, yo, zo);
-+                    }
-                     item.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
-                     poseStack.popPose();
-                 }
-@@ -92,7 +_,9 @@
-                     poseStack.pushPose();
-                     float xo = (random.nextFloat() * 2.0F - 1.0F) * 0.15F * 0.5F;
-                     float yo = (random.nextFloat() * 2.0F - 1.0F) * 0.15F * 0.5F;
--                    poseStack.translate(xo, yo, 0.0F);
-+                    if (state.shouldSpread) {
-+                        poseStack.translate(xo, yo, 0.0F);
-+                    }
-                     item.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
-                     poseStack.popPose();
-                     poseStack.translate(0.0F, 0.0F, offsetZ);
++        boolean shouldSpread = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(p_323718_).shouldSpreadAsEntity(p_323718_);
+         for (int j = 0; j < i; j++) {
+             p_323733_.pushPose();
+-            if (j > 0) {
++            if (j > 0 && shouldSpread) {
+                 if (p_324462_) {
+                     float f7 = (p_324565_.nextFloat() * 2.0F - 1.0F) * 0.15F;
+                     float f9 = (p_324565_.nextFloat() * 2.0F - 1.0F) * 0.15F;

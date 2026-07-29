@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 import net.minecraft.network.chat.Component;
 import net.neoforged.testframework.Test;
 import net.neoforged.testframework.impl.TestFrameworkImpl;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class Group implements Groupable {
     private final String id;

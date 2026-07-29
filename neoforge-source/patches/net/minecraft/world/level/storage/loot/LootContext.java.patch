@@ -1,34 +1,35 @@
 --- a/net/minecraft/world/level/storage/loot/LootContext.java
 +++ b/net/minecraft/world/level/storage/loot/LootContext.java
-@@ -110,14 +_,39 @@
-         }
+@@ -87,15 +_,40 @@
+         return new LootContext.VisitedEntry<>(LootDataType.MODIFIER, p_279163_);
      }
  
 +    // Neo: Keep track of the original loot table ID through modifications
-+    @org.jspecify.annotations.Nullable
-+    private Identifier queriedLootTableId;
++    @org.jetbrains.annotations.Nullable
++    private ResourceLocation queriedLootTableId;
 +
-+    private LootContext(LootParams params, RandomSource random, HolderGetter.Provider p_287619_, Identifier queriedLootTableId) {
-+        this(params, random, p_287619_);
++    private LootContext(LootParams p_287722_, RandomSource p_287702_, HolderGetter.Provider p_287619_, ResourceLocation queriedLootTableId) {
++        this(p_287722_, p_287702_, p_287619_);
 +        this.queriedLootTableId = queriedLootTableId;
 +    }
 +
-+    public void setQueriedLootTableId(@org.jspecify.annotations.Nullable Identifier queriedLootTableId) {
++    public void setQueriedLootTableId(@org.jetbrains.annotations.Nullable ResourceLocation queriedLootTableId) {
 +        if (this.queriedLootTableId == null && queriedLootTableId != null) this.queriedLootTableId = queriedLootTableId;
 +    }
 +
-+    public Identifier getQueriedLootTableId() {
++    public ResourceLocation getQueriedLootTableId() {
 +        return this.queriedLootTableId == null ? net.neoforged.neoforge.common.loot.LootTableIdCondition.UNKNOWN_LOOT_TABLE : this.queriedLootTableId;
 +    }
 +
      public static class Builder {
          private final LootParams params;
-         private @Nullable RandomSource random;
+         @Nullable
+         private RandomSource random;
 +        @Nullable
-+        private Identifier queriedLootTableId; // Forge: correctly pass around loot table ID with copy constructor
++        private ResourceLocation queriedLootTableId; // Forge: correctly pass around loot table ID with copy constructor
  
-         public Builder(LootParams params) {
-             this.params = params;
+         public Builder(LootParams p_287628_) {
+             this.params = p_287628_;
          }
  
 +        public Builder(LootContext context) {
@@ -37,14 +38,14 @@
 +            this.queriedLootTableId = context.queriedLootTableId;
 +        }
 +
-         public LootContext.Builder withOptionalRandomSeed(long seed) {
-             if (seed != 0L) {
-                 this.random = RandomSource.create(seed);
-@@ -131,6 +_,11 @@
+         public LootContext.Builder withOptionalRandomSeed(long p_78966_) {
+             if (p_78966_ != 0L) {
+                 this.random = RandomSource.create(p_78966_);
+@@ -109,6 +_,11 @@
              return this;
          }
  
-+        public LootContext.Builder withQueriedLootTableId(Identifier queriedLootTableId) {
++        public LootContext.Builder withQueriedLootTableId(ResourceLocation queriedLootTableId) {
 +            this.queriedLootTableId = queriedLootTableId;
 +            return this;
 +        }
@@ -52,25 +53,24 @@
          public ServerLevel getLevel() {
              return this.params.getLevel();
          }
-@@ -139,7 +_,7 @@
-             ServerLevel level = this.getLevel();
-             MinecraftServer server = level.getServer();
-             RandomSource random = Optional.ofNullable(this.random).or(() -> randomSequenceKey.map(server::getRandomSequence)).orElseGet(level::getRandom);
--            return new LootContext(this.params, random, server.reloadableRegistries().lookup());
-+            return new LootContext(this.params, random, server.reloadableRegistries().lookup(), queriedLootTableId);
+@@ -119,7 +_,7 @@
+             RandomSource randomsource = Optional.ofNullable(this.random)
+                 .or(() -> p_298622_.map(serverlevel::getRandomSequence))
+                 .orElseGet(serverlevel::getRandom);
+-            return new LootContext(this.params, randomsource, minecraftserver.reloadableRegistries().lookup());
++            return new LootContext(this.params, randomsource, minecraftserver.reloadableRegistries().lookup(), queriedLootTableId);
          }
      }
  
-@@ -163,6 +_,12 @@
-         @Override
-         public ContextKey<? extends Entity> contextParam() {
+@@ -140,6 +_,11 @@
+ 
+         public LootContextParam<? extends Entity> getParam() {
              return this.param;
 +        }
 +
 +        // Forge: This method is patched in to expose the same name used in getByName so that ContextNbtProvider#forEntity serializes it properly
-+        // TODO 1.21.11: To be consistent with getParam() being renamed to contextParam(), consider renaming to name()
 +        public String getName() {
 +            return this.name;
          }
  
-         public static LootContext.EntityTarget getByName(String name) {
+         public static LootContext.EntityTarget getByName(String p_79007_) {

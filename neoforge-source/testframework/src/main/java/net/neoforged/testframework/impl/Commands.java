@@ -23,8 +23,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.server.permissions.PermissionCheck;
-import net.minecraft.server.permissions.PermissionProviderCheck;
 import net.neoforged.neoforge.server.command.EnumArgument;
 import net.neoforged.testframework.Test;
 import net.neoforged.testframework.group.Group;
@@ -34,7 +32,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public record Commands(MutableTestFramework framework) {
     public void register(LiteralArgumentBuilder<CommandSourceStack> node) {
-        final BiFunction<LiteralArgumentBuilder<CommandSourceStack>, Boolean, LiteralArgumentBuilder<CommandSourceStack>> commandEnabling = (stack, enabling) -> stack.requires(getCommandRequirement())
+        final BiFunction<LiteralArgumentBuilder<CommandSourceStack>, Boolean, LiteralArgumentBuilder<CommandSourceStack>> commandEnabling = (stack, enabling) -> stack.requires(it -> it.hasPermission(framework.configuration().commandRequiredPermission()))
                 .then(argument("id", StringArgumentType.greedyString())
                         .suggests(suggestGroupable(it -> !(it instanceof Test test) || framework.tests().isEnabled(test.id()) != enabling))
                         .executes(ctx -> {
@@ -74,7 +72,7 @@ public record Commands(MutableTestFramework framework) {
                                     return Command.SINGLE_SUCCESS;
                                 })))
                 .then(literal("set")
-                        .requires(getCommandRequirement())
+                        .requires(it -> it.hasPermission(framework.configuration().commandRequiredPermission()))
                         .then(argument("id", StringArgumentType.string())
                                 .suggests(suggestTest(test -> framework.tests().isEnabled(test.id())))
                                 .then(argument("result", EnumArgument.enumArgument(Test.Result.class))
@@ -139,9 +137,5 @@ public record Commands(MutableTestFramework framework) {
                             () -> Component.literal("Status of test '").append(id).append("' has been changed to: ").append(formatStatus(status)), true);
                 });
         return Command.SINGLE_SUCCESS;
-    }
-
-    private PermissionProviderCheck<CommandSourceStack> getCommandRequirement() {
-        return net.minecraft.commands.Commands.hasPermission(new PermissionCheck.Require(framework.configuration().commandRequiredPermission()));
     }
 }

@@ -14,18 +14,20 @@ import java.util.stream.IntStream;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Blocks;
@@ -45,7 +47,27 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public class CreativeTabOrderTest {
     public static final String MOD_ID = "creative_tab_order_test";
-    private static final ResourceKey<CreativeModeTab> STONE_ORDERING = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "stone_ordering"));
+    private static final ResourceKey<CreativeModeTab> STONE_ORDERING = ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(MOD_ID, "stone_ordering"));
+    private static final Set<TagKey<Item>> ENCHANTABLES = Set.of(
+            ItemTags.FOOT_ARMOR_ENCHANTABLE,
+            ItemTags.LEG_ARMOR_ENCHANTABLE,
+            ItemTags.CHEST_ARMOR_ENCHANTABLE,
+            ItemTags.HEAD_ARMOR_ENCHANTABLE,
+            ItemTags.ARMOR_ENCHANTABLE,
+            ItemTags.SWORD_ENCHANTABLE,
+            ItemTags.SHARP_WEAPON_ENCHANTABLE,
+            ItemTags.MACE_ENCHANTABLE,
+            ItemTags.FIRE_ASPECT_ENCHANTABLE,
+            ItemTags.WEAPON_ENCHANTABLE,
+            ItemTags.MINING_ENCHANTABLE,
+            ItemTags.MINING_LOOT_ENCHANTABLE,
+            ItemTags.FISHING_ENCHANTABLE,
+            ItemTags.TRIDENT_ENCHANTABLE,
+            ItemTags.DURABILITY_ENCHANTABLE,
+            ItemTags.BOW_ENCHANTABLE,
+            ItemTags.EQUIPPABLE_ENCHANTABLE,
+            ItemTags.CROSSBOW_ENCHANTABLE,
+            ItemTags.VANISHING_ENCHANTABLE);
     public static ObjectSortedSet<ItemStack> ingredientsTab;
     public static ObjectSortedSet<ItemStack> searchTab;
     public static ObjectSortedSet<ItemStack> stoneParentTab;
@@ -74,7 +96,7 @@ public class CreativeTabOrderTest {
     @Test
     void testIngredientsEnchantmentExistence(MinecraftServer server) {
         final Set<ItemStack> tabEnchantments = server.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements()
-                .map(enchantment -> EnchantmentHelper.createBook(new EnchantmentInstance(enchantment, enchantment.value().getMaxLevel())))
+                .map(enchantment -> EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment, enchantment.value().getMaxLevel())))
                 .collect(() -> new ObjectOpenCustomHashSet<>(ItemStackLinkedSet.TYPE_AND_TAG), ObjectOpenCustomHashSet::add, ObjectOpenCustomHashSet::addAll);
         for (ItemStack entry : ingredientsTab) {
             if (entry.is(Items.ENCHANTED_BOOK)) {
@@ -95,7 +117,7 @@ public class CreativeTabOrderTest {
         final var tabEnchantments = server.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements()
                 .flatMap(
                         enchantment -> IntStream.rangeClosed(enchantment.value().getMinLevel(), enchantment.value().getMaxLevel())
-                                .mapToObj(p_270006_ -> EnchantmentHelper.createBook(new EnchantmentInstance(enchantment, p_270006_))))
+                                .mapToObj(p_270006_ -> EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment, p_270006_))))
                 .collect(() -> new ObjectOpenCustomHashSet<>(ItemStackLinkedSet.TYPE_AND_TAG), ObjectOpenCustomHashSet::add, ObjectOpenCustomHashSet::addAll);
 
         Enchantment enchantment = null;
@@ -187,8 +209,8 @@ public class CreativeTabOrderTest {
                 event.insertAfter(i(Blocks.STONE), i(Blocks.TUFF), vis);
                 event.insertAfter(i(Blocks.DIORITE), i(Blocks.CALCITE), vis);
                 event.insertBefore(i(Blocks.CALCITE), i(Blocks.BLACKSTONE), vis);
-                event.accept(i(Blocks.CONCRETE.cyan()), vis);
-                event.remove(i(Blocks.CONCRETE.cyan()), vis);
+                event.accept(i(Blocks.CYAN_CONCRETE), vis);
+                event.remove(i(Blocks.CYAN_CONCRETE), vis);
                 event.insertFirst(i(Blocks.BASALT), vis);
 
                 catchSpecificExceptionForAction(

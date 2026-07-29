@@ -7,7 +7,6 @@ package net.neoforged.testframework.gametest;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.mojang.authlib.GameProfile;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.List;
 import java.util.Set;
@@ -15,35 +14,31 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.gametest.framework.GameTestException;
+import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTestAssertPosException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.network.Connection;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.server.permissions.PermissionSet;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -60,11 +55,11 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.Event;
+import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class ExtendedGameTestHelper extends GameTestHelper {
     public ExtendedGameTestHelper(GameTestInfo info) {
@@ -73,7 +68,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
 
     @Override
     public ExtendedSequence startSequence() {
-        final var sq = new ExtendedSequence(this);
+        final var sq = new ExtendedSequence(testInfo);
         testInfo.sequences.add(sq);
         return sq;
     }
@@ -83,7 +78,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
         pos = this.absolutePos(pos);
         item.useOn(new UseOnContext(
                 this.getLevel(), player, InteractionHand.MAIN_HAND, item, new BlockHitResult(
-                        Vec3.atCenterOf(pos), direction, pos, false)));
+                        pos.getCenter(), direction, pos, false)));
     }
 
     public void useBlock(BlockPos pos, Player player, ItemStack item) {
@@ -107,7 +102,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
     public <T, E extends Entity> void assertEntityProperty(E entity, Function<E, T> function, String valueName, T expected, BiPredicate<T, T> tester) {
         final T value = function.apply(entity);
         if (!tester.test(value, expected)) {
-            throw this.assertionException("Entity %s value %s=%s is not equal to expected %s", entity, valueName, value, expected);
+            throw new GameTestAssertException("Entity " + entity + " value " + valueName + "=" + value + " is not equal to expected " + expected);
         }
     }
 
@@ -131,7 +126,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
             }
 
             @Override
-            public void send(Packet<?> packet, @Nullable ChannelFutureListener listeners, boolean flush) {
+            public void send(Packet<?> packet, @Nullable PacketSendListener listeners, boolean flush) {
                 super.send(packet, listeners, flush);
                 // Respond to keepalive packets instantly
                 if (packet instanceof ClientboundKeepAlivePacket ckp) {
@@ -139,8 +134,10 @@ public class ExtendedGameTestHelper extends GameTestHelper {
                 }
             }
         };
-        // This constructor internally calls callbacks that associate it with the connection
-        new EmbeddedChannel(connection);
+        EmbeddedChannel embeddedchannel = new EmbeddedChannel(connection);
+        // TODO - check if needs to be ported
+        // embeddedchannel.attr(Connection.ATTRIBUTE_SERVERBOUND_PROTOCOL).set(ConnectionProtocol.PLAY.codec(PacketFlow.SERVERBOUND));
+        // embeddedchannel.attr(Connection.ATTRIBUTE_CLIENTBOUND_PROTOCOL).set(ConnectionProtocol.PLAY.codec(PacketFlow.CLIENTBOUND));
         NetworkRegistry.configureMockConnection(connection);
         this.getLevel().getServer().getPlayerList().placeNewPlayer(connection, serverplayer, commonlistenercookie);
         this.getLevel().getServer().getConnection().getConnections().add(connection);
@@ -149,12 +146,11 @@ public class ExtendedGameTestHelper extends GameTestHelper {
         serverplayer.setYRot(180);
         serverplayer.connection.chunkSender.sendNextChunks(serverplayer);
         serverplayer.connection.chunkSender.onChunkBatchReceivedByClient(64f);
-        serverplayer.connection.markClientLoaded();
         return serverplayer;
     }
 
-    public ServerPlayer makeOpMockPlayer(PermissionSet permissions) {
-        return new FakePlayer(this.getLevel(), new GameProfile(UUID.randomUUID(), "test-mock-player")) {
+    public Player makeOpMockPlayer(int commandLevel) {
+        return new Player(this.getLevel(), BlockPos.ZERO, 0.0F, new GameProfile(UUID.randomUUID(), "test-mock-player")) {
             @Override
             public boolean isSpectator() {
                 return false;
@@ -171,8 +167,8 @@ public class ExtendedGameTestHelper extends GameTestHelper {
             }
 
             @Override
-            public PermissionSet permissions() {
-                return permissions;
+            protected int getPermissionLevel() {
+                return commandLevel;
             }
         };
     }
@@ -182,28 +178,63 @@ public class ExtendedGameTestHelper extends GameTestHelper {
         return BlockPos.MutableBlockPos.betweenClosedStream(bounds);
     }
 
+    @Nullable
+    public <T extends BlockEntity> T getBlockEntity(BlockPos pos, Class<T> type) {
+        final var be = this.getBlockEntity(pos);
+        if (be == null) return null;
+        if (!type.isInstance(be)) {
+            throw new GameTestAssertPosException("Expected block entity of type " + type + " but was " + be.getClass(), this.absolutePos(pos), pos, this.getTick());
+        }
+        return type.cast(be);
+    }
+
+    @Nullable
     public <T extends BlockEntity> T getBlockEntity(int x, int y, int z, Class<T> type) {
         return getBlockEntity(new BlockPos(x, y, z), type);
     }
 
+    public <T extends BlockEntity> T requireBlockEntity(BlockPos pos, Class<T> type) {
+        final var be = getBlockEntity(pos, type);
+        if (be == null) {
+            throw new GameTestAssertPosException("Expected block entity of type " + type + " but there was none", this.absolutePos(pos), pos, this.getTick());
+        }
+        return be;
+    }
+
+    public <T extends BlockEntity> T requireBlockEntity(int x, int y, int z, Class<T> type) {
+        return requireBlockEntity(new BlockPos(x, y, z), type);
+    }
+
+    @Nullable
+    public <T, C extends @Nullable Object> T getCapability(BlockCapability<T, C> cap, BlockPos pos, C context) {
+        return getLevel().getCapability(cap, absolutePos(pos), context);
+    }
+
+    public <T, C extends @Nullable Object> T requireCapability(BlockCapability<T, C> cap, BlockPos pos, C context) {
+        final var capability = getCapability(cap, pos, context);
+        if (capability == null) {
+            throw new GameTestAssertPosException("Expected capability " + cap + " but there was none", absolutePos(pos), pos, getTick());
+        }
+        return capability;
+    }
+
     public <T> ParametrizedGameTestSequence<T> startSequence(Supplier<T> value) {
-        return new ParametrizedGameTestSequence<>(this, this.startSequence(), value);
+        return new ParametrizedGameTestSequence<>(this.testInfo, this.startSequence(), value);
     }
 
     public Player makeMockPlayer() {
         return makeMockPlayer(GameType.CREATIVE);
     }
 
-    @SafeVarargs
-    public final void killAllEntitiesOfClass(Class<? extends Entity>... types) {
-        for (var type : types) {
+    public void killAllEntitiesOfClass(Class<?>... types) {
+        for (Class<?> type : types) {
             this.killAllEntitiesOfClass(type);
         }
     }
 
     public void assertItemEntityCountIsAtLeast(Item item, BlockPos pos, double range, int lowerLimit) {
         final BlockPos blockpos = this.absolutePos(pos);
-        final List<ItemEntity> list = this.getLevel().getEntities(EntityTypes.ITEM, new AABB(blockpos).inflate(range), Entity::isAlive);
+        final List<ItemEntity> list = this.getLevel().getEntities(EntityType.ITEM, new AABB(blockpos).inflate(range), Entity::isAlive);
         int count = 0;
 
         for (final ItemEntity itementity : list) {
@@ -214,7 +245,11 @@ public class ExtendedGameTestHelper extends GameTestHelper {
         }
 
         if (count < lowerLimit) {
-            throw this.assertionException(pos, "Expected at least %s %s items to exist (found %s)", lowerLimit, item.getName(item.getDefaultInstance()).getString(), count);
+            throw new GameTestAssertPosException(
+                    "Expected at least " + lowerLimit + " " + item.getDescription().getString() + " items to exist (found " + count + ")",
+                    blockpos,
+                    pos,
+                    this.getTick());
         }
     }
 
@@ -239,7 +274,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
      */
     public void boneMealUntilGrown(int x, int y, int z, Player player) {
         boneMeal(x, y, z, player);
-        assertBlockState(new BlockPos(x, y, z), state -> !(state.getBlock() instanceof BonemealableBlock), $ -> Component.translatable("Crop didn't grow"));
+        assertBlockState(new BlockPos(x, y, z), state -> !(state.getBlock() instanceof BonemealableBlock), () -> "Crop didn't grow");
     }
 
     public void assertContainerEmpty(int x, int y, int z) {
@@ -255,7 +290,7 @@ public class ExtendedGameTestHelper extends GameTestHelper {
     }
 
     public void assertPlayerHasItem(Player player, Item item) {
-        assertTrue(player.getInventory().hasAnyOf(Set.of(item)), Component.translatable("Player doesn't have '%s' in their inventory!", BuiltInRegistries.ITEM.getKey(item).toString()));
+        assertTrue(player.getInventory().hasAnyOf(Set.of(item)), "Player doesn't have '" + BuiltInRegistries.ITEM.getKey(item) + "' in their inventory!");
     }
 
     public void requireDifficulty(final Difficulty difficulty) {
@@ -282,27 +317,23 @@ public class ExtendedGameTestHelper extends GameTestHelper {
             }
 
             @Override
-            public void testAddedForRerun(GameTestInfo original, GameTestInfo copy, GameTestRunner runner) {}
+            public void testAddedForRerun(GameTestInfo p_320937_, GameTestInfo p_320294_, GameTestRunner p_320147_) {}
         });
     }
 
     public <T> T catchException(final ThrowingSupplier<T> supplier) {
         try {
             return supplier.get();
-        } catch (GameTestException exception) {
-            throw this.assertionException(exception.getDescription());
         } catch (Throwable throwable) {
-            throw this.assertionException(Component.literal(throwable.getMessage()));
+            throw new GameTestAssertException(throwable.getMessage());
         }
     }
 
     public void catchException(final ThrowingRunnable run) {
         try {
             run.run();
-        } catch (GameTestException exception) {
-            throw this.assertionException(exception.getDescription());
         } catch (Throwable throwable) {
-            throw this.assertionException(Component.literal(throwable.getMessage()));
+            throw new GameTestAssertException(throwable.getMessage());
         }
     }
 
@@ -312,8 +343,8 @@ public class ExtendedGameTestHelper extends GameTestHelper {
 
     public <T extends Entity> T requireEntityAt(EntityType<T> type, BlockPos pos) {
         final var inRange = getEntities(type, pos, 2);
-        assertTrue(inRange.size() == 1, Component.translatable("Only one entity must be present at %s", pos.toString()));
-        return inRange.getFirst();
+        assertTrue(inRange.size() == 1, "Only one entity must be present at " + pos);
+        return inRange.get(0);
     }
 
     @CanIgnoreReturnValue
@@ -331,47 +362,16 @@ public class ExtendedGameTestHelper extends GameTestHelper {
         addEndListener(success -> NeoForge.EVENT_BUS.unregister(event));
     }
 
-    public <E extends LivingEntity> void assertMobEffectPresent(E entity, Holder<MobEffect> effect, Component testName) {
-        this.assertEntityProperty(entity, e -> e.hasEffect(effect), testName);
-    }
-
-    public <E extends LivingEntity> void assertMobEffectAbsent(E entity, Holder<MobEffect> effect, Component testName) {
-        this.assertEntityProperty(entity, e -> !e.hasEffect(effect), testName);
-    }
-
-    @Override
-    public void assertTrue(boolean value, String message) {
-        this.assertTrue(value, Component.translatable(message));
-    }
-
-    @Override
-    public void assertFalse(boolean value, String message) {
-        this.assertFalse(value, Component.translatable(message));
-    }
-
     public void assertNotNull(@Nullable Object var, String message) {
         this.assertTrue(var != null, message);
     }
 
-    public void assertBlock(BlockPos pos, Predicate<Block> predicate, String message) {
-        this.assertBlock(pos, predicate, block -> Component.translatable(message, block));
+    public <E extends LivingEntity> void assertMobEffectPresent(E entity, Holder<MobEffect> effect, String testName) {
+        assertEntityProperty(entity, e -> e.hasEffect(effect), testName);
     }
 
-    @Override
-    public <T> void assertValueEqual(T expected, T actual, String message) {
-        this.assertValueEqual(expected, actual, Component.translatable(message));
-    }
-
-    public <T, E extends Entity> void assertEntityProperty(E entity, Function<E, T> function, String message, T value) {
-        this.assertEntityProperty(entity, function, value, Component.translatable(message));
-    }
-
-    public <E extends Entity> void assertEntityProperty(E entity, Predicate<E> predicate, String message) {
-        this.assertEntityProperty(entity, predicate, Component.translatable(message));
-    }
-
-    public <T> Holder<T> getHolder(ResourceKey<T> resourceKey) {
-        return getLevel().holder(resourceKey).orElseThrow(() -> this.assertionException("No registered value %s found in loaded data", resourceKey));
+    public <E extends LivingEntity> void assertMobEffectAbsent(E entity, Holder<MobEffect> effect, String testName) {
+        assertEntityProperty(entity, e -> !e.hasEffect(effect), testName);
     }
 
     @FunctionalInterface

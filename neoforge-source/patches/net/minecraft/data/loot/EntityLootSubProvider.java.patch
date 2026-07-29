@@ -1,6 +1,6 @@
 --- a/net/minecraft/data/loot/EntityLootSubProvider.java
 +++ b/net/minecraft/data/loot/EntityLootSubProvider.java
-@@ -117,12 +_,16 @@
+@@ -96,12 +_,16 @@
  
      public abstract void generate();
  
@@ -9,13 +9,22 @@
 +    }
 +
      @Override
-     public void generate(BiConsumer<ResourceKey<LootTable>, LootTable.Builder> output) {
+     public void generate(BiConsumer<ResourceKey<LootTable>, LootTable.Builder> p_251751_) {
          this.generate();
-         Set<ResourceKey<LootTable>> seen = new HashSet<>();
+         Set<ResourceKey<LootTable>> set = new HashSet<>();
 -        BuiltInRegistries.ENTITY_TYPE
--            .listElements()
+-            .holders()
 +        this.getKnownEntityTypes()
 +            .map(EntityType::builtInRegistryHolder)
              .forEach(
-                 holder -> {
-                     EntityType<?> type = holder.value();
+                 p_266624_ -> {
+                     EntityType<?> entitytype = p_266624_.value();
+@@ -151,7 +_,7 @@
+         }
+     }
+ 
+-    protected static boolean canHaveLootTable(EntityType<?> p_249029_) {
++    protected boolean canHaveLootTable(EntityType<?> p_249029_) {
+         return SPECIAL_LOOT_TABLE_TYPES.contains(p_249029_) || p_249029_.getCategory() != MobCategory.MISC;
+     }
+ 

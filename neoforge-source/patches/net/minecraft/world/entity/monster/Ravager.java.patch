@@ -1,23 +1,11 @@
 --- a/net/minecraft/world/entity/monster/Ravager.java
 +++ b/net/minecraft/world/entity/monster/Ravager.java
-@@ -143,7 +_,7 @@
-                 this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(Mth.lerp(0.1, baseValue, maxSpeed));
+@@ -134,7 +_,7 @@
+                 this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(Mth.lerp(0.1, d1, d0));
              }
  
--            if (this.level() instanceof ServerLevel serverLevel && this.horizontalCollision && serverLevel.getGameRules().get(GameRules.MOB_GRIEFING)) {
-+            if (this.level() instanceof ServerLevel serverLevel && this.horizontalCollision && net.neoforged.neoforge.event.EventHooks.canEntityGrief(serverLevel, this)) {
-                 boolean destroyedBlock = false;
-                 AABB bb = this.getBoundingBox().inflate(0.2);
+-            if (this.horizontalCollision && this.level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
++            if (this.horizontalCollision && net.neoforged.neoforge.event.EventHooks.canEntityGrief(this.level(), this)) {
+                 boolean flag = false;
+                 AABB aabb = this.getBoundingBox().inflate(0.2);
  
-@@ -222,9 +_,9 @@
- 
-     private void roar() {
-         if (this.isAlive() && this.level() instanceof ServerLevel level) {
--            Predicate<Entity> targetSelector = level.getGameRules().get(GameRules.MOB_GRIEFING) ? ROAR_TARGET_WITH_GRIEFING : ROAR_TARGET_WITHOUT_GRIEFING;
-+            Predicate<Entity> predicate = net.neoforged.neoforge.event.EventHooks.canEntityGrief(level, this) ? ROAR_TARGET_WITH_GRIEFING : ROAR_TARGET_WITHOUT_GRIEFING;
- 
--            for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(4.0), targetSelector)) {
-+            for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(4.0), predicate)) {
-                 if (!(entity instanceof AbstractIllager)) {
-                     entity.hurtServer(level, this.damageSources().mobAttack(this), 6.0F);
-                 }

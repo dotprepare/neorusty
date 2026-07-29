@@ -9,11 +9,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.IdentifierException;
-import net.minecraft.resources.Identifier;
+import net.minecraft.ResourceLocationException;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.config.NeoForgeServerConfig;
+import net.neoforged.neoforge.common.NeoForgeConfig;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
 import net.neoforged.neoforge.server.permission.exceptions.UnregisteredPermissionException;
@@ -24,7 +24,7 @@ import net.neoforged.neoforge.server.permission.nodes.PermissionDynamicContext;
 import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class PermissionAPI {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -40,7 +40,7 @@ public final class PermissionAPI {
      * @return the Identifier of the currently active permission handler
      */
     @Nullable
-    public static Identifier getActivePermissionHandler() {
+    public static ResourceLocation getActivePermissionHandler() {
         return activeHandler == null ? null : activeHandler.getIdentifier();
     }
 
@@ -95,10 +95,10 @@ public final class PermissionAPI {
 
         PermissionGatherEvent.Handler handlerEvent = new PermissionGatherEvent.Handler();
         NeoForge.EVENT_BUS.post(handlerEvent);
-        Map<Identifier, IPermissionHandlerFactory> availableHandlers = handlerEvent.getAvailablePermissionHandlerFactories();
+        Map<ResourceLocation, IPermissionHandlerFactory> availableHandlers = handlerEvent.getAvailablePermissionHandlerFactories();
 
         try {
-            Identifier selectedPermissionHandler = Identifier.parse(NeoForgeServerConfig.INSTANCE.permissionHandler.get());
+            ResourceLocation selectedPermissionHandler = ResourceLocation.parse(NeoForgeConfig.SERVER.permissionHandler.get());
             if (!availableHandlers.containsKey(selectedPermissionHandler)) {
                 LOGGER.error("Unable to find configured permission handler {}, will use {}", selectedPermissionHandler, DefaultPermissionHandler.IDENTIFIER);
                 selectedPermissionHandler = DefaultPermissionHandler.IDENTIFIER;
@@ -115,7 +115,7 @@ public final class PermissionAPI {
                 LOGGER.warn("Identifier for permission handler {} does not match registered one {}", activeHandler.getIdentifier(), selectedPermissionHandler);
 
             LOGGER.info("Successfully initialized permission handler {}", PermissionAPI.activeHandler.getIdentifier());
-        } catch (IdentifierException e) {
+        } catch (ResourceLocationException e) {
             LOGGER.error("Error parsing config value 'permissionHandler'", e);
         }
     }

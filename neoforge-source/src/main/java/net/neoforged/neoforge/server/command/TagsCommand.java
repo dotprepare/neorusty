@@ -11,15 +11,16 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import java.util.Iterator;
+import com.mojang.datafixers.util.Pair;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.ResourceKeyArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
@@ -28,8 +29,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 
@@ -51,12 +52,8 @@ import net.minecraft.util.Mth;
  * </ul>
  */
 class TagsCommand {
-    // The limit of how long the clipboard text can be; no more elements are added to the text if they would push it over this limit
-    // This is roughly below 32767, the default limit for UTF-8 strings in FriendlyByteBuf. When adjusting this, make sure to leave
-    // ample room for the explanatory text (see #createMessage() below).
-    private static final long CLIPBOARD_TEXT_LIMIT = 32600;
     private static final long PAGE_SIZE = 8;
-    private static final ResourceKey<Registry<Registry<?>>> ROOT_REGISTRY_KEY = ResourceKey.createRegistryKey(Identifier.withDefaultNamespace("root"));
+    private static final ResourceKey<Registry<Registry<?>>> ROOT_REGISTRY_KEY = ResourceKey.createRegistryKey(ResourceLocation.withDefaultNamespace("root"));
 
     private static final DynamicCommandExceptionType UNKNOWN_REGISTRY = new DynamicCommandExceptionType(key -> CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.error.unknown_registry", key.toString()));
     private static final Dynamic2CommandExceptionType UNKNOWN_TAG = new Dynamic2CommandExceptionType((tag, registry) -> CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.error.unknown_tag", tag.toString(), registry.toString()));
@@ -69,7 +66,7 @@ class TagsCommand {
          * /neoforge tags <registry> query <element> [page]
          */
         return Commands.literal("tags")
-                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .requires(cs -> cs.hasPermission(2))
                 .then(Commands.argument("registry", ResourceKeyArgument.key(ROOT_REGISTRY_KEY))
                         .suggests(CommandUtils::suggestRegistries)
                         .then(Commands.literal("list")
@@ -77,13 +74,13 @@ class TagsCommand {
                                 .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                         .executes(ctx -> listTags(ctx, IntegerArgumentType.getInteger(ctx, "page")))))
                         .then(Commands.literal("get")
-                                .then(Commands.argument("tag", IdentifierArgument.id())
-                                        .suggests(CommandUtils.suggestFromRegistry(r -> r.getTags().map(HolderSet.Named::key).map(TagKey::location)::iterator, "registry", ROOT_REGISTRY_KEY))
+                                .then(Commands.argument("tag", ResourceLocationArgument.id())
+                                        .suggests(CommandUtils.suggestFromRegistry(r -> r.getTagNames().map(TagKey::location)::iterator, "registry", ROOT_REGISTRY_KEY))
                                         .executes(ctx -> listTagElements(ctx, 1))
                                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                                 .executes(ctx -> listTagElements(ctx, IntegerArgumentType.getInteger(ctx, "page"))))))
                         .then(Commands.literal("query")
-                                .then(Commands.argument("element", IdentifierArgument.id())
+                                .then(Commands.argument("element", ResourceLocationArgument.id())
                                         .suggests(CommandUtils.suggestFromRegistry(Registry::keySet, "registry", ROOT_REGISTRY_KEY))
                                         .executes(ctx -> queryElementTags(ctx, 1))
                                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
@@ -93,19 +90,20 @@ class TagsCommand {
     private static int listTags(final CommandContext<CommandSourceStack> ctx, final int page) throws CommandSyntaxException {
         final ResourceKey<? extends Registry<?>> registryKey = CommandUtils.getResourceKey(ctx, "registry", ROOT_REGISTRY_KEY)
                 .orElseThrow(); // Expect to always retrieve a resource key for the root registry (registry key)
-        final Registry<?> registry = ctx.getSource().getServer().registryAccess().lookup(registryKey)
-                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.identifier()));
+        final Registry<?> registry = ctx.getSource().getServer().registryAccess().registry(registryKey)
+                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.location()));
 
         final long tagCount = registry.getTags().count();
 
         ctx.getSource().sendSuccess(() -> createMessage(
-                CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.registry_key", Component.literal(registryKey.identifier().toString()).withStyle(ChatFormatting.GOLD)),
+                CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.registry_key", Component.literal(registryKey.location().toString()).withStyle(ChatFormatting.GOLD)),
                 "commands.neoforge.tags.tag_count",
                 "commands.neoforge.tags.copy_tag_names",
                 tagCount,
                 page,
                 ChatFormatting.DARK_GREEN,
                 () -> registry.getTags()
+                        .map(Pair::getSecond)
                         .map(s -> s.unwrap().map(k -> k.location().toString(), Object::toString))),
                 false);
 
@@ -115,26 +113,25 @@ class TagsCommand {
     private static int listTagElements(final CommandContext<CommandSourceStack> ctx, final int page) throws CommandSyntaxException {
         final ResourceKey<? extends Registry<?>> registryKey = CommandUtils.getResourceKey(ctx, "registry", ROOT_REGISTRY_KEY)
                 .orElseThrow(); // Expect to always retrieve a resource key for the root registry (registry key)
-        final Registry<?> registry = ctx.getSource().getServer().registryAccess().lookup(registryKey)
-                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.identifier()));
+        final Registry<?> registry = ctx.getSource().getServer().registryAccess().registry(registryKey)
+                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.location()));
 
-        final Identifier tagLocation = IdentifierArgument.getId(ctx, "tag");
+        final ResourceLocation tagLocation = ResourceLocationArgument.getId(ctx, "tag");
         final TagKey<?> tagKey = TagKey.create(cast(registryKey), tagLocation);
 
-        @SuppressWarnings({ "unchecked", "rawtypes" })
-        Optional<HolderSet.Named<?>> optional = registry.get(TagsCommand.<TagKey>cast(tagKey));
-        final HolderSet.Named<?> tag = optional.orElseThrow(() -> UNKNOWN_TAG.create(tagKey.location(), registryKey.identifier()));
+        final HolderSet.Named<?> tag = registry.getTag(cast(tagKey))
+                .orElseThrow(() -> UNKNOWN_TAG.create(tagKey.location(), registryKey.location()));
 
         ctx.getSource().sendSuccess(() -> createMessage(
                 CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.tag_key",
-                        Component.literal(tagKey.registry().identifier().toString()).withStyle(ChatFormatting.GOLD),
+                        Component.literal(tagKey.registry().location().toString()).withStyle(ChatFormatting.GOLD),
                         Component.literal(tagKey.location().toString()).withStyle(ChatFormatting.DARK_GREEN)),
                 "commands.neoforge.tags.element_count",
                 "commands.neoforge.tags.copy_element_names",
                 tag.size(),
                 page,
                 ChatFormatting.YELLOW,
-                () -> tag.stream().map(s -> s.unwrap().map(k -> k.identifier().toString(), Object::toString))), false);
+                () -> tag.stream().map(s -> s.unwrap().map(k -> k.location().toString(), Object::toString))), false);
 
         return tag.size();
     }
@@ -142,21 +139,21 @@ class TagsCommand {
     private static int queryElementTags(final CommandContext<CommandSourceStack> ctx, final int page) throws CommandSyntaxException {
         final ResourceKey<? extends Registry<?>> registryKey = CommandUtils.getResourceKey(ctx, "registry", ROOT_REGISTRY_KEY)
                 .orElseThrow(); // Expect to always retrieve a resource key for the root registry (registry key)
-        final Registry<?> registry = ctx.getSource().getServer().registryAccess().lookup(registryKey)
-                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.identifier()));
+        final Registry<?> registry = ctx.getSource().getServer().registryAccess().registry(registryKey)
+                .orElseThrow(() -> UNKNOWN_REGISTRY.create(registryKey.location()));
 
-        final Identifier elementLocation = IdentifierArgument.getId(ctx, "element");
+        final ResourceLocation elementLocation = ResourceLocationArgument.getId(ctx, "element");
         final ResourceKey<?> elementKey = ResourceKey.create(cast(registryKey), elementLocation);
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        final Optional<Holder<?>> elementHolderOpt = registry.get(TagsCommand.<ResourceKey>cast(elementKey));
-        final Holder<?> elementHolder = elementHolderOpt.orElseThrow(() -> UNKNOWN_ELEMENT.create(elementLocation, registryKey.identifier()));
+        final Optional<Holder<?>> elementHolderOpt = registry.getHolder(TagsCommand.<ResourceKey>cast(elementKey));
+        final Holder<?> elementHolder = elementHolderOpt.orElseThrow(() -> UNKNOWN_ELEMENT.create(elementLocation, registryKey.location()));
 
         final long containingTagsCount = elementHolder.tags().count();
 
         ctx.getSource().sendSuccess(() -> createMessage(
                 CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.element",
-                        Component.literal(registryKey.identifier().toString()).withStyle(ChatFormatting.GOLD),
+                        Component.literal(registryKey.location().toString()).withStyle(ChatFormatting.GOLD),
                         Component.literal(elementLocation.toString()).withStyle(ChatFormatting.YELLOW)),
                 "commands.neoforge.tags.containing_tag_count",
                 "commands.neoforge.tags.copy_tag_names",
@@ -175,46 +172,18 @@ class TagsCommand {
             final long currentPage,
             final ChatFormatting elementColor,
             final Supplier<Stream<String>> names) {
+        final String allElementNames = names.get().sorted().collect(Collectors.joining("\n"));
         final long totalPages = (count - 1) / PAGE_SIZE + 1;
         final long actualPage = (long) Mth.clamp(currentPage, 1, totalPages);
 
         MutableComponent containsComponent = CommandUtils.makeTranslatableWithFallback(containsText, count);
         if (count > 0) // Highlight the count text, make it clickable, and append page counters
         {
-            final String clipboardText;
-            final StringBuilder clipboardTextBuilder = new StringBuilder();
-            boolean reachedLimit = false;
-            int countedLines = 0;
-
-            Iterator<String> iterator = names.get().sorted().iterator();
-            while (iterator.hasNext()) {
-                final String line = iterator.next();
-                if (clipboardTextBuilder.length() + line.length() > CLIPBOARD_TEXT_LIMIT) {
-                    // The to-be-added line puts us over the limit, so stop adding lines
-                    reachedLimit = true;
-                    break;
-                }
-                clipboardTextBuilder.append(line).append('\n');
-                countedLines++;
-            }
-            // Remove the trailing newline if present
-            if (!clipboardTextBuilder.isEmpty()) {
-                clipboardTextBuilder.deleteCharAt(clipboardTextBuilder.length() - 1);
-            }
-
-            if (reachedLimit) {
-                // Almost went over the limit; add additional info to clipboard text
-                clipboardText = "(Too many entries to fit in clipboard, showing only first " + countedLines + " entries...)" + '\n'
-                        + clipboardTextBuilder + '\n'
-                        + "(..." + (count - countedLines) + " more entries not shown)";
-            } else {
-                clipboardText = clipboardTextBuilder.toString();
-            }
-
             containsComponent = ComponentUtils.wrapInSquareBrackets(containsComponent.withStyle(s -> s
                     .withColor(ChatFormatting.GREEN)
-                    .withClickEvent(new ClickEvent.CopyToClipboard(clipboardText))
-                    .withHoverEvent(new HoverEvent.ShowText(CommandUtils.makeTranslatableWithFallback(copyHoverText)))));
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, allElementNames))
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            CommandUtils.makeTranslatableWithFallback(copyHoverText)))));
             containsComponent = CommandUtils.makeTranslatableWithFallback("commands.neoforge.tags.page_info",
                     containsComponent, actualPage, totalPages);
         }

@@ -7,13 +7,13 @@ package net.neoforged.neoforge.common.extensions;
 
 import net.minecraft.network.Connection;
 import net.minecraft.network.PacketListener;
-import net.minecraft.network.PacketProcessor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientCommonPacketListener;
 import net.minecraft.network.protocol.common.ServerCommonPacketListener;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.thread.ReentrantBlockableEventLoop;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
@@ -45,9 +45,9 @@ public interface ICommonPacketListener extends PacketListener {
     Connection getConnection();
 
     /**
-     * {@return the main thread packet processor}
+     * {@return the main thread event loop}
      */
-    PacketProcessor getPacketProcessor();
+    ReentrantBlockableEventLoop<?> getMainThreadEventLoop();
 
     /**
      * Checks if the connection has negotiated and opened a channel for the payload.
@@ -55,19 +55,19 @@ public interface ICommonPacketListener extends PacketListener {
      * @param payloadId The payload id to check
      * @returns true if a payload with this id may be sent over this connection.
      */
-    default boolean hasChannel(final Identifier payloadId) {
+    default boolean hasChannel(final ResourceLocation payloadId) {
         return NetworkRegistry.hasChannel(this.getConnection(), this.protocol(), payloadId);
     }
 
     /**
-     * @see {@link #hasChannel(Identifier)}
+     * @see {@link #hasChannel(ResourceLocation)}
      */
     default boolean hasChannel(final CustomPacketPayload.Type<?> type) {
         return hasChannel(type.id());
     }
 
     /**
-     * @see {@link #hasChannel(Identifier)}
+     * @see {@link #hasChannel(ResourceLocation)}
      */
     default boolean hasChannel(final CustomPacketPayload payload) {
         return hasChannel(payload.type());

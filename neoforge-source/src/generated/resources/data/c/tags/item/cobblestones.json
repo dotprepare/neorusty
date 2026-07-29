@@ -3,6 +3,10 @@
     "#c:cobblestones/normal",
     "#c:cobblestones/infested",
     "#c:cobblestones/mossy",
-    "#c:cobblestones/deepslate"
+    "#c:cobblestones/deepslate",
+    {
+      "id": "#forge:cobblestone",
+      "required": false
+    }
   ]
 }

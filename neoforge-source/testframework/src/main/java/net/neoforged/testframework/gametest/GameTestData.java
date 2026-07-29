@@ -6,11 +6,15 @@
 package net.neoforged.testframework.gametest;
 
 import java.util.function.Consumer;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Rotation;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public record GameTestData(
         @Nullable String batchName, String structureName, boolean required, int maxAttempts,
         int requiredSuccesses, Consumer<GameTestHelper> function, int maxTicks,
-        int setupTicks, Rotation rotation, boolean skyAccess, int padding, boolean manualOnly) {}
+        long setupTicks, Rotation rotation, boolean skyAccess) {}

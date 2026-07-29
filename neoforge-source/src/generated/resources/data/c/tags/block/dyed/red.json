@@ -12,6 +12,14 @@
     "minecraft:red_stained_glass_pane",
     "minecraft:red_terracotta",
     "minecraft:red_wall_banner",
-    "minecraft:red_wool"
+    "minecraft:red_wool",
+    {
+      "id": "#forge:glass/red",
+      "required": false
+    },
+    {
+      "id": "#forge:stained_glass/red",
+      "required": false
+    }
   ]
 }

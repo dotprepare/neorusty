@@ -97,32 +97,23 @@ public abstract class LivingDamageEvent extends LivingEvent {
     public static class Post extends LivingDamageEvent {
         private final float originalDamage;
         private final DamageSource source;
-        private final float inflictedDamage;
-        private final float healthDamage;
+        private final float newDamage;
         private final float blockedDamage;
         private final float shieldDamage;
         private final int postAttackInvulnerabilityTicks;
-        private final boolean performSideEffects;
         private final EnumMap<DamageContainer.Reduction, Float> reductions;
 
         public Post(LivingEntity entity, DamageContainer container) {
             super(entity);
-            this.performSideEffects = container.shouldCauseSideEffects();
             this.originalDamage = container.getOriginalDamage();
             this.source = container.getSource();
-            this.inflictedDamage = container.getInflictedDamage();
-            this.healthDamage = container.getNewDamage();
+            this.newDamage = container.getNewDamage();
             this.blockedDamage = container.getBlockedDamage();
             this.shieldDamage = container.getShieldDamage();
             this.postAttackInvulnerabilityTicks = container.getPostAttackInvulnerabilityTicks();
             this.reductions = new EnumMap<DamageContainer.Reduction, Float>(Arrays.stream(DamageContainer.Reduction.values())
                     .map(type -> new AbstractMap.SimpleEntry<>(type, container.getReduction(type)))
                     .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
-        }
-
-        /// {@return `true` if side effects like sound and knockback should be performed}
-        public boolean shouldCauseSideEffects() {
-            return performSideEffects;
         }
 
         /** {@return the original damage when {@link LivingEntity#hurt} was invoked} */
@@ -135,14 +126,9 @@ public abstract class LivingDamageEvent extends LivingEvent {
             return source;
         }
 
-        /** {@return the amount of damage inflicted to the entity, after all modifications} */
-        public float getInflictedDamage() {
-            return this.inflictedDamage;
-        }
-
         /** {@return the amount of health this entity lost during this sequence} */
-        public float getHealthDamage() {
-            return this.healthDamage;
+        public float getNewDamage() {
+            return newDamage;
         }
 
         /** {@return the amount of damage reduced by a blocking action} */

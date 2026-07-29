@@ -7,6 +7,6 @@
     },
     "pack": {
         "description": "Custom FeatureFlag gating test pack description",
-        "pack_format": 57
+        "pack_format": 48
     }
 }

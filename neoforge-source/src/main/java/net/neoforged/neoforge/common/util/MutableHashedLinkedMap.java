@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
 import net.neoforged.neoforge.common.util.strategy.BasicStrategy;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A mutable linked map with a hashing strategy and a merge function.

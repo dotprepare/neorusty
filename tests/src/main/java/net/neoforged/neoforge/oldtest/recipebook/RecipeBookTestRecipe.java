@@ -15,56 +15,39 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.PlacementInfo;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeBookCategory;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.minecraft.world.item.crafting.display.RecipeDisplay;
-import net.minecraft.world.item.crafting.display.ShapedCraftingRecipeDisplay;
-import net.minecraft.world.item.crafting.display.SlotDisplay;
 import net.minecraft.world.level.Level;
-import org.jspecify.annotations.Nullable;
 
 public class RecipeBookTestRecipe implements Recipe<CraftingInput> {
-    static final MapCodec<RecipeBookTestRecipe> CODEC = Ingredients.CODEC.xmap(RecipeBookTestRecipe::new, recipeBookTestRecipe -> recipeBookTestRecipe.ingredients);
-    static final StreamCodec<RegistryFriendlyByteBuf, RecipeBookTestRecipe> STREAM_CODEC = ByteBufCodecs.fromCodecWithRegistries(CODEC.codec());
-
     public final Ingredients ingredients;
     private final int width;
     private final int height;
-    private final List<Optional<Ingredient>> items;
-    @Nullable
-    private PlacementInfo placementInfo;
+    private final NonNullList<Ingredient> items;
 
     public RecipeBookTestRecipe(Ingredients ingredients) {
         this.ingredients = ingredients;
         this.width = ingredients.pattern.get(0).length();
         this.height = ingredients.pattern.size();
-        this.items = ingredients.pattern.stream()
+        List<String> pattern = new ArrayList<>(ingredients.pattern); //might need to reverse this list.
+        while (pattern.size() != 4)
+            pattern.add("  ");
+        this.items = pattern.stream()
                 .flatMap(s -> Stream.of(s.substring(0, 1), s.substring(1, 2)))
-                .map(s -> {
-                    if (s.equals(" ")) {
-                        return Optional.<Ingredient>empty();
-                    } else {
-                        var ing = ingredients.recipe.get(s);
-                        Objects.requireNonNull(ing, "A key in sculpting pattern was not defined!");
-                        return Optional.of(ing);
-                    }
-                })
-                .toList();
+                .map(s -> s.equals(" ") ? Ingredient.EMPTY : ingredients.recipe.get(s))
+                .peek(i -> Objects.requireNonNull(i, "A key in sculpting pattern was not defined!"))
+                .collect(Collectors.toCollection(NonNullList::create));
     }
 
     /**
@@ -82,12 +65,13 @@ public class RecipeBookTestRecipe implements Recipe<CraftingInput> {
 
     private boolean matches(CraftingInput input, boolean mirror) //unsure about the last boolean
     {
-        for (int x = 0; x < this.width; ++x) {
-            for (int y = 0; y < this.height; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            for (int y = 0; y < 4; ++y) {
+                Ingredient ingredient = Ingredient.EMPTY;
                 int idx = mirror ? this.width - x - 1 + y * this.width : x + y * this.width;
-                var ingredient = this.items.get(idx);
+                ingredient = this.items.get(idx);
 
-                if (!Ingredient.testOptionalIngredient(ingredient, input.getItem(x + y * this.width)))
+                if (!ingredient.test(input.getItem(x + y * 2)))
                     return false;
             }
         }
@@ -96,59 +80,54 @@ public class RecipeBookTestRecipe implements Recipe<CraftingInput> {
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input) {
-        return this.ingredients.result.create();
+    public ItemStack assemble(CraftingInput p_44001_, HolderLookup.Provider registryAccess) {
+        return this.getResultItem(registryAccess).copy();
     }
 
     @Override
-    public RecipeSerializer<RecipeBookTestRecipe> getSerializer() {
+    public boolean canCraftInDimensions(int p_43999_, int p_44000_) {
+        return this.width <= p_43999_ && this.height <= p_44000_; //used for recipe book
+    }
+
+    @Override
+    public ItemStack getResultItem(HolderLookup.Provider registryAccess) {
+        return this.ingredients.result();
+    }
+
+    @Override
+    public RecipeSerializer<?> getSerializer() {
         return RecipeBookExtensionTest.RECIPE_BOOK_TEST_RECIPE_SERIALIZER.get();
     }
 
     @Override
-    public RecipeType<RecipeBookTestRecipe> getType() {
+    public RecipeType<?> getType() {
         return RecipeBookExtensionTest.RECIPE_BOOK_TEST_RECIPE_TYPE.get();
     }
 
     @Override
-    public boolean showNotification() {
-        return false;
-    }
-
-    @Override
-    public String group() {
+    public String getGroup() {
         return this.ingredients.group;
     }
 
     @Override
-    public PlacementInfo placementInfo() {
-        if (this.placementInfo == null) {
-            this.placementInfo = PlacementInfo.createFromOptionals(this.items);
-        }
-        return this.placementInfo;
+    public NonNullList<Ingredient> getIngredients() {
+        return this.items;
     }
 
     @Override
-    public List<RecipeDisplay> display() {
-        return List.of(
-                new ShapedCraftingRecipeDisplay(
-                        width,
-                        height,
-                        items.stream().map(e -> e.map(Ingredient::display).orElse(SlotDisplay.Empty.INSTANCE)).toList(),
-                        new SlotDisplay.ItemStackSlotDisplay(ingredients.result),
-                        new SlotDisplay.ItemSlotDisplay(Items.CRAFTING_TABLE)));
+    public boolean isIncomplete() {
+        return this.getIngredients().isEmpty() ||
+                this.getIngredients().stream()
+                        .filter((ingredient) -> !ingredient.isEmpty())
+                        .anyMatch(Ingredient::hasNoItems);
     }
 
     @Override
-    public RecipeBookCategory recipeBookCategory() {
-        if (this.ingredients.result.is(Items.DIAMOND_BLOCK)) {
-            return RecipeBookExtensionTest.RECIPE_BOOK_TEST_CAT1.get();
-        } else {
-            return RecipeBookExtensionTest.RECIPE_BOOK_TEST_CAT2.get();
-        }
+    public ItemStack getToastSymbol() {
+        return new ItemStack(Items.NETHERITE_BLOCK);
     }
 
-    public record Ingredients(String group, List<String> pattern, Map<String, Ingredient> recipe, ItemStackTemplate result) {
+    public record Ingredients(String group, List<String> pattern, Map<String, Ingredient> recipe, ItemStack result) {
         private static final Function<String, DataResult<String>> VERIFY_LENGTH_2 = s -> s.length() == 2 ? DataResult.success(s) : DataResult.error(() -> "Key row length must be of 2!");
         private static final Function<List<String>, DataResult<List<String>>> VERIFY_SIZE = l -> {
             if (l.size() <= 4 && l.size() >= 1) {
@@ -164,6 +143,6 @@ public class RecipeBookTestRecipe implements Recipe<CraftingInput> {
                 Codec.STRING.fieldOf("group").forGetter(Ingredients::group),
                 Codec.STRING.flatXmap(VERIFY_LENGTH_2, VERIFY_LENGTH_2).listOf().flatXmap(VERIFY_SIZE, VERIFY_SIZE).fieldOf("pattern").forGetter(Ingredients::pattern),
                 Codec.unboundedMap(Codec.STRING.flatXmap(VERIFY_LENGTH_1, VERIFY_LENGTH_1), Ingredient.CODEC).fieldOf("key").forGetter(Ingredients::recipe),
-                ItemStackTemplate.CODEC.fieldOf("result").forGetter(Ingredients::result)).apply(inst, Ingredients::new));
+                ItemStack.CODEC.fieldOf("result").forGetter(Ingredients::result)).apply(inst, Ingredients::new));
     }
 }

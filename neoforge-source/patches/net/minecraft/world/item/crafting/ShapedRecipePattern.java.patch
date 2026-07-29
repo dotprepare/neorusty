@@ -1,12 +1,11 @@
 --- a/net/minecraft/world/item/crafting/ShapedRecipePattern.java
 +++ b/net/minecraft/world/item/crafting/ShapedRecipePattern.java
-@@ -20,8 +_,31 @@
+@@ -20,7 +_,30 @@
  import net.minecraft.world.item.ItemStack;
  
  public final class ShapedRecipePattern {
 +    /** @deprecated Neo: use {@link #getMaxWidth} and {@link #getMaxHeight} */ @Deprecated
      private static final int MAX_SIZE = 3;
-     public static final char EMPTY_SLOT = ' ';
 +    static int maxWidth = 3;
 +    static int maxHeight = 3;
 +
@@ -32,25 +31,24 @@
      public static final MapCodec<ShapedRecipePattern> MAP_CODEC = ShapedRecipePattern.Data.MAP_CODEC
          .flatXmap(
              ShapedRecipePattern::unpack,
-@@ -205,8 +_,8 @@
+@@ -214,16 +_,16 @@
  
-     public record Data(Map<Character, Ingredient> key, List<String> pattern) {
-         private static final Codec<List<String>> PATTERN_CODEC = Codec.STRING.listOf().comapFlatMap(strings -> {
--            if (strings.size() > 3) {
+     public static record Data(Map<Character, Ingredient> key, List<String> pattern) {
+         private static final Codec<List<String>> PATTERN_CODEC = Codec.STRING.listOf().comapFlatMap(p_312085_ -> {
+-            if (p_312085_.size() > 3) {
 -                return DataResult.error(() -> "Invalid pattern: too many rows, 3 is maximum");
-+            if (strings.size() > maxHeight) {
++            if (p_312085_.size() > maxHeight) {
 +                return DataResult.error(() -> "Invalid pattern: too many rows, %s is maximum".formatted(maxHeight));
-             }
+             } else if (p_312085_.isEmpty()) {
+                 return DataResult.error(() -> "Invalid pattern: empty pattern not allowed");
+             } else {
+                 int i = p_312085_.getFirst().length();
  
-             if (strings.isEmpty()) {
-@@ -216,8 +_,8 @@
-             int firstLength = strings.getFirst().length();
+                 for (String s : p_312085_) {
+-                    if (s.length() > 3) {
+-                        return DataResult.error(() -> "Invalid pattern: too many columns, 3 is maximum");
++                    if (s.length() > maxWidth) {
++                        return DataResult.error(() -> "Invalid pattern: too many columns, %s is maximum".formatted(maxWidth));
+                     }
  
-             for (String line : strings) {
--                if (line.length() > 3) {
--                    return DataResult.error(() -> "Invalid pattern: too many columns, 3 is maximum");
-+                if (line.length() > maxWidth) {
-+                    return DataResult.error(() -> "Invalid pattern: too many columns, %s is maximum".formatted(maxWidth));
-                 }
- 
-                 if (firstLength != line.length()) {
+                     if (i != s.length()) {

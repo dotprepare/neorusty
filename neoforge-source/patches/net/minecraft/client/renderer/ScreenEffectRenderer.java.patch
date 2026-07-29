@@ -1,67 +1,63 @@
 --- a/net/minecraft/client/renderer/ScreenEffectRenderer.java
 +++ b/net/minecraft/client/renderer/ScreenEffectRenderer.java
-@@ -59,20 +_,22 @@
-         PoseStack poseStack = new PoseStack();
-         Player player = this.minecraft.player;
-         if (isFirstPerson && !isSleeping) {
--            BlockState blockState = getViewBlockingState(player);
--            if (blockState != null) {
-+            var overlay = getViewBlockingStateAndPos(player);
-+            if (overlay != null && !net.neoforged.neoforge.client.ClientHooks.renderBlockOverlay(player, poseStack, net.neoforged.neoforge.client.event.RenderBlockScreenEffectEvent.OverlayType.BLOCK, overlay.getLeft(), overlay.getRight(), this.sprites, submitNodeCollector)) {
-                 BlockStateModelSet blockStateModelSet = this.minecraft.getModelManager().getBlockStateModelSet();
--                TextureAtlasSprite sprite = blockStateModelSet.getParticleMaterial(blockState).sprite();
-+                TextureAtlasSprite sprite = blockStateModelSet.getParticleMaterial(overlay.getLeft()).sprite();
-                 submitBlockSprite(sprite, poseStack, submitNodeCollector, -15132391);
-             }
- 
-             if (!this.minecraft.player.isSpectator()) {
-                 if (this.minecraft.player.isEyeInFluid(FluidTags.WATER)) {
-+                    if (!net.neoforged.neoforge.client.ClientHooks.renderWaterOverlay(player, poseStack, this.sprites, submitNodeCollector))
-                     submitWater(this.minecraft, poseStack, submitNodeCollector);
-                 }
- 
-                 if (this.minecraft.player.isOnFire()) {
-                     TextureAtlasSprite fireSprite = this.sprites.get(ModelBakery.FIRE_1);
-+                    if (!net.neoforged.neoforge.client.ClientHooks.renderFireOverlay(player, poseStack, this.sprites, submitNodeCollector))
-                     submitFire(poseStack, submitNodeCollector, fireSprite);
-                 }
-             }
-@@ -122,6 +_,10 @@
-     }
- 
-     private static @Nullable BlockState getViewBlockingState(Player player) {
-+        return net.minecraft.Optionull.map(getViewBlockingStateAndPos(player), org.apache.commons.lang3.tuple.Pair::getLeft);
-+    }
-+
-+    private static org.apache.commons.lang3.tuple.@Nullable Pair<BlockState, BlockPos> getViewBlockingStateAndPos(Player player) {
-         if (player.noPhysics) {
-             return null;
-         }
-@@ -136,7 +_,7 @@
-             );
-             BlockState blockState = player.level().getBlockState(testPos);
-             if (blockState.getRenderShape() != RenderShape.INVISIBLE && blockState.isViewBlocking(player.level(), testPos)) {
--                return blockState;
-+                return org.apache.commons.lang3.tuple.Pair.of(blockState, testPos.immutable());
+@@ -30,18 +_,22 @@
+     public static void renderScreenEffect(Minecraft p_110719_, PoseStack p_110720_) {
+         Player player = p_110719_.player;
+         if (!player.noPhysics) {
+-            BlockState blockstate = getViewBlockingState(player);
+-            if (blockstate != null) {
+-                renderTex(p_110719_.getBlockRenderer().getBlockModelShaper().getParticleIcon(blockstate), p_110720_);
++            org.apache.commons.lang3.tuple.Pair<BlockState, BlockPos> overlay = getOverlayBlock(player);
++            if (overlay != null) {
++                if (!net.neoforged.neoforge.client.ClientHooks.renderBlockOverlay(player, p_110720_, net.neoforged.neoforge.client.event.RenderBlockScreenEffectEvent.OverlayType.BLOCK, overlay.getLeft(), overlay.getRight()))
++                    renderTex(p_110719_.getBlockRenderer().getBlockModelShaper().getTexture(overlay.getLeft(), p_110719_.level, overlay.getRight()), p_110720_);
              }
          }
  
-@@ -152,13 +_,17 @@
-     }
+         if (!p_110719_.player.isSpectator()) {
+             if (p_110719_.player.isEyeInFluid(FluidTags.WATER)) {
++                if (!net.neoforged.neoforge.client.ClientHooks.renderWaterOverlay(player, p_110720_))
+                 renderWater(p_110719_, p_110720_);
+             }
++            else if (!player.getEyeInFluidType().isAir()) net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(player.getEyeInFluidType()).renderOverlay(p_110719_, p_110720_);
  
-     private static void submitWater(Minecraft minecraft, PoseStack poseStack, SubmitNodeCollector submitNodeCollector) {
-+        submitFluid(minecraft, poseStack, submitNodeCollector, UNDERWATER_LOCATION);
+             if (p_110719_.player.isOnFire()) {
++                if (!net.neoforged.neoforge.client.ClientHooks.renderFireOverlay(player, p_110720_))
+                 renderFire(p_110719_, p_110720_);
+             }
+         }
+@@ -49,6 +_,11 @@
+ 
+     @Nullable
+     private static BlockState getViewBlockingState(Player p_110717_) {
++        return getOverlayBlock(p_110717_).getLeft();
 +    }
 +
-+    public static void submitFluid(Minecraft minecraft, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, Identifier texture) {
-         LocalPlayer player = minecraft.player;
-         BlockPos pos = BlockPos.containing(player.getEyePosition());
-         float brightness = Lightmap.getBrightness(player.level().dimensionType(), player.level().getMaxLocalRawBrightness(pos));
-         int color = ARGB.colorFromFloat(0.1F, brightness, brightness, brightness);
-         float u0 = -player.getYRot() / 64.0F;
-         float v0 = player.getXRot() / 64.0F;
--        submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.blockScreenEffect(UNDERWATER_LOCATION), (pose, builder) -> {
-+        submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.blockScreenEffect(texture), (pose, builder) -> {
-             float uvSize = 4.0F;
-             buildQuad(builder, pose.pose(), -1.0F, -1.0F, 1.0F, 1.0F, -0.5F, u0 + 4.0F, v0 + 4.0F, u0, v0, color);
-         });
++    @Nullable
++    private static org.apache.commons.lang3.tuple.Pair<BlockState, BlockPos> getOverlayBlock(Player p_110717_) {
+         BlockPos.MutableBlockPos blockpos$mutableblockpos = new BlockPos.MutableBlockPos();
+ 
+         for (int i = 0; i < 8; i++) {
+@@ -58,7 +_,7 @@
+             blockpos$mutableblockpos.set(d0, d1, d2);
+             BlockState blockstate = p_110717_.level().getBlockState(blockpos$mutableblockpos);
+             if (blockstate.getRenderShape() != RenderShape.INVISIBLE && blockstate.isViewBlocking(p_110717_.level(), blockpos$mutableblockpos)) {
+-                return blockstate;
++                return org.apache.commons.lang3.tuple.Pair.of(blockstate, blockpos$mutableblockpos.immutable());
+             }
+         }
+ 
+@@ -88,8 +_,12 @@
+     }
+ 
+     private static void renderWater(Minecraft p_110726_, PoseStack p_110727_) {
++        renderFluid(p_110726_, p_110727_, UNDERWATER_LOCATION);
++    }
++
++    public static void renderFluid(Minecraft p_110726_, PoseStack p_110727_, ResourceLocation texture) {
+         RenderSystem.setShader(GameRenderer::getPositionTexShader);
+-        RenderSystem.setShaderTexture(0, UNDERWATER_LOCATION);
++        RenderSystem.setShaderTexture(0, texture);
+         BlockPos blockpos = BlockPos.containing(p_110726_.player.getX(), p_110726_.player.getEyeY(), p_110726_.player.getZ());
+         float f = LightTexture.getBrightness(p_110726_.player.level().dimensionType(), p_110726_.player.level().getMaxLocalRawBrightness(blockpos));
+         RenderSystem.enableBlend();

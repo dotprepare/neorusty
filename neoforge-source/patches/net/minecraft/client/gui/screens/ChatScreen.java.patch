@@ -1,11 +1,14 @@
 --- a/net/minecraft/client/gui/screens/ChatScreen.java
 +++ b/net/minecraft/client/gui/screens/ChatScreen.java
-@@ -141,6 +_,8 @@
+@@ -89,7 +_,10 @@
+             return true;
+         } else if (p_95591_ == 257 || p_95591_ == 335) {
              this.handleChatInput(this.input.getValue(), true);
-             if (this.closeOnSubmit) {
-                 this.exitReason = ChatScreen.ExitReason.DONE;
-+                // Neo: Prevent closing the screen if another screen has been opened.
-+                if (this.minecraft.gui.screen() == this)
-                 this.minecraft.gui.setScreen(null);
-             } else {
-                 this.input.setValue("");
+-            this.minecraft.setScreen(null);
++            // FORGE: Prevent closing the screen if another screen has been opened.
++            if (minecraft.screen == this) {
++                this.minecraft.setScreen(null);
++            }
+             return true;
+         } else if (p_95591_ == 265) {
+             this.moveInHistory(-1);

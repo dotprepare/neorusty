@@ -1,3 +1,8 @@
 {
-  "values": []
+  "values": [
+    {
+      "id": "#forge:beetroot_soup",
+      "required": false
+    }
+  ]
 }

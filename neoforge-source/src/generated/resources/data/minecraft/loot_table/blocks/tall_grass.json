@@ -2,6 +2,7 @@
   "type": "minecraft:block",
   "pools": [
     {
+      "bonus_rolls": 0.0,
       "conditions": [
         {
           "block": "minecraft:tall_grass",
@@ -37,6 +38,7 @@
               ],
               "functions": [
                 {
+                  "add": false,
                   "count": 2.0,
                   "function": "minecraft:set_count"
                 }
@@ -62,6 +64,7 @@
       "rolls": 1.0
     },
     {
+      "bonus_rolls": 0.0,
       "conditions": [
         {
           "block": "minecraft:tall_grass",
@@ -97,6 +100,7 @@
               ],
               "functions": [
                 {
+                  "add": false,
                   "count": 2.0,
                   "function": "minecraft:set_count"
                 }

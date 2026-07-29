@@ -1,3 +1,8 @@
 {
-  "values": []
+  "values": [
+    {
+      "id": "#forge:mushroom_stew",
+      "required": false
+    }
+  ]
 }

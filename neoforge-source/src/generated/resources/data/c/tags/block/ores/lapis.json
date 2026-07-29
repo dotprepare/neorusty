@@ -1,5 +1,9 @@
 {
   "values": [
-    "#minecraft:lapis_ores"
+    "#minecraft:lapis_ores",
+    {
+      "id": "#forge:ores/lapis",
+      "required": false
+    }
   ]
 }

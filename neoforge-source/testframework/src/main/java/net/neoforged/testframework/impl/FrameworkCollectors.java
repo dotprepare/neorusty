@@ -9,6 +9,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.mojang.logging.LogUtils;
+import cpw.mods.modlauncher.api.LambdaExceptionUtils;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.invoke.MethodHandle;
@@ -26,12 +27,12 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.Event;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.modscan.ModAnnotation;
 import net.neoforged.neoforgespi.language.ModFileScanData;
 import net.neoforged.testframework.Test;
@@ -45,12 +46,12 @@ import net.neoforged.testframework.impl.test.MethodBasedEventTest;
 import net.neoforged.testframework.impl.test.MethodBasedGameTestTest;
 import net.neoforged.testframework.impl.test.MethodBasedTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 
 public final class FrameworkCollectors {
     private static final Predicate<ModFileScanData.AnnotationData> SIDE_FILTER = data -> {
-        final Dist current = FMLEnvironment.getDist();
+        final Dist current = FMLLoader.getDist();
         Object sidesValue = data.annotationData().get("side");
         if (sidesValue == null) sidesValue = data.annotationData().get("dist");
         if (sidesValue == null) return true;
@@ -64,14 +65,10 @@ public final class FrameworkCollectors {
             final Type annType = Type.getType(annotation);
             return container.getModInfo().getOwningFile().getFile().getScanResult()
                     .getAnnotations().stream().filter(it -> annType.equals(it.annotationType()) && it.targetType() == ElementType.TYPE && SIDE_FILTER.test(it))
-                    .map(annotationData -> {
-                        try {
-                            final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
-                            return (Test) clazz.getDeclaredConstructor().newInstance();
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    }).toList();
+                    .map(LambdaExceptionUtils.rethrowFunction(annotationData -> {
+                        final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
+                        return (Test) clazz.getDeclaredConstructor().newInstance();
+                    })).toList();
         }
 
         public static List<Test> forMethodsWithAnnotation(ModContainer container, Class<? extends Annotation> annotation) {
@@ -98,13 +95,13 @@ public final class FrameworkCollectors {
                         LogUtils.getLogger().warn("Attempted to register method-based gametest test on non-static method: " + method);
                         return false;
                     })
-                    .<Test>map(method -> {
+                    .<Test>map(LambdaExceptionUtils.rethrowFunction(method -> {
                         if (method.getParameterTypes()[0].isAssignableFrom(ExtendedGameTestHelper.class)) {
                             return new MethodBasedGameTestTest(method, ExtendedGameTestHelper.class);
                         }
 
                         return new MethodBasedGameTestTest(method, (Class<? extends GameTestHelper>) method.getParameterTypes()[0]);
-                    }).toList();
+                    })).toList();
         }
 
         public static List<Test> eventTestMethodsWithAnnotation(ModContainer container, Class<? extends Annotation> annotation) {
@@ -129,7 +126,7 @@ public final class FrameworkCollectors {
         final SetMultimap<OnInit.Stage, Consumer<MutableTestFramework>> set = Multimaps.newSetMultimap(new EnumMap<>(OnInit.Stage.class), HashSet::new);
         findMethodsWithAnnotation(container, d -> true, OnInit.class)
                 .filter(method -> Modifier.isStatic(method.getModifiers()) && method.getParameterTypes().length == 1 && method.getParameterTypes()[0].isAssignableFrom(TestFrameworkImpl.class))
-                .forEach(method -> {
+                .forEach(LambdaExceptionUtils.rethrowConsumer(method -> {
                     final MethodHandle handle = ReflectionUtils.handle(method);
                     set.put(method.getAnnotation(OnInit.class).value(), framework -> {
                         try {
@@ -138,7 +135,7 @@ public final class FrameworkCollectors {
                             throw new RuntimeException(throwable);
                         }
                     });
-                });
+                }));
         return set;
     }
 
@@ -147,24 +144,18 @@ public final class FrameworkCollectors {
      * either a {@link StructureTemplate}, a {@link Supplier} of {@linkplain StructureTemplate} or a {@link StructureTemplateBuilder},
      * annotated with {@link RegisterStructureTemplate}.
      */
-    public static void templatesWithAnnotation(final ModContainer container, BiConsumer<Identifier, Supplier<StructureTemplate>> acceptor) {
+    public static void templatesWithAnnotation(final ModContainer container, BiConsumer<ResourceLocation, Supplier<StructureTemplate>> acceptor) {
         final Type regStrTemplate = Type.getType(RegisterStructureTemplate.class);
         container.getModInfo().getOwningFile().getFile().getScanResult()
                 .getAnnotations().stream()
                 .filter(it -> it.targetType() == ElementType.FIELD && it.annotationType().equals(regStrTemplate))
-                .map(data -> {
-                    try {
-                        return Class.forName(data.clazz().getClassName()).getDeclaredField(data.memberName());
-                    } catch (NoSuchFieldException | ClassNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
+                .map(LambdaExceptionUtils.rethrowFunction(data -> Class.forName(data.clazz().getClassName()).getDeclaredField(data.memberName())))
                 .filter(it -> Modifier.isStatic(it.getModifiers()) && (StructureTemplate.class.isAssignableFrom(it.getType()) || Supplier.class.isAssignableFrom(it.getType())))
                 .forEach(field -> {
                     try {
                         final Object obj = ReflectionUtils.fieldHandle(field).invoke();
                         final var annotation = field.getAnnotation(RegisterStructureTemplate.class);
-                        final Identifier id = Identifier.parse(annotation.value());
+                        final ResourceLocation id = ResourceLocation.parse(annotation.value());
                         if (obj instanceof StructureTemplate template) {
                             acceptor.accept(id, () -> template);
                         } else if (obj instanceof Supplier<?> supplier) {
@@ -186,20 +177,16 @@ public final class FrameworkCollectors {
         final Type asmType = Type.getType(TestGroup.class);
         container.getModInfo().getOwningFile().getFile().getScanResult()
                 .getAnnotations().stream().filter(it -> asmType.equals(it.annotationType()))
-                .forEach(annotationData -> {
-                    try {
-                        final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
-                        final Field field = clazz.getDeclaredField(annotationData.memberName());
-                        final String groupId = (String) field.get(null);
-                        final var annotation = field.getAnnotation(TestGroup.class);
-                        consumer.accept(new GroupData(
-                                groupId, Component.literal(annotation.name()),
-                                annotation.enabledByDefault(),
-                                annotation.parents()));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                .forEach(LambdaExceptionUtils.rethrowConsumer(annotationData -> {
+                    final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
+                    final Field field = clazz.getDeclaredField(annotationData.memberName());
+                    final String groupId = (String) field.get(null);
+                    final var annotation = field.getAnnotation(TestGroup.class);
+                    consumer.accept(new GroupData(
+                            groupId, Component.literal(annotation.name()),
+                            annotation.enabledByDefault(),
+                            annotation.parents()));
+                }));
     }
 
     public static Stream<Method> findMethodsWithAnnotation(ModContainer container, Predicate<ModFileScanData.AnnotationData> annotationPredicate, Class<? extends Annotation> annotation) {
@@ -215,15 +202,11 @@ public final class FrameworkCollectors {
         return container.getModInfo().getOwningFile().getFile().getScanResult()
                 .getAnnotations().stream().filter(it -> annType.equals(it.annotationType()) && it.targetType() == ElementType.METHOD && annotationPredicate.test(it))
                 .filter(it -> !excludedSides.contains(it.clazz().getClassName()))
-                .map(annotationData -> {
-                    try {
-                        final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
-                        final String methodName = annotationData.memberName().substring(0, annotationData.memberName().indexOf("("));
-                        return ReflectionUtils.methodMatching(clazz, it -> it.getName().equals(methodName) && it.getAnnotation(annotation) != null);
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                .map(LambdaExceptionUtils.rethrowFunction(annotationData -> {
+                    final Class<?> clazz = Class.forName(annotationData.clazz().getClassName());
+                    final String methodName = annotationData.memberName().substring(0, annotationData.memberName().indexOf("("));
+                    return ReflectionUtils.methodMatching(clazz, it -> it.getName().equals(methodName) && it.getAnnotation(annotation) != null);
+                }));
     }
 
     public record GroupData(String id, @Nullable Component title, boolean isEnabledByDefault, String[] parents) {}

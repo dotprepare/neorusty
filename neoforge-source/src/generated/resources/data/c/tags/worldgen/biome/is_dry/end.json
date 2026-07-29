@@ -4,6 +4,10 @@
     "minecraft:small_end_islands",
     "minecraft:end_midlands",
     "minecraft:end_highlands",
-    "minecraft:end_barrens"
+    "minecraft:end_barrens",
+    {
+      "id": "#forge:is_dry/end",
+      "required": false
+    }
   ]
 }

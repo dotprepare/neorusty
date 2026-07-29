@@ -6,11 +6,8 @@
 package net.neoforged.neoforge.resource;
 
 import com.google.common.collect.Sets;
-import com.google.gson.JsonParseException;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +27,6 @@ import net.minecraft.SharedConstants;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.server.packs.FeatureFlagsMetadataSection;
-import net.minecraft.server.packs.FilePackResources;
 import net.minecraft.server.packs.OverlayMetadataSection;
 import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.PackResources;
@@ -38,7 +34,6 @@ import net.minecraft.server.packs.PackSelectionConfig;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.PathPackResources;
 import net.minecraft.server.packs.metadata.MetadataSectionType;
-import net.minecraft.server.packs.metadata.pack.PackFormat;
 import net.minecraft.server.packs.metadata.pack.PackMetadataSection;
 import net.minecraft.server.packs.repository.KnownPack;
 import net.minecraft.server.packs.repository.Pack;
@@ -51,9 +46,6 @@ import net.minecraft.world.flag.FeatureFlagSet;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.ModLoadingIssue;
-import net.neoforged.fml.jarcontents.FolderJarContents;
-import net.neoforged.fml.jarcontents.JarContents;
-import net.neoforged.fml.jarcontents.JarFileContents;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforgespi.language.IModFileInfo;
 import net.neoforged.neoforgespi.language.IModInfo;
@@ -85,7 +77,7 @@ public class ResourcePackLoader {
     private synchronized static void findResourcePacks() {
         if (modResourcePacks == null) {
             modResourcePacks = ModList.get().getModFiles().stream()
-                    .filter(mfi -> hasResourcePack(mfi.getFile()))
+                    .filter(mf -> mf.requiredLanguageLoaders().stream().noneMatch(ls -> ls.languageName().equals("minecraft")))
                     .map(mf -> Pair.of(mf, createPackForMod(mf)))
                     .collect(Collectors.toMap(p -> p.getFirst().getFile(), Pair::getSecond, (u, v) -> {
                         throw new IllegalStateException(String.format(Locale.ENGLISH, "Duplicate key %s", u));
@@ -100,11 +92,8 @@ public class ResourcePackLoader {
     private static void packFinder(Map<IModFile, Pack.ResourcesSupplier> modResourcePacks, Consumer<Pack> packAcceptor, PackType packType) {
         var hiddenPacks = new ArrayList<Pack>();
         for (Map.Entry<IModFile, Pack.ResourcesSupplier> e : modResourcePacks.entrySet()) {
-            var modFile = e.getKey();
-            if (!hasResourcePack(e.getKey())) {
-                continue;
-            }
-            var modFileInfo = modFile.getModFileInfo();
+            IModInfo mod = e.getKey().getModInfos().get(0);
+            if ("minecraft".equals(mod.getModId())) continue; // skip the minecraft "mod"
             final String name = "mod/" + e.getKey().getModInfos().stream().map(IModInfo::getModId).collect(Collectors.joining(","));
             final String version = e.getKey().getModInfos().stream().map(IModInfo::getVersion).map(ArtifactVersion::toString).collect(Collectors.joining(","));
             final String packName = e.getKey().getFileName();
@@ -116,7 +105,7 @@ public class ResourcePackLoader {
                         PackSource.DEFAULT,
                         Optional.of(new KnownPack("neoforge", name, version)));
 
-                final boolean isRequired = (packType == PackType.CLIENT_RESOURCES && modFileInfo.showAsResourcePack()) || (packType == PackType.SERVER_DATA && modFileInfo.showAsDataPack());
+                final boolean isRequired = (packType == PackType.CLIENT_RESOURCES && mod.getOwningFile().showAsResourcePack()) || (packType == PackType.SERVER_DATA && mod.getOwningFile().showAsDataPack());
                 final Pack modPack;
                 // Packs displayed separately must be valid
                 if (isRequired) {
@@ -127,7 +116,7 @@ public class ResourcePackLoader {
                             MOD_PACK_SELECTION_CONFIG);
 
                     if (modPack == null) {
-                        ModLoader.addLoadingIssue(ModLoadingIssue.warning("fml.modloadingissue.brokenresources", e.getKey()).withAffectedModFile(modFile));
+                        ModLoader.addLoadingIssue(ModLoadingIssue.warning("fml.modloading.brokenresources", e.getKey()).withAffectedMod(mod));
                         continue;
                     }
                 } else {
@@ -144,46 +133,20 @@ public class ResourcePackLoader {
                     hiddenPacks.add(modPack.hidden());
                 }
             } catch (IOException exception) {
-                LOGGER.error("Failed to read pack.mcmeta file of {}", modFile, exception);
-                ModLoader.addLoadingIssue(ModLoadingIssue.warning("fml.modloadingissue.brokenresources", e.getKey()).withAffectedModFile(modFile).withCause(exception));
+                LOGGER.error("Failed to read pack.mcmeta file of mod {}", mod.getModId(), exception);
+                ModLoader.addLoadingIssue(ModLoadingIssue.warning("fml.modloading.brokenresources", e.getKey()).withAffectedMod(mod).withCause(exception));
             }
         }
 
         packAcceptor.accept(makePack(packType, hiddenPacks));
     }
 
-    private static final InclusiveRange<PackFormat> UNLIMITED_SUPPORT = new InclusiveRange<>(new PackFormat(0, 0), new PackFormat(Integer.MAX_VALUE, Integer.MAX_VALUE));
-    private static final MetadataSectionType<PackMetadataSection> OPTIONAL_CLIENT_FORMAT = new MetadataSectionType<>("pack", metadataCodecForPackType(PackType.CLIENT_RESOURCES));
-    private static final MetadataSectionType<PackMetadataSection> OPTIONAL_SERVER_FORMAT = new MetadataSectionType<>("pack", metadataCodecForPackType(PackType.SERVER_DATA));
-
-    private static Codec<PackMetadataSection> metadataCodecForPackType(PackType type) {
-        int lastPreMinor = PackFormat.lastPreMinorVersion(type);
-        MapCodec<InclusiveRange<PackFormat>> formatCodec = PackFormat.IntermediaryFormat.PACK_CODEC.flatXmap(
-                intermediary -> {
-                    if (intermediary.min().isEmpty() && intermediary.max().isEmpty() && intermediary.format().isEmpty() && intermediary.supported().isEmpty()) {
-                        return DataResult.success(UNLIMITED_SUPPORT);
-                    }
-                    return intermediary.validate(lastPreMinor, true, false, "Pack", "supported_formats");
-                },
-                range -> {
-                    if (range.equals(UNLIMITED_SUPPORT)) {
-                        return DataResult.success(new PackFormat.IntermediaryFormat(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-                    }
-                    return DataResult.success(PackFormat.IntermediaryFormat.fromRange(range, lastPreMinor));
-                });
-        return RecordCodecBuilder.create(
-                in -> in.group(
-                        ComponentSerialization.CODEC.optionalFieldOf("description", Component.empty()).forGetter(PackMetadataSection::description),
-                        formatCodec.forGetter(PackMetadataSection::supportedFormats))
-                        .apply(in, PackMetadataSection::new));
-    }
-
-    private static MetadataSectionType<PackMetadataSection> metadataTypeForPackType(PackType type) {
-        return switch (type) {
-            case CLIENT_RESOURCES -> OPTIONAL_CLIENT_FORMAT;
-            case SERVER_DATA -> OPTIONAL_SERVER_FORMAT;
-        };
-    }
+    public static final MetadataSectionType<PackMetadataSection> OPTIONAL_FORMAT = MetadataSectionType.fromCodec("pack", RecordCodecBuilder.create(
+            in -> in.group(
+                    ComponentSerialization.CODEC.optionalFieldOf("description", Component.empty()).forGetter(PackMetadataSection::description),
+                    Codec.INT.optionalFieldOf("pack_format", -1).forGetter(PackMetadataSection::packFormat),
+                    InclusiveRange.codec(Codec.INT).optionalFieldOf("supported_formats").forGetter(PackMetadataSection::supportedFormats))
+                    .apply(in, PackMetadataSection::new)));
 
     public static Pack readWithOptionalMeta(
             PackLocationInfo location,
@@ -195,27 +158,19 @@ public class ResourcePackLoader {
     }
 
     private static Pack.Metadata readMeta(PackType type, PackLocationInfo location, Pack.ResourcesSupplier resources) throws IOException {
-        final PackFormat currentVersion = SharedConstants.getCurrentVersion().packVersion(type);
+        final int currentVersion = SharedConstants.getCurrentVersion().getPackVersion(type);
         try (final PackResources primaryResources = resources.openPrimary(location)) {
-            PackMetadataSection metadata;
-            try {
-                metadata = primaryResources.getMetadataSection(metadataTypeForPackType(type));
-            } catch (JsonParseException exception) {
-                LOGGER.warn("Error reading optional pack metadata for {}, attempting fallback type", location.id(), exception);
-                metadata = primaryResources.getMetadataSection(PackMetadataSection.FALLBACK_TYPE);
-            }
+            final PackMetadataSection metadata = primaryResources.getMetadataSection(OPTIONAL_FORMAT);
 
             final FeatureFlagSet flags = Optional.ofNullable(primaryResources.getMetadataSection(FeatureFlagsMetadataSection.TYPE))
                     .map(FeatureFlagsMetadataSection::flags)
                     .orElse(FeatureFlagSet.of());
 
-            MetadataSectionType<OverlayMetadataSection> vanillaOverlayType = OverlayMetadataSection.forPackType(type);
-            final List<String> vanillaOverlays = Optional.ofNullable(primaryResources.getMetadataSection(vanillaOverlayType))
+            final List<String> vanillaOverlays = Optional.ofNullable(primaryResources.getMetadataSection(OverlayMetadataSection.TYPE))
                     .map(section -> section.overlaysForVersion(currentVersion))
                     .orElse(List.of());
 
-            MetadataSectionType<OverlayMetadataSection> neoOverlayType = OverlayMetadataSection.forPackTypeNeoForge(type);
-            final List<String> neoOverlays = Optional.ofNullable(primaryResources.getMetadataSection(neoOverlayType))
+            final List<String> neoOverlays = Optional.ofNullable(primaryResources.getMetadataSection(OverlayMetadataSection.NEOFORGE_TYPE))
                     .map(section -> section.overlaysForVersion(currentVersion))
                     .orElse(List.of());
 
@@ -228,10 +183,10 @@ public class ResourcePackLoader {
             }
 
             final PackCompatibility compatibility;
-            if (metadata.supportedFormats().equals(UNLIMITED_SUPPORT)) {
+            if (metadata.packFormat() == -1 && metadata.supportedFormats().isEmpty()) {
                 compatibility = PackCompatibility.COMPATIBLE;
             } else {
-                compatibility = PackCompatibility.forVersion(metadata.supportedFormats(), currentVersion);
+                compatibility = PackCompatibility.forVersion(Pack.getDeclaredPackVersions(location.id(), metadata), currentVersion);
             }
             return new Pack.Metadata(metadata.description(), compatibility, flags, overlays, primaryResources.isHidden());
         }
@@ -244,38 +199,24 @@ public class ResourcePackLoader {
         return Pack.readMetaAndCreate(
                 new PackLocationInfo(id, Component.literal(name), PackSource.DEFAULT, Optional.empty()),
                 new EmptyPackResources.EmptyResourcesSupplier(new PackMetadataSection(Component.translatable(descriptionKey, hiddenPacks.size()),
-                        new InclusiveRange<>(SharedConstants.getCurrentVersion().packVersion(packType)))),
+                        SharedConstants.getCurrentVersion().getPackVersion(packType))),
                 packType,
                 new PackSelectionConfig(true, Pack.Position.TOP, false)).withChildren(hiddenPacks);
     }
 
     public static Pack.ResourcesSupplier createPackForMod(IModFileInfo mf) {
-        return createPackForJarContents(mf.getFile().getContents());
-    }
-
-    public static Pack.ResourcesSupplier createPackForJarContents(JarContents contents) {
-        return switch (contents) {
-            case FolderJarContents folderJarContents -> new PathPackResources.PathResourcesSupplier(folderJarContents.getPrimaryPath());
-            case JarFileContents jarFileContents -> new FilePackResources.FileResourcesSupplier(jarFileContents.getPrimaryPath());
-            default -> new JarContentsPackResources.JarContentsResourcesSupplier(contents);
-        };
+        return new PathPackResources.PathResourcesSupplier(mf.getFile().getSecureJar().getRootPath());
     }
 
     public static List<String> getPackNames(PackType packType) {
         List<String> ids = new ArrayList<>();
-        ids.addAll(ModList.get().getModFiles().stream()
-                .filter(packType == PackType.CLIENT_RESOURCES ? IModFileInfo::showAsResourcePack : IModFileInfo::showAsDataPack)
+        ids.addAll(ModList.get().getModFiles().stream().filter(packType == PackType.CLIENT_RESOURCES ? IModFileInfo::showAsResourcePack : IModFileInfo::showAsDataPack)
+                .filter(mf -> mf.requiredLanguageLoaders().stream().noneMatch(ls -> ls.languageName().equals("minecraft")))
                 .map(IModFileInfo::getFile)
-                .filter(ResourcePackLoader::hasResourcePack)
                 .map(mf -> "mod/" + mf.getModInfos().stream().map(IModInfo::getModId).collect(Collectors.joining()))
                 .toList());
         ids.add(packType == PackType.CLIENT_RESOURCES ? MOD_RESOURCES_ID : MOD_DATA_ID);
         return ids;
-    }
-
-    private static boolean hasResourcePack(IModFile mf) {
-        // Vanilla resources are already considered, so don't create another entry for the Minecraft mod-file
-        return mf.getModInfos().stream().noneMatch(m -> "minecraft".equals(m.getModId()));
     }
 
     /*

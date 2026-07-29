@@ -9,34 +9,36 @@ import com.mojang.authlib.GameProfile;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.server.PlayerAdvancements;
-import net.minecraft.server.players.PlayerList;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
-import net.neoforged.testframework.gametest.GameTest;
 
 @ForEachTest(groups = PlayerTests.GROUP + ".fakeplayer")
 public class FakePlayerTests {
     @GameTest
     @EmptyTemplate
-    @TestHolder(description = "Tests that FakePlayer does not leak PlayerAdvancements entries in the cache (#1487)")
+    @TestHolder(description = "Tests that FakePlayer does not leak CriteriaTrigger listener entries (#1487)")
     static void fakePlayerAdvancementsDoNotLeak(final ExtendedGameTestHelper helper) {
-        var level = helper.getLevel();
-        int sizeBefore = getAdvancementsCacheSize(level.getServer().getPlayerList());
+        var trigger = CriteriaTriggers.TICK;
+        int sizeBefore = getListenerCount(trigger);
 
+        var level = helper.getLevel();
         for (int i = 0; i < 10; i++) {
             FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "Fake" + i));
         }
 
-        int sizeAfter = getAdvancementsCacheSize(level.getServer().getPlayerList());
+        int sizeAfter = getListenerCount(trigger);
 
         helper.assertTrue(
                 sizeAfter == sizeBefore,
-                "PlayerList advancements cache grew from " + sizeBefore + " to " + sizeAfter + " after creating 10 fake players");
+                "CriteriaTrigger listener count grew from " + sizeBefore + " to " + sizeAfter + " after creating 10 fake players");
 
         helper.succeed();
     }
@@ -58,11 +60,11 @@ public class FakePlayerTests {
     }
 
     @SuppressWarnings("unchecked")
-    private static int getAdvancementsCacheSize(PlayerList playerList) {
+    private static int getListenerCount(SimpleCriterionTrigger<?> trigger) {
         try {
-            Field field = PlayerList.class.getDeclaredField("advancements");
+            Field field = SimpleCriterionTrigger.class.getDeclaredField("players");
             field.setAccessible(true);
-            return ((Map<UUID, PlayerAdvancements>) field.get(playerList)).size();
+            return ((Map<PlayerAdvancements, ?>) field.get(trigger)).size();
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }

@@ -7,7 +7,6 @@ package net.neoforged.neoforge.registries.datamaps;
 
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
 import java.util.Optional;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
@@ -50,7 +49,7 @@ public interface DataMapValueRemover<R, T> {
         }
 
         public static <T, R> Codec<Default<T, R>> codec() {
-            return MapCodec.unitCodec(defaultRemover());
+            return Codec.unit(defaultRemover());
         }
 
         private Default() {}

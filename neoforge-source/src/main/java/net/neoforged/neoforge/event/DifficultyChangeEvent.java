@@ -15,6 +15,8 @@ import net.neoforged.neoforge.common.NeoForge;
  * <br>
  * This event is fired via the {@link CommonHooks#onDifficultyChange(Difficulty, Difficulty)}.<br>
  * <br>
+ * This event does not have a result. {@link HasResult}<br>
+ * <br>
  * This event is fired on the {@link NeoForge#EVENT_BUS}.
  **/
 public class DifficultyChangeEvent extends Event {

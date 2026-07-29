@@ -21,11 +21,10 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.gametest.framework.GameTestServer;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.random.Weighted;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.level.biome.Biome;
@@ -35,8 +34,10 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.fml.config.ConfigTracker;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.LogicalSidedProvider;
 import net.neoforged.neoforge.common.world.BiomeModifier;
 import net.neoforged.neoforge.common.world.StructureModifier;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
@@ -44,6 +45,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.gametest.GameTestHooks;
 import net.neoforged.neoforge.mixins.MappedRegistryAccessor;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.neoforge.registries.NeoForgeRegistries.Keys;
@@ -52,7 +54,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class ServerLifecycleHooks {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -90,14 +92,18 @@ public class ServerLifecycleHooks {
     public static void handleServerAboutToStart(final MinecraftServer server) {
         currentServer = server;
         // on the dedi server we need to force the stuff to setup properly
+        LogicalSidedProvider.setServer(() -> server);
         ConfigTracker.INSTANCE.loadConfigs(ModConfig.Type.SERVER, FMLPaths.CONFIGDIR.get(), getServerConfigPath(server));
         runModifiers(server);
         NeoForge.EVENT_BUS.post(new ServerAboutToStartEvent(server));
     }
 
     public static void handleServerStarting(final MinecraftServer server) {
-        if (FMLEnvironment.getDist().isDedicatedServer()) {
+        if (FMLEnvironment.dist.isDedicatedServer()) {
             LanguageHook.loadModLanguages(server);
+            // GameTestServer requires the gametests to be registered earlier, so it is done in main and should not be done twice.
+            if (!(server instanceof GameTestServer))
+                GameTestHooks.registerGametests();
         }
         PermissionAPI.initializePermissionAPI();
         NeoForge.EVENT_BUS.post(new ServerStartingEvent(server));
@@ -118,6 +124,7 @@ public class ServerLifecycleHooks {
     public static void handleServerStopped(final MinecraftServer server) {
         NeoForge.EVENT_BUS.post(new ServerStoppedEvent(server));
         currentServer = null;
+        LogicalSidedProvider.setServer(null);
         CountDownLatch latch = exitLatch;
 
         if (latch != null) {
@@ -152,20 +159,20 @@ public class ServerLifecycleHooks {
         final RegistryAccess registries = server.registryAccess();
 
         // The order of holders() is the order modifiers were loaded in.
-        final List<BiomeModifier> biomeModifiers = registries.lookupOrThrow(NeoForgeRegistries.Keys.BIOME_MODIFIERS)
-                .listElements()
+        final List<BiomeModifier> biomeModifiers = registries.registryOrThrow(NeoForgeRegistries.Keys.BIOME_MODIFIERS)
+                .holders()
                 .map(Holder::value)
                 .toList();
-        final List<StructureModifier> structureModifiers = registries.lookupOrThrow(Keys.STRUCTURE_MODIFIERS)
-                .listElements()
+        final List<StructureModifier> structureModifiers = registries.registryOrThrow(Keys.STRUCTURE_MODIFIERS)
+                .holders()
                 .map(Holder::value)
                 .toList();
 
         final Set<EntityType<?>> entitiesWithoutPlacements = new HashSet<>();
 
         // Apply sorted biome modifiers to each biome.
-        final var biomeRegistry = registries.lookupOrThrow(Registries.BIOME);
-        biomeRegistry.listElements().forEach(biomeHolder -> {
+        final var biomeRegistry = registries.registryOrThrow(Registries.BIOME);
+        biomeRegistry.holders().forEach(biomeHolder -> {
             final Biome biome = biomeHolder.value();
             ensureProperSync(
                     biome.modifiableBiomeInfo()
@@ -176,42 +183,41 @@ public class ServerLifecycleHooks {
             final MobSpawnSettings mobSettings = biome.getMobSettings();
             mobSettings.getSpawnerTypes().forEach(category -> {
                 mobSettings.getMobs(category).unwrap().forEach(data -> {
-                    if (SpawnPlacements.hasPlacement(data.value().type()))
-                        return;
-                    entitiesWithoutPlacements.add(data.value().type());
+                    if (SpawnPlacements.hasPlacement(data.type)) return;
+                    entitiesWithoutPlacements.add(data.type);
                 });
             });
 
             for (MobCategory mobCategory : mobSettings.getSpawnerTypes()) {
-                for (Weighted<MobSpawnSettings.SpawnerData> spawnerData : mobSettings.getMobs(mobCategory).unwrap()) {
-                    if (spawnerData.value().type().getCategory() != mobCategory) {
+                for (MobSpawnSettings.SpawnerData spawnerData : mobSettings.getMobs(mobCategory).unwrap()) {
+                    if (spawnerData.type.getCategory() != mobCategory) {
                         // Ignore vanilla bugged entries to reduce unneeded logging. See https://bugs.mojang.com/browse/MC-1788 for the Ocelot/Jungle vanilla bug.
-                        boolean isVanillaBug = spawnerData.value().type() == EntityTypes.OCELOT && (biomeHolder.is(Biomes.JUNGLE) || biomeHolder.is(Biomes.BAMBOO_JUNGLE));
+                        boolean isVanillaBug = spawnerData.type == EntityType.OCELOT && (biomeHolder.is(Biomes.JUNGLE) || biomeHolder.is(Biomes.BAMBOO_JUNGLE));
                         if (!isVanillaBug) {
                             LOGGER.warn("Detected {} that was registered with {} mob category but was added under {} mob category for {} biome! " +
                                     "Mobs should be added to biomes under the same mob category that the mob was registered as to prevent mob cap spawning issues.",
-                                    BuiltInRegistries.ENTITY_TYPE.getKey(spawnerData.value().type()),
-                                    spawnerData.value().type().getCategory(),
+                                    BuiltInRegistries.ENTITY_TYPE.getKey(spawnerData.type),
+                                    spawnerData.type.getCategory(),
                                     mobCategory,
-                                    biomeHolder.getKey().identifier());
+                                    biomeHolder.getKey().location());
                         }
                     }
                 }
             }
         });
         // Rebuild the indexed feature list
-        registries.lookupOrThrow(Registries.LEVEL_STEM).forEach(levelStem -> {
+        registries.registryOrThrow(Registries.LEVEL_STEM).forEach(levelStem -> {
             levelStem.generator().refreshFeaturesPerStep();
         });
 
         // Apply sorted structure modifiers to each structure.
-        registries.lookupOrThrow(Registries.STRUCTURE).listElements().forEach(structureHolder -> {
+        registries.registryOrThrow(Registries.STRUCTURE).holders().forEach(structureHolder -> {
             structureHolder.value().modifiableStructureInfo().applyStructureModifiers(structureHolder, structureModifiers);
         });
 
-        if (!entitiesWithoutPlacements.isEmpty() && !FMLEnvironment.isProduction()) {
+        if (!entitiesWithoutPlacements.isEmpty() && !FMLLoader.isProduction()) {
             LOGGER.error("The following entities have not registered to the RegisterSpawnPlacementsEvent, but a spawn entry was found. This will mean that the entity doesn't have restrictions on its spawn location, please register a spawn placement for the entity, you can register with NO_RESTRICTIONS if you don't want any restrictions."
-                    + entitiesWithoutPlacements.stream().map(EntityType::getKey).map(Identifier::toString).collect(Collectors.joining("\n\t - ", "\n\t - ", "")));
+                    + entitiesWithoutPlacements.stream().map(EntityType::getKey).map(ResourceLocation::toString).collect(Collectors.joining("\n\t - ", "\n\t - ", "")));
         }
     }
 }

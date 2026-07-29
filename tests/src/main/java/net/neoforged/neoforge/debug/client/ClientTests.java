@@ -7,44 +7,29 @@ package net.neoforged.neoforge.debug.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.sound.sampled.AudioFormat;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.resources.model.EquipmentClientInfo;
 import net.minecraft.client.resources.sounds.AbstractSoundInstance;
 import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.client.event.ClientChatEvent;
-import net.neoforged.neoforge.client.event.ClientResourceLoadFinishedEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
-import net.neoforged.neoforge.client.event.lifecycle.ClientStartedEvent;
-import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.common.data.LanguageProvider;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
@@ -68,10 +53,10 @@ public class ClientTests {
         // these are two separate keys to stand in for keys added by different
         // mods that each do something similar with a held item from the
         // respective mod, so the user wants them on the same physical key.
-        final KeyMapping stickKey = new KeyMapping("stick_key", InputConstants.KEY_BACKSLASH, KeyMapping.Category.MISC);
-        final KeyMapping rockKey = new KeyMapping("rock_key", InputConstants.KEY_BACKSLASH, KeyMapping.Category.MISC);
+        final KeyMapping stickKey = new KeyMapping("stick_key", InputConstants.KEY_BACKSLASH, KeyMapping.CATEGORY_MISC);
+        final KeyMapping rockKey = new KeyMapping("rock_key", InputConstants.KEY_BACKSLASH, KeyMapping.CATEGORY_MISC);
 
-        test.registrationHelper().clientProvider(LanguageProvider.class, lang -> {
+        test.registrationHelper().provider(LanguageProvider.class, lang -> {
             lang.add(stickKey.getName(), "Stick key");
             lang.add(rockKey.getName(), "Rock key");
         });
@@ -85,69 +70,31 @@ public class ClientTests {
             if (stickKey.consumeClick()) {
                 Player player = Minecraft.getInstance().player;
                 if (player != null && player.getMainHandItem().is(Items.STICK)) {
-                    Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.literal("stick found!"));
+                    player.sendSystemMessage(Component.literal("stick found!"));
                     test.pass();
                 }
             }
             if (rockKey.consumeClick()) {
                 Player player = Minecraft.getInstance().player;
                 if (player != null && player.getMainHandItem().is(Items.COBBLESTONE)) {
-                    Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.literal("rock found!"));
+                    player.sendSystemMessage(Component.literal("rock found!"));
                     test.pass();
                 }
             }
         });
     }
 
-    @TestHolder(description = "Tests that custom key mapping categories and their sorting works correctly", enabledByDefault = true)
-    static void keyMappingCategoriesTest(final DynamicTest test) {
-        KeyMapping.Category categoryOne = new KeyMapping.Category(Identifier.fromNamespaceAndPath(test.createModId(), "test_category_1"));
-        KeyMapping.Category categoryTwo = new KeyMapping.Category(Identifier.fromNamespaceAndPath(test.createModId(), "test_category_2"));
-        KeyMapping.Category categoryThree = new KeyMapping.Category(Identifier.fromNamespaceAndPath(test.createModId(), "test_category_3"));
-
-        List<KeyMapping.Category> categories = ObfuscationReflectionHelper.getPrivateValue(KeyMapping.Category.class, null, "SORT_ORDER");
-        Objects.requireNonNull(categories);
-
-        List<KeyMapping.Category> vanillaCategories = List.copyOf(categories);
-
-        test.framework().modEventBus().addListener((final RegisterKeyMappingsEvent event) -> {
-            event.registerCategory(categoryOne);
-            event.registerCategory(categoryThree);
-            event.registerCategory(categoryTwo);
-        });
-
-        test.eventListeners().forge().addListener((final ClientStartedEvent event) -> {
-            List<KeyMapping.Category> sortedVanillaCategories = categories.stream()
-                    .filter(cat -> cat.id().getNamespace().equals("minecraft"))
-                    .toList();
-            if (!sortedVanillaCategories.equals(vanillaCategories)) {
-                test.fail("Expected vanilla category order to be retained through sorting");
-                return;
-            }
-
-            if (categories.indexOf(categoryOne) < categories.indexOf(KeyMapping.Category.SPECTATOR)) {
-                test.fail("Expected custom categories after vanilla categories");
-                return;
-            }
-            if (categories.indexOf(categoryTwo) > categories.indexOf(categoryThree)) {
-                test.fail("Expected 'test_category_2' before 'test_category_3' due to lexicographical sorting");
-                return;
-            }
-            test.pass();
-        });
-    }
-
     @TestHolder(description = "Tests that the NamespacedDirectoryLister only collects resources from the specified namespace", enabledByDefault = true)
     static void namespacedDirectoryListerTest(final DynamicTest test) {
-        final Identifier MUST_BE_PRESENT = Identifier.fromNamespaceAndPath("neotests_dir_list_present", "test/dir_list_test_present");
-        final Identifier MUST_BE_ABSENT = Identifier.fromNamespaceAndPath("neotests_dir_list_absent", "test/dir_list_test_absent");
+        final ResourceLocation MUST_BE_PRESENT = ResourceLocation.fromNamespaceAndPath("neotests_dir_list_present", "test/dir_list_test_present");
+        final ResourceLocation MUST_BE_ABSENT = ResourceLocation.fromNamespaceAndPath("neotests_dir_list_absent", "test/dir_list_test_absent");
 
         test.framework().modEventBus().addListener((final TextureAtlasStitchedEvent event) -> {
             if (!event.getAtlas().location().equals(TextureAtlas.LOCATION_BLOCKS)) {
                 return;
             }
 
-            Identifier missing = MissingTextureAtlasSprite.getLocation();
+            ResourceLocation missing = MissingTextureAtlasSprite.getLocation();
             if (event.getAtlas().getSprite(MUST_BE_PRESENT).contents().name().equals(missing)) {
                 test.fail("dir_list_test_present.png must be present but returned the missing texture");
                 return;
@@ -160,60 +107,9 @@ public class ClientTests {
         });
     }
 
-    @TestHolder(description = "Tests that helmets with custom rendering work", enabledByDefault = true)
-    static void customHelmetRendering(final DynamicTest test) {
-        var item = test.registrationHelper().items().registerItem("neo_helmet", properties -> new Item(properties.equippable(EquipmentSlot.HEAD)));
-        test.framework().modEventBus().addListener((final RegisterClientExtensionsEvent event) -> {
-            event.registerItem(new IClientItemExtensions() {
-                @Override
-                public void renderFirstPersonOverlay(ItemStack stack, EquipmentSlot equipmentSlot, Player player, GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
-                    guiGraphics.blit(
-                            RenderPipelines.GUI_TEXTURED,
-                            Identifier.withDefaultNamespace("textures/block/stone.png"),
-                            0,
-                            0,
-                            0,
-                            0,
-                            guiGraphics.guiWidth(),
-                            guiGraphics.guiHeight(),
-                            guiGraphics.guiWidth(),
-                            guiGraphics.guiHeight(),
-                            -1);
-                }
-            }, item);
-        });
-        test.eventListeners().forge().addListener((final PlayerEvent.PlayerLoggedInEvent event) -> {
-            test.requestConfirmation(event.getEntity(), Component.literal("Does stone cover the screen when wearing the *_custom_helmet_rendering:neo_helmet?"));
-        });
-    }
-
-    @TestHolder(description = "Checks existence of enum and texture location", enabledByDefault = true)
-    static void customEquipmentLayerType(final DynamicTest test) {
-        test.eventListeners().forge().addListener((final ClientResourceLoadFinishedEvent event) -> {
-            var layerType = EquipmentClientInfo.LayerType.valueOf("NEOTESTS_LAYER_TYPE");
-            // Check serialized name uses slash
-            if (layerType.getSerializedName().contains(":")) {
-                test.fail(layerType.getSerializedName() + " should not contain a colon as part of its path");
-                return;
-            }
-
-            // Create fake equipment client info
-            var textureId = Identifier.fromNamespaceAndPath(test.createModId(), "equipment_texture_present");
-            var equipmentLayer = new EquipmentClientInfo.Layer(textureId);
-
-            // Check to see if texture is found
-            if (Minecraft.getInstance().getResourceManager().getResource(equipmentLayer.getTextureLocation(layerType)).isEmpty()) {
-                test.fail("Could not find " + textureId + " in " + equipmentLayer.getTextureLocation(layerType));
-                return;
-            }
-
-            test.pass();
-        });
-    }
-
     private static final class SineSound extends AbstractSoundInstance {
         SineSound(Vec3 position) {
-            super(Identifier.fromNamespaceAndPath("neotests_audio_stream_test", "sine_wave"), SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
+            super(ResourceLocation.fromNamespaceAndPath("neotests_audio_stream_test", "sine_wave"), SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
             x = position.x;
             y = position.y;
             z = position.z;

@@ -1,148 +1,143 @@
 --- a/net/minecraft/server/level/ServerPlayerGameMode.java
 +++ b/net/minecraft/server/level/ServerPlayerGameMode.java
-@@ -80,7 +_,10 @@
-         this.previousGameModeForPlayer = previousGameModeForPlayer;
-         this.gameModeForPlayer = gameModeForPlayer;
-         Abilities abilities = this.player.getAbilities();
+@@ -72,7 +_,10 @@
+     protected void setGameModeForPlayer(GameType p_9274_, @Nullable GameType p_9275_) {
+         this.previousGameModeForPlayer = p_9275_;
+         this.gameModeForPlayer = p_9274_;
 +        // Neo: preserve flying state, removed on tick if Attribute or ability no longer applies
-+        boolean wasFlying = abilities.flying;
-         gameModeForPlayer.updatePlayerAbilities(abilities);
-+        abilities.flying = wasFlying || abilities.flying;
++        boolean wasFlying = this.player.getAbilities().flying;
+         p_9274_.updatePlayerAbilities(this.player.getAbilities());
++        this.player.getAbilities().flying = wasFlying || this.player.getAbilities().flying;
      }
  
-     private boolean isInRangeOfGround() {
-@@ -148,6 +_,10 @@
+     public GameType getGameModeForPlayer() {
+@@ -133,6 +_,10 @@
      }
  
-     public void handleBlockBreakAction(BlockPos pos, ServerboundPlayerActionPacket.Action action, Direction direction, int maxY, int sequence) {
-+        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event = net.neoforged.neoforge.common.CommonHooks.onLeftClickBlock(player, pos, direction, action);
+     public void handleBlockBreakAction(BlockPos p_215120_, ServerboundPlayerActionPacket.Action p_215121_, Direction p_215122_, int p_215123_, int p_215124_) {
++        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock event = net.neoforged.neoforge.common.CommonHooks.onLeftClickBlock(player, p_215120_, p_215122_, p_215121_);
 +        if (event.isCanceled()) {
 +            return;
 +        }
-         if (!this.player.isWithinBlockInteractionRange(pos, 1.0)) {
-             this.debugLogging(pos, false, sequence, "too far");
-         } else if (pos.getY() > maxY) {
-@@ -192,6 +_,7 @@
-                         blockState,
-                         item -> this.player.onEquippedItemBroken(item, EquipmentSlot.MAINHAND)
+         if (!this.player.canInteractWithBlock(p_215120_, 1.0)) {
+             this.debugLogging(p_215120_, false, p_215124_, "too far");
+         } else if (p_215120_.getY() >= p_215123_) {
+@@ -171,6 +_,7 @@
+                         blockstate,
+                         p_348149_ -> this.player.onEquippedItemBroken(p_348149_, EquipmentSlot.MAINHAND)
                      );
-+                    if (event.getUseBlock() != net.minecraft.util.TriState.FALSE)
-                     blockState.attack(this.level, pos, this.player);
-                     progress = blockState.getDestroyProgress(this.player, this.player.level(), pos);
++                    if (event.getUseBlock() != net.neoforged.neoforge.common.util.TriState.FALSE)
+                     blockstate.attack(this.level, p_215120_, this.player);
+                     f = blockstate.getDestroyProgress(this.player, this.player.level(), p_215120_);
                  }
-@@ -258,8 +_,10 @@
-     }
+@@ -238,7 +_,8 @@
  
-     public boolean destroyBlock(BlockPos pos) {
-+        // Neo: Fire the BlockBreakEvent, and ignore the original ItemStack#canDestroyBlock check since the break event manages the status of it.
-         BlockState state = this.level.getBlockState(pos);
--        if (!this.player.getMainHandItem().canDestroyBlock(state, this.level, pos, this.player)) {
-+        var event = net.neoforged.neoforge.common.CommonHooks.fireBlockBreak(level, gameModeForPlayer, player, pos, state);
+     public boolean destroyBlock(BlockPos p_9281_) {
+         BlockState blockstate1 = this.level.getBlockState(p_9281_);
+-        if (!this.player.getMainHandItem().getItem().canAttackBlock(blockstate1, this.level, p_9281_, this.player)) {
++        var event = net.neoforged.neoforge.common.CommonHooks.fireBlockBreak(level, gameModeForPlayer, player, p_9281_, blockstate1);
 +        if (event.isCanceled()) {
              return false;
-         }
+         } else {
+             BlockEntity blockentity = this.level.getBlockEntity(p_9281_);
+@@ -250,26 +_,45 @@
+                 return false;
+             } else {
+                 BlockState blockstate = block.playerWillDestroy(this.level, p_9281_, blockstate1, this.player);
+-                boolean flag1 = this.level.removeBlock(p_9281_, false);
+-                if (flag1) {
+-                    block.destroy(this.level, p_9281_, blockstate);
+-                }
  
-@@ -275,30 +_,46 @@
-         }
- 
-         BlockState adjustedState = block.playerWillDestroy(this.level, pos, state, this.player);
--        boolean changed = this.level.removeBlock(pos, false);
--        if (SharedConstants.DEBUG_BLOCK_BREAK) {
--            LOGGER.info("server broke {} {} -> {}", pos, adjustedState, this.level.getBlockState(pos));
--        }
--
--        if (changed) {
--            block.destroy(this.level, pos, adjustedState);
--        }
- 
-         if (this.player.preventsBlockDrops()) {
-+            removeBlock(pos, adjustedState, false, player.getMainHandItem().copy());
-             return true;
-         }
- 
-         ItemStack itemStack = this.player.getMainHandItem();
-         ItemStack destroyedWith = itemStack.copy();
--        boolean canDestroy = this.player.hasCorrectToolForDrops(adjustedState);
-+        boolean canDestroy = adjustedState.canHarvestBlock(this.level, pos, this.player); // previously player.hasCorrectToolForDrops(blockstate)
-         itemStack.mineBlock(this.level, adjustedState, pos, this.player);
-+        boolean changed = removeBlock(pos, adjustedState, canDestroy, destroyedWith.copy());
+                 if (this.isCreative()) {
++                    removeBlock(p_9281_, blockstate, false);
+                     return true;
+                 } else {
+                     ItemStack itemstack = this.player.getMainHandItem();
+                     ItemStack itemstack1 = itemstack.copy();
+-                    boolean flag = this.player.hasCorrectToolForDrops(blockstate);
++                    boolean flag1 = blockstate.canHarvestBlock(this.level, p_9281_, this.player); // previously player.hasCorrectToolForDrops(blockstate)
+                     itemstack.mineBlock(this.level, blockstate, p_9281_, this.player);
++                    boolean flag = removeBlock(p_9281_, blockstate, flag1);
 +
-         if (changed && canDestroy) {
-             block.playerDestroy(this.level, this.player, pos, adjustedState, blockEntity, destroyedWith);
-         }
+                     if (flag1 && flag) {
+                         block.playerDestroy(this.level, this.player, p_9281_, blockstate, blockentity, itemstack1);
+                     }
  
-+        // Neo: Fire the PlayerDestroyItemEvent if the tool was broken at any point during the break process
-+        if (itemStack.isEmpty() && !destroyedWith.isEmpty()) {
-+            net.neoforged.neoforge.event.EventHooks.onPlayerDestroyItem(this.player, destroyedWith, InteractionHand.MAIN_HAND);
-+        }
++                    // Neo: Fire the PlayerDestroyItemEvent if the tool was broken at any point during the break process
++                    if (itemstack.isEmpty() && !itemstack1.isEmpty()) {
++                        net.neoforged.neoforge.event.EventHooks.onPlayerDestroyItem(this.player, itemstack1, InteractionHand.MAIN_HAND);
++                    }
 +
-         return true;
-     }
- 
+                     return true;
+                 }
+             }
+         }
++    }
++
 +    /**
-+     * Neo: Patched-in method that handles actual removal of blocks for {@link #destroyBlock(BlockPos)}.
++     * Patched-in method that handles actual removal of blocks for {@link #destroyBlock(BlockPos)}.
 +     *
 +     * @param pos The block pos of the destroyed block
 +     * @param state The state of the destroyed block
 +     * @param canHarvest If the player breaking the block can harvest the drops of the block
-+     * @param toolStack The players main-hand prior to destroying the block and applying damage to the tool.
 +     * @return If the block was removed, as reported by {@link BlockState#onDestroyedByPlayer}.
 +     */
-+    private boolean removeBlock(BlockPos pos, BlockState state, boolean canHarvest, ItemStack toolStack) {
-+        boolean removed = state.onDestroyedByPlayer(this.level, pos, this.player, toolStack, canHarvest, this.level.getFluidState(pos));
++    private boolean removeBlock(BlockPos pos, BlockState state, boolean canHarvest) {
++        boolean removed = state.onDestroyedByPlayer(this.level, pos, this.player, canHarvest, this.level.getFluidState(pos));
 +        if (removed)
 +            state.getBlock().destroy(this.level, pos, state);
 +        return removed;
-+    }
-+
-     public InteractionResult useItem(ServerPlayer player, Level level, ItemStack itemStack, InteractionHand hand) {
-         if (this.gameModeForPlayer == GameType.SPECTATOR) {
-             return InteractionResult.PASS;
-@@ -308,6 +_,9 @@
-             return InteractionResult.PASS;
-         }
+     }
  
-+        InteractionResult cancelResult = net.neoforged.neoforge.common.CommonHooks.onItemRightClick(player, hand);
-+        if (cancelResult != null) return cancelResult;
-+
-         int oldCount = itemStack.getCount();
-         int oldDamage = itemStack.getDamageValue();
-         InteractionResult result = itemStack.use(level, player, hand);
-@@ -351,6 +_,8 @@
+     public InteractionResult useItem(ServerPlayer p_9262_, Level p_9263_, ItemStack p_9264_, InteractionHand p_9265_) {
+@@ -278,6 +_,8 @@
+         } else if (p_9262_.getCooldowns().isOnCooldown(p_9264_.getItem())) {
+             return InteractionResult.PASS;
+         } else {
++            InteractionResult cancelResult = net.neoforged.neoforge.common.CommonHooks.onItemRightClick(p_9262_, p_9265_);
++            if (cancelResult != null) return cancelResult;
+             int i = p_9264_.getCount();
+             int j = p_9264_.getDamageValue();
+             InteractionResultHolder<ItemStack> interactionresultholder = p_9264_.use(p_9263_, p_9262_, p_9265_);
+@@ -309,7 +_,10 @@
+         BlockState blockstate = p_9267_.getBlockState(blockpos);
+         if (!blockstate.getBlock().isEnabled(p_9267_.enabledFeatures())) {
              return InteractionResult.FAIL;
-         }
- 
-+        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock event = net.neoforged.neoforge.common.CommonHooks.onRightClickBlock(player, hand, pos, hitResult);
+-        } else if (this.gameModeForPlayer == GameType.SPECTATOR) {
++        }
++        net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock event = net.neoforged.neoforge.common.CommonHooks.onRightClickBlock(p_9266_, p_9269_, blockpos, p_9270_);
 +        if (event.isCanceled()) return event.getCancellationResult();
-         if (this.gameModeForPlayer == GameType.SPECTATOR) {
-             MenuProvider menuProvider = state.getMenuProvider(level, pos);
-             if (menuProvider != null) {
-@@ -360,10 +_,15 @@
++        if (this.gameModeForPlayer == GameType.SPECTATOR) {
+             MenuProvider menuprovider = blockstate.getMenuProvider(p_9267_, blockpos);
+             if (menuprovider != null) {
+                 p_9266_.openMenu(menuprovider);
+@@ -318,10 +_,15 @@
                  return InteractionResult.PASS;
              }
          } else {
-+            UseOnContext context = new UseOnContext(player, hand, hitResult);
-+            if (event.getUseItem() != net.minecraft.util.TriState.FALSE) {
-+                InteractionResult result = itemStack.onItemUseFirst(context);
++            UseOnContext useoncontext = new UseOnContext(p_9266_, p_9269_, p_9270_);
++            if (event.getUseItem() != net.neoforged.neoforge.common.util.TriState.FALSE) {
++                InteractionResult result = p_9268_.onItemUseFirst(useoncontext);
 +                if (result != InteractionResult.PASS) return result;
 +            }
-             boolean haveSomethingInOurHands = !player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty();
--            boolean suppressUsingBlock = player.isSecondaryUseActive() && haveSomethingInOurHands;
-+            boolean suppressUsingBlock = (player.isSecondaryUseActive() && haveSomethingInOurHands) && !(player.getMainHandItem().doesSneakBypassUse(level, pos, player) && player.getOffhandItem().doesSneakBypassUse(level, pos, player));
-             ItemStack usedItemStack = itemStack.copy();
--            if (!suppressUsingBlock) {
-+            if (event.getUseBlock().isTrue() || (event.getUseBlock().isDefault() && !suppressUsingBlock)) {
-                 InteractionResult itemUse = state.useItemOn(player.getItemInHand(hand), level, player, hand, hitResult);
-                 if (itemUse.consumesAction()) {
-                     CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(player, pos, usedItemStack);
-@@ -379,8 +_,8 @@
+             boolean flag = !p_9266_.getMainHandItem().isEmpty() || !p_9266_.getOffhandItem().isEmpty();
+-            boolean flag1 = p_9266_.isSecondaryUseActive() && flag;
++            boolean flag1 = (p_9266_.isSecondaryUseActive() && flag) && !(p_9266_.getMainHandItem().doesSneakBypassUse(p_9267_, blockpos, p_9266_) && p_9266_.getOffhandItem().doesSneakBypassUse(p_9267_, blockpos, p_9266_));
+             ItemStack itemstack = p_9268_.copy();
+-            if (!flag1) {
++            if (event.getUseBlock().isTrue() || (event.getUseBlock().isDefault() && !flag1)) {
+                 ItemInteractionResult iteminteractionresult = blockstate.useItemOn(p_9266_.getItemInHand(p_9269_), p_9267_, p_9266_, p_9269_, p_9270_);
+                 if (iteminteractionresult.consumesAction()) {
+                     CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(p_9266_, blockpos, itemstack);
+@@ -337,8 +_,8 @@
                  }
              }
  
--            if (!itemStack.isEmpty() && !player.getCooldowns().isOnCooldown(itemStack)) {
--                UseOnContext context = new UseOnContext(player, hand, hitResult);
-+            if (event.getUseItem().isTrue() || (!itemStack.isEmpty() && !player.getCooldowns().isOnCooldown(itemStack))) {
+-            if (!p_9268_.isEmpty() && !p_9266_.getCooldowns().isOnCooldown(p_9268_.getItem())) {
+-                UseOnContext useoncontext = new UseOnContext(p_9266_, p_9269_, p_9270_);
++            if (event.getUseItem().isTrue() || (!p_9268_.isEmpty() && !p_9266_.getCooldowns().isOnCooldown(p_9268_.getItem()))) {
 +                if (event.getUseItem().isFalse()) return InteractionResult.PASS;
-                 InteractionResult success;
-                 if (player.hasInfiniteMaterials()) {
-                     int count = itemStack.getCount();
+                 InteractionResult interactionresult1;
+                 if (this.isCreative()) {
+                     int i = p_9268_.getCount();

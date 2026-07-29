@@ -7,11 +7,11 @@ package net.neoforged.neoforge.common;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Intended for mods to help mark if a modded item allows for placing modded plants of any kind or size.
@@ -38,7 +38,7 @@ public interface SpecialPlantable {
     void spawnPlantAtPosition(ItemStack itemStack, LevelAccessor level, BlockPos pos, @Nullable Direction direction);
 
     /**
-     * Whether Villagers can pick up this item and plant it down on any block that extends FarmlandBlock.
+     * Whether Villagers can pick up this item and plant it down on any block that extends FarmBlock.
      */
     default boolean villagerCanPlantItem(Villager villager) {
         return false;

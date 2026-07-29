@@ -1,8 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "key": {
-    "#": "minecraft:torch",
-    "X": "#c:nuggets/iron"
+    "#": {
+      "item": "minecraft:torch"
+    },
+    "X": {
+      "tag": "c:nuggets/iron"
+    }
   },
   "pattern": [
     "XXX",
@@ -10,6 +15,7 @@
     "XXX"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:lantern"
   }
 }

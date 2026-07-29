@@ -1,26 +1,26 @@
 --- a/net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor.java
 +++ b/net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor.java
-@@ -8,6 +_,10 @@
- import org.jspecify.annotations.Nullable;
+@@ -7,6 +_,10 @@
+ import net.minecraft.world.level.ServerLevelAccessor;
  
- public interface StructureProcessor {
+ public abstract class StructureProcessor {
 +    /**
-+     * @deprecated Neo: Use {@link #process(LevelReader, BlockPos, BlockPos, StructureTemplate.StructureBlockInfo, StructureTemplate.StructureBlockInfo, StructurePlaceSettings, StructureTemplate)} instead.
++     * @deprecated Forge: Use {@link #process(LevelReader, BlockPos, BlockPos, StructureTemplate.StructureBlockInfo, StructureTemplate.StructureBlockInfo, StructurePlaceSettings, StructureTemplate)} instead.
 +     */
 +    @Deprecated
-     default StructureTemplate.@Nullable StructureBlockInfo processBlock(
-         LevelReader level,
-         BlockPos targetPosition,
-@@ -17,6 +_,29 @@
-         StructurePlaceSettings settings
+     @Nullable
+     public StructureTemplate.StructureBlockInfo processBlock(
+         LevelReader p_74416_,
+@@ -30,5 +_,28 @@
+         StructurePlaceSettings p_277497_
      ) {
-         return processedBlockInfo;
+         return p_278053_;
 +    }
 +
-+    default StructureTemplate.@Nullable StructureBlockInfo process(LevelReader level, BlockPos targetPosition, BlockPos referencePos, StructureTemplate.StructureBlockInfo originalBlockInfo, StructureTemplate.StructureBlockInfo processedBlockInfo, StructurePlaceSettings settings, @Nullable StructureTemplate template) {
-+        return processBlock(level, targetPosition, referencePos, originalBlockInfo.pos(), processedBlockInfo, settings);
++    @Nullable
++    public StructureTemplate.StructureBlockInfo process(LevelReader p_74140_, BlockPos p_74141_, BlockPos p_74142_, StructureTemplate.StructureBlockInfo p_74143_, StructureTemplate.StructureBlockInfo p_74144_, StructurePlaceSettings p_74145_, @Nullable StructureTemplate template) {
++        return processBlock(p_74140_, p_74141_, p_74142_, p_74143_, p_74144_, p_74145_);
 +    }
-+
 +    /**
 +     * FORGE: Add entity processing.
 +     * <p>
@@ -36,8 +36,7 @@
 +     *
 +     * @see #process(LevelReader, BlockPos, BlockPos, StructureTemplate.StructureBlockInfo, StructureTemplate.StructureBlockInfo, StructurePlaceSettings, StructureTemplate)
 +     */
-+    default StructureTemplate.StructureEntityInfo processEntity(LevelReader world, BlockPos seedPos, StructureTemplate.StructureEntityInfo rawEntityInfo, StructureTemplate.StructureEntityInfo entityInfo, StructurePlaceSettings placementSettings, StructureTemplate template) {
++    public StructureTemplate.StructureEntityInfo processEntity(LevelReader world, BlockPos seedPos, StructureTemplate.StructureEntityInfo rawEntityInfo, StructureTemplate.StructureEntityInfo entityInfo, StructurePlaceSettings placementSettings, StructureTemplate template) {
 +        return entityInfo;
      }
- 
-     MapCodec<? extends StructureProcessor> codec();
+ }

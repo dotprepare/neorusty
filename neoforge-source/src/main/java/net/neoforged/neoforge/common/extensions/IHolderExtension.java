@@ -10,7 +10,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.neoforged.neoforge.registries.datamaps.IWithData;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Extension for {@link Holder}
@@ -30,7 +30,8 @@ public interface IHolderExtension<T> extends IWithData<T> {
      * <p>
      * This will only succeed if the underlying holder is a {@link Holder.Reference}.
      */
-    default HolderLookup.@Nullable RegistryLookup<T> unwrapLookup() {
+    @Nullable
+    default HolderLookup.RegistryLookup<T> unwrapLookup() {
         return null;
     }
 

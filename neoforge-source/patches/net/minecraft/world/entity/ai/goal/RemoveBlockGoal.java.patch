@@ -1,19 +1,21 @@
 --- a/net/minecraft/world/entity/ai/goal/RemoveBlockGoal.java
 +++ b/net/minecraft/world/entity/ai/goal/RemoveBlockGoal.java
-@@ -34,7 +_,7 @@
+@@ -35,7 +_,7 @@
  
      @Override
      public boolean canUse() {
--        if (!getServerLevel(this.removerMob).getGameRules().get(GameRules.MOB_GRIEFING)) {
-+        if (!net.neoforged.neoforge.event.EventHooks.canEntityGrief(getServerLevel(this.removerMob.level()), this.removerMob)) {
+-        if (!this.removerMob.level().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
++        if (!net.neoforged.neoforge.event.EventHooks.canEntityGrief(this.removerMob.level(), this.removerMob)) {
              return false;
          } else if (this.nextStartTick > 0) {
              this.nextStartTick--;
-@@ -139,6 +_,6 @@
-         ChunkAccess chunk = level.getChunk(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ()), ChunkStatus.FULL, false);
-         return chunk == null
+@@ -158,7 +_,8 @@
+         );
+         return chunkaccess == null
              ? false
--            : chunk.getBlockState(pos).is(this.blockToRemove) && chunk.getBlockState(pos.above()).isAir() && chunk.getBlockState(pos.above(2)).isAir();
-+            : chunk.getBlockState(pos).canEntityDestroy(level, pos, this.removerMob) && chunk.getBlockState(pos).is(this.blockToRemove) && chunk.getBlockState(pos.above()).isAir() && chunk.getBlockState(pos.above(2)).isAir();
+-            : chunkaccess.getBlockState(p_25851_).is(this.blockToRemove)
++            : chunkaccess.getBlockState(p_25851_).canEntityDestroy(p_25850_, p_25851_, this.removerMob)
++                && chunkaccess.getBlockState(p_25851_).is(this.blockToRemove)
+                 && chunkaccess.getBlockState(p_25851_.above()).isAir()
+                 && chunkaccess.getBlockState(p_25851_.above(2)).isAir();
      }
- }

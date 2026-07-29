@@ -8,6 +8,7 @@ package net.neoforged.neoforge.network.handling;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.Connection;
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.chat.Component;
@@ -45,7 +46,7 @@ public interface IPayloadContext {
      * <p>
      * For server-bound payloads, retrieves the sending {@link ServerPlayer}.
      * <p>
-     * For client-bound payloads, retrieves the receiving {@code LocalPlayer}.
+     * For client-bound payloads, retrieves the receiving {@link LocalPlayer}.
      * 
      * @throws UnsupportedOperationException when called during the configuration phase.
      */

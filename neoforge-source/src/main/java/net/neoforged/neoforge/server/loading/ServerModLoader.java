@@ -10,6 +10,9 @@ import net.neoforged.fml.Logging;
 import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.ModLoadingException;
 import net.neoforged.fml.ModLoadingIssue;
+import net.neoforged.fml.ModWorkManager;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.LogicalSidedProvider;
 import net.neoforged.neoforge.internal.CommonModLoader;
 import net.neoforged.neoforge.logging.CrashReportExtender;
 import net.neoforged.neoforge.server.LanguageHook;
@@ -21,14 +24,16 @@ import org.jetbrains.annotations.ApiStatus;
 public class ServerModLoader extends CommonModLoader {
     private static final Logger LOGGER = LogManager.getLogger();
     private static boolean hasErrors = false;
-    private static boolean gameTestServer;
 
-    public static void load(boolean gameTestServer) {
-        ServerModLoader.gameTestServer = gameTestServer;
+    public static void load() {
+        LogicalSidedProvider.setServer(() -> {
+            throw new IllegalStateException("Unable to access server yet");
+        });
         LanguageHook.loadBuiltinLanguages();
         try {
             begin(() -> {}, false);
-            load(() -> {});
+            load(ModWorkManager.syncExecutor(), ModWorkManager.parallelExecutor());
+            finish(ModWorkManager.syncExecutor(), ModWorkManager.parallelExecutor());
         } catch (ModLoadingException error) {
             ServerModLoader.hasErrors = true;
             // In case its not loaded properly
@@ -43,10 +48,7 @@ public class ServerModLoader extends CommonModLoader {
                 LOGGER.warn(Logging.LOADING, "{} [{}]", issue.translationKey(), issue.translationArgs());
             }
         }
-    }
-
-    public static boolean isGameTestServer() {
-        return gameTestServer;
+        NeoForge.EVENT_BUS.start();
     }
 
     public static boolean hasErrors() {

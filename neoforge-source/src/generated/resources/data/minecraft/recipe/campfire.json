@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "key": {
-    "C": "#minecraft:coals",
-    "L": "#minecraft:logs",
-    "S": "#c:rods/wooden"
+    "C": {
+      "tag": "minecraft:coals"
+    },
+    "L": {
+      "tag": "minecraft:logs"
+    },
+    "S": {
+      "tag": "c:rods/wooden"
+    }
   },
   "pattern": [
     " S ",
@@ -11,6 +18,7 @@
     "LLL"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:campfire"
   }
 }

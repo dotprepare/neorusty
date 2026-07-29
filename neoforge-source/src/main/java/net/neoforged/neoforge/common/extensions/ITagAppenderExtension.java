@@ -5,103 +5,119 @@
 
 package net.neoforged.neoforge.common.extensions;
 
-import net.minecraft.data.tags.TagAppender;
+import net.minecraft.data.tags.TagsProvider;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.tags.TagEntry;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 
 public interface ITagAppenderExtension<T> {
-    private TagAppender<T> self() {
-        return (TagAppender<T>) this;
+    private TagsProvider.TagAppender<T> self() {
+        return (TagsProvider.TagAppender<T>) this;
     }
 
-    /**
-     * @see TagAppender#addTag(TagKey)
-     */
     @SuppressWarnings("unchecked")
-    default TagAppender<T> addTags(TagKey<T>... values) {
-        var appender = self();
-        for (var value : values) {
-            appender.addTag(value);
+    default TagsProvider.TagAppender<T> addTags(TagKey<T>... values) {
+        TagsProvider.TagAppender<T> builder = self();
+        for (TagKey<T> value : values) {
+            builder.addTag(value);
         }
-        return appender;
+        return builder;
     }
 
-    /**
-     * @see TagAppender#addOptionalTag(TagKey)
-     */
+    default TagsProvider.TagAppender<T> addOptionalTag(TagKey<T> value) {
+        return self().addOptionalTag(value.location());
+    }
+
     @SuppressWarnings("unchecked")
-    default TagAppender<T> addOptionalTags(TagKey<T>... values) {
-        var appender = self();
-        for (var value : values) {
-            appender.addOptionalTag(value);
+    default TagsProvider.TagAppender<T> addOptionalTags(TagKey<T>... values) {
+        TagsProvider.TagAppender<T> builder = self();
+        for (TagKey<T> value : values) {
+            builder.addOptionalTag(value.location());
         }
-        return appender;
+        return builder;
     }
 
-    /**
-     * Add the given {@code entry} to the tag.
-     *
-     * @param entry the entry to add
-     * @return The appender for chaining
-     */
-    TagAppender<T> add(TagEntry entry);
-
-    /**
-     * Marks this tag as replacing previous entries.
-     *
-     * @return The appender for chaining
-     */
-    default TagAppender<T> replace() {
+    default TagsProvider.TagAppender<T> replace() {
         return replace(true);
     }
 
+    default TagsProvider.TagAppender<T> replace(boolean value) {
+        self().getInternalBuilder().replace(value);
+        return self();
+    }
+
     /**
-     * Set whether this tag replaces previous entries.
-     *
-     * @param value whether the tag replaces previous entries
-     * @return The appender for chaining
+     * Adds a single element's ID to the tag json's remove list. Callable during datageneration.
+     * 
+     * @param location The ID of the element to remove
+     * @return The builder for chaining
      */
-    TagAppender<T> replace(boolean value);
+    default TagsProvider.TagAppender<T> remove(final ResourceLocation location) {
+        TagsProvider.TagAppender<T> builder = self();
+        builder.getInternalBuilder().removeElement(location);
+        return builder;
+    }
+
+    /**
+     * Adds multiple elements' IDs to the tag json's remove list. Callable during datageneration.
+     * 
+     * @param locations The IDs of the elements to remove
+     * @return The builder for chaining
+     */
+    default TagsProvider.TagAppender<T> remove(final ResourceLocation first, final ResourceLocation... locations) {
+        this.remove(first);
+        for (ResourceLocation location : locations) {
+            this.remove(location);
+        }
+        return self();
+    }
 
     /**
      * Adds a resource key to the tag json's remove list. Callable during datageneration.
      *
-     * @param element the resource key of the element to remove
+     * @param resourceKey The resource key of the element to remove
      * @return The appender for chaining
      */
-    TagAppender<T> remove(final ResourceKey<T> element);
+    default TagsProvider.TagAppender<T> remove(final ResourceKey<T> resourceKey) {
+        this.remove(resourceKey.location());
+        return self();
+    }
 
     /**
      * Adds multiple resource keys to the tag json's remove list. Callable during datageneration.
      *
+     * @param resourceKeys The resource keys of the elements to remove
      * @return The appender for chaining
      */
     @SuppressWarnings("unchecked")
-    default TagAppender<T> remove(final ResourceKey<T> firstE, final ResourceKey<T>... es) {
-        this.remove(firstE);
-        for (var e : es) {
-            this.remove(e);
+    default TagsProvider.TagAppender<T> remove(final ResourceKey<T> firstResourceKey, final ResourceKey<T>... resourceKeys) {
+        this.remove(firstResourceKey.location());
+        for (ResourceKey<T> resourceKey : resourceKeys) {
+            this.remove(resourceKey.location());
         }
         return self();
     }
 
     /**
      * Adds a tag to the tag json's remove list. Callable during datageneration.
-     *
+     * 
      * @param tag The ID of the tag to remove
      * @return The builder for chaining
      */
-    TagAppender<T> remove(TagKey<T> tag);
+    default TagsProvider.TagAppender<T> remove(TagKey<T> tag) {
+        TagsProvider.TagAppender<T> builder = self();
+        builder.getInternalBuilder().removeTag(tag.location());
+        return builder;
+    }
 
     /**
      * Adds multiple tags to the tag json's remove list. Callable during datageneration.
-     *
+     * 
      * @param tags The IDs of the tags to remove
      * @return The builder for chaining
      */
     @SuppressWarnings("unchecked")
-    default TagAppender<T> remove(TagKey<T> first, TagKey<T>... tags) {
+    default TagsProvider.TagAppender<T> remove(TagKey<T> first, TagKey<T>... tags) {
         this.remove(first);
         for (TagKey<T> tag : tags) {
             this.remove(tag);

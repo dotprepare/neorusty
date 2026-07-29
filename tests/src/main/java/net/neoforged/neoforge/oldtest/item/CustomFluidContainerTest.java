@@ -6,12 +6,13 @@
 package net.neoforged.neoforge.oldtest.item;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -23,14 +24,15 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.fluids.FluidActionResult;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.SimpleFluidContent;
+import net.neoforged.neoforge.fluids.capability.templates.FluidHandlerItemStackSimple;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.transfer.access.ItemAccess;
-import net.neoforged.neoforge.transfer.fluid.FluidUtil;
-import net.neoforged.neoforge.transfer.fluid.ItemAccessFluidHandler;
 
 @Mod(CustomFluidContainerTest.MODID)
 public class CustomFluidContainerTest {
@@ -40,7 +42,7 @@ public class CustomFluidContainerTest {
 
     public static final boolean ENABLED = true;
 
-    public static final DeferredItem<Item> CUSTOM_FLUID_CONTAINER = ITEMS.registerItem("custom_fluid_container", props -> new CustomFluidContainer(props.stacksTo(1)));
+    public static final DeferredItem<Item> CUSTOM_FLUID_CONTAINER = ITEMS.register("custom_fluid_container", () -> new CustomFluidContainer((new Item.Properties()).stacksTo(1)));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SimpleFluidContent>> SIMPLE_FLUID_CONTENT = COMPONENT_TYPES.register("simple_fluid_content", () -> DataComponentType.<SimpleFluidContent>builder()
             .persistent(SimpleFluidContent.CODEC)
             .networkSynchronized(SimpleFluidContent.STREAM_CODEC).build());
@@ -60,7 +62,7 @@ public class CustomFluidContainerTest {
     }
 
     private void registerCaps(RegisterCapabilitiesEvent event) {
-        event.registerItem(Capabilities.Fluid.ITEM, (stack, itemAccess) -> new ItemAccessFluidHandler(itemAccess, SIMPLE_FLUID_CONTENT.get(), FluidType.BUCKET_VOLUME), CUSTOM_FLUID_CONTAINER.get());
+        event.registerItem(Capabilities.FluidHandler.ITEM, (stack, ctx) -> new FluidHandlerItemStackSimple(SIMPLE_FLUID_CONTENT, stack, FluidType.BUCKET_VOLUME), CUSTOM_FLUID_CONTAINER.get());
     }
 
     /**
@@ -73,34 +75,40 @@ public class CustomFluidContainerTest {
 
         @Override
         public Component getName(ItemStack itemStack) {
-            var fluidStack = FluidUtil.getFirstStackContained(itemStack);
-            String name = "Custom Fluid Container";
-            if (fluidStack.isEmpty()) {
-                name = name + " (empty)";
-            } else {
-                name = name + " (" + fluidStack.getFluidType().getDescription().getString() + ")";
-            }
-            return Component.literal(name);
+            AtomicReference<String> name = new AtomicReference<>("Custom Fluid Container");
+            FluidUtil.getFluidHandler(itemStack).ifPresent(fluidHandler -> {
+                FluidStack fluidStack = fluidHandler.getFluidInTank(0);
+                if (fluidStack.isEmpty()) {
+                    name.set(name.get() + " (empty)");
+                } else {
+                    name.set(name.get() + " (" + fluidStack.getFluidType().getDescription().getString() + ")");
+                }
+            });
+            return Component.literal(name.get());
         }
 
         @Override
-        public InteractionResult use(Level level, Player player, InteractionHand hand) {
-            var handler = ItemAccess.forPlayerInteraction(player, hand).oneByOne().getCapability(Capabilities.Fluid.ITEM);
-
-            var blockHitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
-            boolean success = !FluidUtil.tryPickupFluid(handler, player, level, blockHitResult.getBlockPos(), blockHitResult.getDirection(), null).isEmpty();
-
-            if (!success) {
-                blockHitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.NONE);
-                //try to place fluid in hit block (waterlogging, fill tank, ...). When no success try the block on the hit side.
-                for (BlockPos pos : Arrays.asList(blockHitResult.getBlockPos(), blockHitResult.getBlockPos().relative(blockHitResult.getDirection()))) {
-                    success = !FluidUtil.tryPlaceFluid(handler, player, level, pos, false, null).isEmpty();
-                    if (success) break;
+        public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+            var itemStack = player.getItemInHand(hand);
+            var result = new AtomicReference<FluidActionResult>();
+            FluidUtil.getFluidHandler(itemStack).ifPresent(fluidHandler -> {
+                var fluidStack = fluidHandler.getFluidInTank(0);
+                if (fluidStack.isEmpty()) {
+                    var blockHitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
+                    result.set(FluidUtil.tryPickUpFluid(itemStack, player, level, blockHitResult.getBlockPos(), blockHitResult.getDirection()));
+                } else {
+                    var blockHitResult = getPlayerPOVHitResult(level, player, ClipContext.Fluid.NONE);
+                    //try to place fluid in hit block (waterlogging, fill tank, ...). When no success try the block on the hit side.
+                    for (BlockPos pos : Arrays.asList(blockHitResult.getBlockPos(), blockHitResult.getBlockPos().relative(blockHitResult.getDirection()))) {
+                        result.set(FluidUtil.tryPlaceFluid(player, level, hand, pos, itemStack, fluidStack));
+                        if (result.get().isSuccess()) {
+                            break;
+                        }
+                    }
                 }
-            }
-
-            if (success) {
-                return InteractionResult.SUCCESS;
+            });
+            if (result.get() != null && result.get().isSuccess()) {
+                return InteractionResultHolder.sidedSuccess(result.get().getResult(), level.isClientSide());
             }
             return super.use(level, player, hand);
         }

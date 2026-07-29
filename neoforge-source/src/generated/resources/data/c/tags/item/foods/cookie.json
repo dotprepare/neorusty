@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:cookie"
+    "minecraft:cookie",
+    {
+      "id": "#c:foods/cookies",
+      "required": false
+    }
   ]
 }

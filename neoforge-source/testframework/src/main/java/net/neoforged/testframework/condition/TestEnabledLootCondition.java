@@ -10,6 +10,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.TestFramework;
 import net.neoforged.testframework.impl.MutableTestFramework;
@@ -25,7 +26,7 @@ public record TestEnabledLootCondition(TestFramework framework, String testId) i
     }
 
     @Override
-    public MapCodec<? extends LootItemCondition> codec() {
+    public LootItemConditionType getType() {
         return TestFrameworkMod.TEST_ENABLED.get();
     }
 

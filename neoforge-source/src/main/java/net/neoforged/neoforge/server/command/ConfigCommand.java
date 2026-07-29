@@ -9,7 +9,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import java.io.File;
-import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -17,11 +16,24 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.config.ModConfigs;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
+import net.neoforged.fml.loading.StringUtils;
+import net.neoforged.neoforge.client.command.ClientConfigCommand;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 
+@EventBusSubscriber(value = Dist.CLIENT, modid = NeoForgeVersion.MOD_ID)
 public class ConfigCommand {
+    @SubscribeEvent
+    public static void onClientCommandsRegister(RegisterClientCommandsEvent event) {
+        ClientConfigCommand.register(event.getDispatcher());
+    }
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("config").then(ShowFile.register()));
@@ -32,13 +44,13 @@ public class ConfigCommand {
         SERVER;
 
         public String extension() {
-            return name().toLowerCase(Locale.ROOT);
+            return StringUtils.toLowerCase(name());
         }
     }
 
     public static class ShowFile {
         static ArgumentBuilder<CommandSourceStack, ?> register() {
-            return Commands.literal("showfile").requires(Commands.hasPermission(Commands.LEVEL_ALL)).then(Commands.argument("mod", ModIdArgument.modIdArgument()).then(Commands.argument("type", EnumArgument.enumArgument(ServerModConfigType.class)).executes(ShowFile::showFile)));
+            return Commands.literal("showfile").requires(cs -> cs.hasPermission(0)).then(Commands.argument("mod", ModIdArgument.modIdArgument()).then(Commands.argument("type", EnumArgument.enumArgument(ServerModConfigType.class)).executes(ShowFile::showFile)));
         }
 
         private static int showFile(final CommandContext<CommandSourceStack> context) {
@@ -52,8 +64,8 @@ public class ConfigCommand {
                 // Click action not allowed on dedicated servers or connected LAN players as neither cannot click a link to a file on the server/LAN owner.
                 // Only provide click action for single player world owners calling this command from in-game.
                 ServerPlayer caller = context.getSource().getPlayer();
-                if (FMLEnvironment.getDist().isClient() && caller != null && caller.connection.getConnection().isMemoryConnection()) {
-                    fileComponent.withStyle((style) -> style.withClickEvent(new ClickEvent.OpenFile(f)));
+                if (FMLLoader.getDist().isClient() && caller != null && caller.connection.getConnection().isMemoryConnection()) {
+                    fileComponent.withStyle((style) -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, f.getAbsolutePath())));
                 }
 
                 context.getSource().sendSuccess(() -> CommandUtils.makeTranslatableWithFallback("commands.config.getwithtype",

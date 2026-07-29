@@ -1,9 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "group": "wooden_fence",
   "key": {
-    "#": "#c:rods/wooden",
-    "W": "minecraft:oak_planks"
+    "#": {
+      "tag": "c:rods/wooden"
+    },
+    "W": {
+      "item": "minecraft:oak_planks"
+    }
   },
   "pattern": [
     "W#W",

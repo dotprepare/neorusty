@@ -6,16 +6,14 @@
 package net.neoforged.neoforge.debug.fml;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import net.minecraft.gametest.framework.GameTest;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.testframework.annotation.ForEachTest;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
-import net.neoforged.testframework.gametest.GameTest;
 
-@ForEachTest(groups = "fml")
 public class MultipleEntrypointsTest {
     private static final String MOD_ID = "multiple_entrypoints_test";
     private static final AtomicInteger CLIENT_COUNTER = new AtomicInteger();
@@ -25,7 +23,7 @@ public class MultipleEntrypointsTest {
     @EmptyTemplate
     @TestHolder(description = "Tests if mods using multiple entrypoints works")
     static void testMultipleJavaFMLEntrypoints(ExtendedGameTestHelper helper) {
-        if (FMLEnvironment.getDist().isClient()) {
+        if (FMLLoader.getDist().isClient()) {
             helper.assertValueEqual(CLIENT_COUNTER.get(), 2, "client counter");
         } else {
             helper.assertValueEqual(SERVER_COUNTER.get(), 3, "server counter");

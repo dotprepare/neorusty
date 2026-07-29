@@ -8,13 +8,12 @@ package net.neoforged.neoforge.debug.block;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -32,16 +31,12 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.world.AuxiliaryLightManager;
 import net.neoforged.neoforge.eventtest.internal.TestsMod;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.StructureTemplateBuilder;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
@@ -50,7 +45,7 @@ public class BlockPropertyTests {
     @GameTest
     @TestHolder(description = "Adds a toggleable light source to test if level-sensitive light emission works")
     static void levelSensitiveLight(final DynamicTest test, final RegistrationHelper reg) {
-        final var lightBlock = reg.blocks().registerBlockWithBEType("light_block", LightBlock::new, LightBlockEntity::new)
+        final var lightBlock = reg.blocks().registerBlockWithBEType("light_block", LightBlock::new, LightBlockEntity::new, BlockBehaviour.Properties.of())
                 .withLang("Light block").withBlockItem();
 
         test.registerGameTestTemplate(StructureTemplateBuilder.withSize(3, 4, 3)
@@ -58,19 +53,19 @@ public class BlockPropertyTests {
                 .set(1, 1, 1, Blocks.AIR.defaultBlockState())
                 .set(1, 2, 1, Blocks.AIR.defaultBlockState()));
 
-        BlockPos lightPos = new BlockPos(1, 1, 1);
-        BlockPos testPos = new BlockPos(1, 2, 1);
+        BlockPos lightPos = new BlockPos(1, 2, 1);
+        BlockPos testPos = new BlockPos(1, 3, 1);
 
         test.onGameTest(helper -> helper.startSequence()
                 .thenExecute(() -> helper.setBlock(lightPos, lightBlock.get()))
                 .thenExecute(() -> helper.useBlock(lightPos, helper.makeMockPlayer(GameType.CREATIVE), Items.ACACIA_BUTTON.getDefaultInstance()))
                 .thenMap(() -> helper.getLevel().getChunkAt(helper.absolutePos(testPos)))
-                .thenMap(chunk -> ((ThreadedLevelLightEngine) helper.getLevel().getLightEngine()).waitForPendingTasks(chunk.getPos().x(), chunk.getPos().z()))
+                .thenMap(chunk -> ((ThreadedLevelLightEngine) helper.getLevel().getLightEngine()).waitForPendingTasks(chunk.getPos().x, chunk.getPos().z))
                 .thenWaitUntil(future -> helper.assertTrue(future.isDone(), "Light engine did not update to lit"))
                 .thenExecute(() -> helper.assertTrue(helper.getLevel().getLightEngine().getRawBrightness(helper.absolutePos(testPos), 15) == 14, "Lit light level was not as expected"))
                 .thenExecute(() -> helper.destroyBlock(lightPos))
-                .thenMap(() -> helper.getLevel().getChunkAt(helper.absolutePos(new BlockPos(1, 2, 1))))
-                .thenMap(chunk -> ((ThreadedLevelLightEngine) helper.getLevel().getLightEngine()).waitForPendingTasks(chunk.getPos().x(), chunk.getPos().z()))
+                .thenMap(() -> helper.getLevel().getChunkAt(helper.absolutePos(new BlockPos(1, 3, 1))))
+                .thenMap(chunk -> ((ThreadedLevelLightEngine) helper.getLevel().getLightEngine()).waitForPendingTasks(chunk.getPos().x, chunk.getPos().z))
                 .thenWaitUntil(future -> helper.assertTrue(future.isDone(), "Light engine did not update to unlit"))
                 .thenExecute(() -> helper.assertTrue(helper.getLevel().getLightEngine().getRawBrightness(helper.absolutePos(testPos), 15) == 0, "Unlit light level was not as expected"))
                 .thenSucceed());
@@ -79,7 +74,7 @@ public class BlockPropertyTests {
     @GameTest(template = TestsMod.TEMPLATE_9x9)
     @TestHolder(description = "Adds a block whose resistance is based on a state property")
     static void explosionResistance(final DynamicTest test, final RegistrationHelper reg) {
-        final var resistantBlock = reg.blocks().register("resistant_block", key -> new Block(BlockBehaviour.Properties.of().setId(ResourceKey.create(Registries.BLOCK, key))) {
+        final var resistantBlock = reg.blocks().register("resistant_block", () -> new Block(BlockBehaviour.Properties.of()) {
             {
                 this.registerDefaultState(this.stateDefinition.any().setValue(BlockStateProperties.AGE_7, Integer.valueOf(0)));
             }
@@ -98,7 +93,7 @@ public class BlockPropertyTests {
         test.onGameTest(helper -> helper.startSequence()
                 .thenExecute(() -> helper.setBlock(new BlockPos(4, 6, 4), resistantBlock.get().defaultBlockState().setValue(BlockStateProperties.AGE_7, 5)))
                 .thenExecute(() -> helper.setBlock(new BlockPos(4, 4, 7), resistantBlock.get().defaultBlockState().setValue(BlockStateProperties.AGE_7, 3)))
-                .thenExecuteAfter(2, () -> helper.getLevel().explode(null, null, null, helper.absoluteVec(Vec3.atCenterOf(new BlockPos(4, 5, 4))), 4, false, Level.ExplosionInteraction.BLOCK))
+                .thenExecuteAfter(2, () -> helper.getLevel().explode(null, null, null, helper.absoluteVec(new BlockPos(4, 5, 4).getCenter()), 4, false, Level.ExplosionInteraction.BLOCK))
 
                 .thenIdle(15)
 
@@ -173,8 +168,11 @@ public class BlockPropertyTests {
         }
 
         @Override
-        public void onDataPacket(Connection net, ValueInput valueInput) {
-            setLit(valueInput.getBooleanOr("lit", false));
+        public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider holderLookup) {
+            CompoundTag tag = pkt.getTag();
+            if (!tag.isEmpty()) {
+                setLit(tag.getBoolean("lit"));
+            }
         }
 
         @Override
@@ -185,15 +183,15 @@ public class BlockPropertyTests {
         }
 
         @Override
-        public void loadAdditional(ValueInput valueInput) {
-            super.loadAdditional(valueInput);
-            lit = valueInput.getBooleanOr("lit", false);
+        public void loadAdditional(CompoundTag tag, HolderLookup.Provider holderLookup) {
+            super.loadAdditional(tag, holderLookup);
+            lit = tag.getBoolean("lit");
         }
 
         @Override
-        protected void saveAdditional(ValueOutput valueOutput) {
-            super.saveAdditional(valueOutput);
-            valueOutput.putBoolean("lit", lit);
+        protected void saveAdditional(CompoundTag tag, HolderLookup.Provider holderLookup) {
+            super.saveAdditional(tag, holderLookup);
+            tag.putBoolean("lit", lit);
         }
     }
 }

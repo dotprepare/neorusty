@@ -1,12 +1,9 @@
 --- a/net/minecraft/world/inventory/FurnaceResultSlot.java
 +++ b/net/minecraft/world/inventory/FurnaceResultSlot.java
-@@ -48,6 +_,9 @@
-             abstractFurnaceBlockEntity.awardUsedRecipesAndPopExperience(serverPlayer);
+@@ -49,5 +_,6 @@
          }
  
-+        if (this.removeCount != 0) {
-+            net.neoforged.neoforge.event.EventHooks.firePlayerSmeltedEvent(this.player, carried, this.removeCount);
-+        }
          this.removeCount = 0;
++        net.neoforged.neoforge.event.EventHooks.firePlayerSmeltedEvent(this.player, p_39558_);
      }
  }

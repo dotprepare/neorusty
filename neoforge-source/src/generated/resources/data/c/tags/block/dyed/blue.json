@@ -12,6 +12,14 @@
     "minecraft:blue_stained_glass_pane",
     "minecraft:blue_terracotta",
     "minecraft:blue_wall_banner",
-    "minecraft:blue_wool"
+    "minecraft:blue_wool",
+    {
+      "id": "#forge:glass/blue",
+      "required": false
+    },
+    {
+      "id": "#forge:stained_glass/blue",
+      "required": false
+    }
   ]
 }

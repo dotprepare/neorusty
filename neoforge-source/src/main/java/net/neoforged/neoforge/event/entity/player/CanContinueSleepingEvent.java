@@ -10,7 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player.BedSleepingProblem;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This event is fired when the game checks if a sleeping entity may continue sleeping.

@@ -2,13 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "#": "#c:ingots/iron"
+    "#": {
+      "tag": "c:ingots/iron"
+    }
   },
   "pattern": [
     "##",
     "##"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:iron_trapdoor"
   }
 }

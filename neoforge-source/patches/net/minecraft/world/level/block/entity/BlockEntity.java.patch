@@ -1,63 +1,54 @@
 --- a/net/minecraft/world/level/block/entity/BlockEntity.java
 +++ b/net/minecraft/world/level/block/entity/BlockEntity.java
-@@ -40,9 +_,13 @@
+@@ -27,8 +_,9 @@
+ import net.minecraft.world.level.block.state.BlockState;
+ import org.slf4j.Logger;
  
- import net.neoforged.neoforge.common.extensions.IBlockEntityExtension;
- 
--public abstract class BlockEntity implements DebugValueSource, TypedInstance<BlockEntityType<?>>, IBlockEntityExtension {
-+public abstract class BlockEntity extends net.neoforged.neoforge.attachment.AttachmentHolder implements DebugValueSource, TypedInstance<BlockEntityType<?>>, IBlockEntityExtension {
-     private static final Codec<BlockEntityType<?>> TYPE_CODEC = BuiltInRegistries.BLOCK_ENTITY_TYPE.byNameCodec();
+-public abstract class BlockEntity implements net.neoforged.neoforge.common.extensions.IBlockEntityExtension {
++public abstract class BlockEntity extends net.neoforged.neoforge.attachment.AttachmentHolder implements net.neoforged.neoforge.common.extensions.IBlockEntityExtension {
      private static final Logger LOGGER = LogUtils.getLogger();
-+    /**
-+     * @deprecated Neo: use {@link #getType()}
-+     */
-+    @Deprecated
++    @Deprecated // Neo: always use getType()
      private final BlockEntityType<?> type;
-     protected @Nullable Level level;
-     protected final BlockPos worldPosition;
-@@ -50,6 +_,11 @@
+     @Nullable
+     protected Level level;
+@@ -36,6 +_,8 @@
+     protected boolean remove;
      private BlockState blockState;
      private DataComponentMap components = DataComponentMap.EMPTY;
- 
 +    @Nullable
 +    private CompoundTag customPersistentData;
-+    @Nullable
-+    private Set<net.neoforged.neoforge.attachment.AttachmentType<?>> attachmentTypesToSync;
-+
-     public BlockEntity(BlockEntityType<?> type, BlockPos worldPosition, BlockState blockState) {
-         this.type = type;
-         this.worldPosition = worldPosition.immutable();
-@@ -64,7 +_,7 @@
+ 
+     public BlockEntity(BlockEntityType<?> p_155228_, BlockPos p_155229_, BlockState p_155230_) {
+         this.type = p_155228_;
+@@ -51,7 +_,7 @@
      }
  
-     public boolean isValidBlockState(BlockState blockState) {
--        return this.type.isValid(blockState);
-+        return this.getType().isValid(blockState); // Neo: use getter so correct type is checked for modded subclasses
+     public boolean isValidBlockState(BlockState p_353131_) {
+-        return this.type.isValid(p_353131_);
++        return this.getType().isValid(p_353131_); // Neo: use getter so correct type is checked for modded subclasses
      }
  
-     public static BlockPos getPosFromTag(ChunkPos base, CompoundTag entityTag) {
-@@ -95,6 +_,8 @@
+     public static BlockPos getPosFromTag(CompoundTag p_187473_) {
+@@ -72,6 +_,8 @@
      }
  
-     protected void loadAdditional(ValueInput input) {
-+        input.read("NeoForgeData", CompoundTag.CODEC).ifPresent(neoData -> this.customPersistentData = neoData);
-+        input.child(ATTACHMENTS_NBT_KEY).ifPresent(attachments -> this.deserializeAttachments(attachments));
+     protected void loadAdditional(CompoundTag p_338466_, HolderLookup.Provider p_338445_) {
++        if (p_338466_.contains("NeoForgeData", net.minecraft.nbt.Tag.TAG_COMPOUND)) this.customPersistentData = p_338466_.getCompound("NeoForgeData");
++        if (p_338466_.contains(ATTACHMENTS_NBT_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) deserializeAttachments(p_338445_, p_338466_.getCompound(ATTACHMENTS_NBT_KEY));
      }
  
-     public final void loadWithComponents(ValueInput input) {
-@@ -107,6 +_,11 @@
+     public final void loadWithComponents(CompoundTag p_338356_, HolderLookup.Provider p_338558_) {
+@@ -87,6 +_,9 @@
      }
  
-     protected void saveAdditional(ValueOutput output) {
-+        if (this.customPersistentData != null) output.store("NeoForgeData", CompoundTag.CODEC, this.customPersistentData.copy());
-+        HolderLookup.Provider registries = this.level != null ? this.level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY;
-+        var attachments = output.child(ATTACHMENTS_NBT_KEY);
-+        serializeAttachments(attachments);
-+        if (attachments.isEmpty()) output.discard(ATTACHMENTS_NBT_KEY);
+     protected void saveAdditional(CompoundTag p_187471_, HolderLookup.Provider p_323635_) {
++        if (this.customPersistentData != null) p_187471_.put("NeoForgeData", this.customPersistentData.copy());
++        var attachmentsTag = serializeAttachments(p_323635_);
++        if (attachmentsTag != null) p_187471_.put(ATTACHMENTS_NBT_KEY, attachmentsTag);
      }
  
-     public final CompoundTag saveWithFullMetadata(HolderLookup.Provider registries) {
-@@ -226,10 +_,14 @@
+     public final CompoundTag saveWithFullMetadata(HolderLookup.Provider p_323767_) {
+@@ -216,10 +_,14 @@
  
      public void setRemoved() {
          this.remove = true;
@@ -71,13 +62,11 @@
 +        invalidateCapabilities();
      }
  
-     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
-@@ -259,6 +_,48 @@
- 
-     public BlockEntityType<?> getType() {
+     public boolean triggerEvent(int p_58889_, int p_58890_) {
+@@ -246,6 +_,32 @@
          return this.type;
-+    }
-+
+     }
+ 
 +    @Override
 +    public CompoundTag getPersistentData() {
 +        if (this.customPersistentData == null)
@@ -101,23 +90,25 @@
 +
 +    @Override
 +    public final void syncData(net.neoforged.neoforge.attachment.AttachmentType<?> type) {
-+        if (!(level instanceof ServerLevel serverLevel)) {
-+            return;
-+        }
-+        if (attachmentTypesToSync == null) {
-+            attachmentTypesToSync = new it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet<>();
-+        }
-+        attachmentTypesToSync.add(type);
-+        // Schedule the BE for syncing
-+        serverLevel.getChunkSource().blockChanged(worldPosition);
++        net.neoforged.neoforge.attachment.AttachmentSync.syncBlockEntityUpdate(this, type);
 +    }
 +
-+    @Nullable
-+    @org.jetbrains.annotations.ApiStatus.Internal
-+    public final Set<net.neoforged.neoforge.attachment.AttachmentType<?>> getAndClearAttachmentTypesToSync() {
-+        var ret = attachmentTypesToSync;
-+        attachmentTypesToSync = null;
-+        return ret;
-     }
+     @Deprecated
+     public void setBlockState(BlockState p_155251_) {
+         this.validateBlockState(p_155251_);
+@@ -325,5 +_,15 @@
+         <T> T get(DataComponentType<T> p_338658_);
  
-     @Override
+         <T> T getOrDefault(DataComponentType<? extends T> p_338573_, T p_338734_);
++
++        // Neo: Utility for modded component types, to remove the need to invoke '.value()'
++        @Nullable
++        default <T> T get(java.util.function.Supplier<? extends DataComponentType<T>> componentType) {
++            return get(componentType.get());
++        }
++
++        default <T> T getOrDefault(java.util.function.Supplier<? extends DataComponentType<T>> componentType, T value) {
++            return getOrDefault(componentType.get(), value);
++        }
+     }
+ }

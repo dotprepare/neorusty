@@ -5,17 +5,17 @@
 
 package net.neoforged.neoforge.common.extensions;
 
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.storage.ValueInput;
-import net.neoforged.neoforge.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.ApiStatus;
 
 public interface IBlockEntityExtension {
@@ -29,22 +29,25 @@ public interface IBlockEntityExtension {
      * be the remote server. On the server, it will be whomever is responsible for
      * sending the packet.
      *
-     * @param net        The {@link Connection} the packet originated from
-     * @param valueInput The {@link ValueInput} to read the packet data from
+     * @param net The NetworkManager the packet originated from
+     * @param pkt The data packet
      */
-    default void onDataPacket(Connection net, ValueInput valueInput) {
-        self().loadWithComponents(valueInput);
+    default void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider lookupProvider) {
+        CompoundTag compoundtag = pkt.getTag();
+        if (!compoundtag.isEmpty()) {
+            self().loadWithComponents(compoundtag, lookupProvider);
+        }
     }
 
     /**
      * Called when the chunk's TE update tag, gotten from {@link BlockEntity#getUpdateTag(HolderLookup.Provider)}, is received on the client.
      * <p>
-     * Used to handle this tag in a special way. By default, this simply calls {@link BlockEntity#loadWithComponents(ValueInput)}.
+     * Used to handle this tag in a special way. By default this simply calls {@link BlockEntity#loadWithComponents(CompoundTag, HolderLookup.Provider)}.
      *
-     * @param input The data sent from {@link BlockEntity#getUpdateTag(HolderLookup.Provider)}
+     * @param tag The {@link CompoundTag} sent from {@link BlockEntity#getUpdateTag(HolderLookup.Provider)}
      */
-    default void handleUpdateTag(ValueInput input) {
-        self().loadWithComponents(input);
+    default void handleUpdateTag(CompoundTag tag, HolderLookup.Provider lookupProvider) {
+        self().loadWithComponents(tag, lookupProvider);
     }
 
     /**
@@ -73,7 +76,7 @@ public interface IBlockEntityExtension {
     default void requestModelDataUpdate() {
         BlockEntity te = self();
         Level level = te.getLevel();
-        if (level != null && level.isClientSide()) {
+        if (level != null && level.isClientSide) {
             var modelDataManager = level.getModelDataManager();
             if (modelDataManager != null) {
                 modelDataManager.requestRefresh(te);
@@ -83,7 +86,7 @@ public interface IBlockEntityExtension {
 
     /**
      * Allows you to return additional model data.
-     * This data can be used to provide additional functionality in your {@code BlockStateModel}.
+     * This data can be used to provide additional functionality in your {@link BakedModel}.
      * You need to schedule a refresh of you model data via {@link #requestModelDataUpdate()} if the result of this function changes.
      *
      * <p>This method is always called on the main client thread.
@@ -92,6 +95,16 @@ public interface IBlockEntityExtension {
      */
     default ModelData getModelData() {
         return ModelData.EMPTY;
+    }
+
+    /**
+     * Returns whether this {@link BlockEntity} has custom outline rendering behavior.
+     *
+     * @param player the local player currently viewing this {@code BlockEntity}
+     * @return {@code true} to enable outline processing
+     */
+    default boolean hasCustomOutlineRendering(Player player) {
+        return false;
     }
 
     /**
@@ -107,14 +120,4 @@ public interface IBlockEntityExtension {
         if (level != null)
             level.invalidateCapabilities(be.getBlockPos());
     }
-
-    /// React to the rotation and mirroring applied by a structure to the block this BE belongs to.
-    ///
-    /// This method may be called in a worldgen context on a worker thread where this BE has no [Level]
-    /// set yet. Implementations of this method may only mutate the BE's internal state and access
-    /// neither the BE's level nor any other non-thread-safe data storage.
-    ///
-    /// @param mirror   The mirroring applied to this BE's host block
-    /// @param rotation The rotation applied to this BE's host block
-    default void applyStructureRotation(Mirror mirror, Rotation rotation) {}
 }

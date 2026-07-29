@@ -21,14 +21,11 @@ import net.neoforged.fml.common.Mod;
  */
 @Mod("crash_callable_test")
 public class CrashCallableTest {
-    private static final boolean ENABLED = false;
-    private static final boolean ACTIVE = true;
+    private static final boolean ENABLED = true;
 
     public CrashCallableTest() {
-        if (!ENABLED) return;
-
         CrashReportCallables.registerCrashCallable("AlwaysActiveCrashCallable", () -> "test");
-        CrashReportCallables.registerCrashCallable("ToggleableCrashCallable", () -> "active", () -> ACTIVE);
+        CrashReportCallables.registerCrashCallable("ToggleableCrashCallable", () -> "active", () -> ENABLED);
         CrashReportCallables.registerCrashCallable("BadContentCrashCallable", () -> {
             throw new UnsupportedOperationException();
         });

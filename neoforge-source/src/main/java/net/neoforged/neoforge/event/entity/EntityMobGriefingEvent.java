@@ -5,26 +5,26 @@
 
 package net.neoforged.neoforge.event.entity;
 
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 
 /**
  * EntityMobGriefingEvent is fired when mob griefing is about to occur and allows an event listener to specify whether it should or not.<br>
- * This event is fired when ever the {@linkplain GameRules#MOB_GRIEFING mob griefing game rule} is checked.<br>
+ * This event is fired when ever the {@linkplain GameRules#RULE_MOBGRIEFING mob griefing game rule} is checked.<br>
  */
 public class EntityMobGriefingEvent extends EntityEvent {
     private final boolean isMobGriefingEnabled;
     private boolean canGrief;
 
-    public EntityMobGriefingEvent(ServerLevel level, Entity entity) {
+    public EntityMobGriefingEvent(Level level, Entity entity) {
         super(entity);
-        this.isMobGriefingEnabled = level.getGameRules().get(GameRules.MOB_GRIEFING);
+        this.isMobGriefingEnabled = level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING);
         this.canGrief = this.isMobGriefingEnabled;
     }
 
     /**
-     * Returns if the {@linkplain GameRules#MOB_GRIEFING mob griefing game rule} is enabled.
+     * Returns if the {@linkplain GameRules#RULE_MOBGRIEFING mob griefing game rule} is enabled.
      * <p>
      * The default state of this event is equivalent to this value.
      */

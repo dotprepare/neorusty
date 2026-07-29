@@ -1,6 +1,15 @@
 {
     "entries": [
         {
+            "enum": "com/mojang/blaze3d/vertex/VertexFormatElement$Usage",
+            "name": "NEOTESTS_TEST_USAGE",
+            "constructor": "(Ljava/lang/String;Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage$SetupState;)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/debug/client/RenderTests",
+                "field": "USAGE_ENUM_PARAMS"
+            }
+        },
+        {
             "enum": "net/minecraft/world/damagesource/DamageEffects",
             "name": "NEOTESTS_TEST_EFFECTS",
             "constructor": "(Ljava/lang/String;Ljava/util/function/Supplier;)V",
@@ -45,22 +54,43 @@
         {
             "enum": "net/minecraft/world/entity/MobCategory",
             "name": "NEOTESTS_TEST",
-            "constructor": "(Ljava/lang/String;Ljava/lang/String;IZZI)V",
-            "parameters": [ "neotests:test", "T", 1, true, true, 128 ]
-        },
-        {
-            "enum": "net/minecraft/world/item/ItemUseAnimation",
-            "name": "NEOTESTS_SWING",
-            "constructor": "(ILjava/lang/String;)V",
-            "parameters": [ -1, "neotests:swing" ]
+            "constructor": "(Ljava/lang/String;IZZI)V",
+            "parameters": [ "neotests:test", 1, true, true, 128 ]
         },
         {
             "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
             "name": "NEOTESTS_SWING",
-            "constructor": "(ZZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+            "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
             "parameters": {
                 "class": "net/neoforged/neoforge/oldtest/entity/player/ItemUseAnimationTest$EnumParams",
                 "field": "ARM_POSE_ENUM_PARAMS"
+            }
+        },
+        {
+            "enum": "net/minecraft/client/RecipeBookCategories",
+            "name": "NEOTESTS_TESTING_SEARCH",
+            "constructor": "(Ljava/util/function/Supplier;)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/oldtest/recipebook/RecipeBookExtensionClientHelper",
+                "field": "CAT_SEARCH_ENUM_PARAMS"
+            }
+        },
+        {
+            "enum": "net/minecraft/client/RecipeBookCategories",
+            "name": "NEOTESTS_TESTING_CAT_1",
+            "constructor": "(Ljava/util/function/Supplier;)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/oldtest/recipebook/RecipeBookExtensionClientHelper",
+                "field": "CAT_1_ENUM_PARAMS"
+            }
+        },
+        {
+            "enum": "net/minecraft/client/RecipeBookCategories",
+            "name": "NEOTESTS_TESTING_CAT_2",
+            "constructor": "(Ljava/util/function/Supplier;)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/oldtest/recipebook/RecipeBookExtensionClientHelper",
+                "field": "CAT_2_ENUM_PARAMS"
             }
         },
         {
@@ -88,22 +118,22 @@
             }
         },
         {
-            "enum": "net/minecraft/client/resources/model/EquipmentClientInfo$LayerType",
-            "name": "NEOTESTS_LAYER_TYPE",
-            "constructor": "(Ljava/lang/String;)V",
-            "parameters": [ "neotests:layer_type" ]
+            "enum": "net/minecraft/world/entity/vehicle/Boat$Type",
+            "name": "NEOTESTS_PAPER",
+            "constructor": "(Ljava/util/function/Supplier;Ljava/lang/String;Ljava/util/function/Supplier;Ljava/util/function/Supplier;Ljava/util/function/Supplier;Z)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/debug/entity/vehicle/CustomBoatTest",
+                "method": "getBoatTypeParameter"
+            }
         },
         {
-            "enum": "net/minecraft/world/level/gamerules/GameRuleType",
-            "name": "NEOTESTS_DOUBLE",
-            "constructor": "(Ljava/lang/String;)V",
-            "parameters": [ "neotests:double" ]
-        },
-        {
-            "enum": "net/minecraft/world/level/gamerules/GameRuleType",
-            "name": "NEOTESTS_STRING",
-            "constructor": "(Ljava/lang/String;)V",
-            "parameters": [ "neotests:string" ]
+            "enum": "net/minecraft/world/entity/vehicle/Boat$Type",
+            "name": "NEOTESTS_PAPER_RAFT",
+            "constructor": "(Ljava/util/function/Supplier;Ljava/lang/String;Ljava/util/function/Supplier;Ljava/util/function/Supplier;Ljava/util/function/Supplier;Z)V",
+            "parameters": {
+                "class": "net/neoforged/neoforge/debug/entity/vehicle/CustomBoatTest",
+                "method": "getRaftTypeParameter"
+            }
         }
     ]
 }

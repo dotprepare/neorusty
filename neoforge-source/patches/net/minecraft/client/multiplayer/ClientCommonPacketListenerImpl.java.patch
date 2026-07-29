@@ -1,81 +1,76 @@
 --- a/net/minecraft/client/multiplayer/ClientCommonPacketListenerImpl.java
 +++ b/net/minecraft/client/multiplayer/ClientCommonPacketListenerImpl.java
-@@ -93,6 +_,10 @@
-     private ServerLinks serverLinks;
-     protected final Map<UUID, PlayerInfo> seenPlayers;
-     protected boolean seenInsecureChatWarning;
+@@ -88,6 +_,10 @@
+     protected final Map<ResourceLocation, byte[]> serverCookies;
+     protected Map<String, String> customReportDetails;
+     protected ServerLinks serverLinks;
 +    /**
 +     * Holds the current connection type, based on the types of payloads that have been received so far.
 +     */
 +    protected net.neoforged.neoforge.network.connection.ConnectionType connectionType = net.neoforged.neoforge.network.connection.ConnectionType.OTHER;
  
-     protected ClientCommonPacketListenerImpl(Minecraft minecraft, Connection connection, CommonListenerCookie cookie) {
-         this.minecraft = minecraft;
-@@ -106,6 +_,8 @@
-         this.serverLinks = cookie.serverLinks();
-         this.seenPlayers = new HashMap<>(cookie.seenPlayers());
-         this.seenInsecureChatWarning = cookie.seenInsecureChatWarning();
+     protected ClientCommonPacketListenerImpl(Minecraft p_295454_, Connection p_294773_, CommonListenerCookie p_294647_) {
+         this.minecraft = p_295454_;
+@@ -100,6 +_,8 @@
+         this.strictErrorHandling = p_294647_.strictErrorHandling();
+         this.customReportDetails = p_294647_.customReportDetails();
+         this.serverLinks = p_294647_.serverLinks();
 +        // Neo: Set the connection type based on the cookie from the previous phase.
-+        this.connectionType = cookie.connectionType();
++        this.connectionType = p_294647_.connectionType();
      }
  
-     public ServerLinks serverLinks() {
-@@ -157,6 +_,33 @@
+     @Override
+@@ -149,6 +_,33 @@
  
      @Override
-     public void handleCustomPayload(ClientboundCustomPayloadPacket packet) {
+     public void handleCustomPayload(ClientboundCustomPayloadPacket p_295727_) {
 +        // Neo: Unconditionally handle register/unregister payloads.
-+        if (packet.payload() instanceof net.neoforged.neoforge.network.payload.MinecraftRegisterPayload minecraftRegisterPayload) {
++        if (p_295727_.payload() instanceof net.neoforged.neoforge.network.payload.MinecraftRegisterPayload minecraftRegisterPayload) {
 +            net.neoforged.neoforge.network.registration.NetworkRegistry.onMinecraftRegister(this.getConnection(), minecraftRegisterPayload.newChannels());
 +            return;
 +        }
 +
-+        if (packet.payload() instanceof net.neoforged.neoforge.network.payload.MinecraftUnregisterPayload minecraftUnregisterPayload) {
++        if (p_295727_.payload() instanceof net.neoforged.neoforge.network.payload.MinecraftUnregisterPayload minecraftUnregisterPayload) {
 +            net.neoforged.neoforge.network.registration.NetworkRegistry.onMinecraftUnregister(this.getConnection(), minecraftUnregisterPayload.forgottenChannels());
 +            return;
 +        }
 +
-+        if (packet.payload() instanceof net.neoforged.neoforge.network.payload.CommonVersionPayload commonVersionPayload) {
++        if (p_295727_.payload() instanceof net.neoforged.neoforge.network.payload.CommonVersionPayload commonVersionPayload) {
 +            net.neoforged.neoforge.network.registration.NetworkRegistry.checkCommonVersion(this, commonVersionPayload);
 +            return;
 +        }
 +
-+        if (packet.payload() instanceof net.neoforged.neoforge.network.payload.CommonRegisterPayload commonRegisterPayload) {
++        if (p_295727_.payload() instanceof net.neoforged.neoforge.network.payload.CommonRegisterPayload commonRegisterPayload) {
 +            net.neoforged.neoforge.network.registration.NetworkRegistry.onCommonRegister(this, commonRegisterPayload);
 +            return;
 +        }
 +
 +        // Neo: Handle modded payloads. Vanilla payloads do not get sent to the modded handling pass. Additional payloads cannot be registered in the minecraft domain.
-+        if (net.neoforged.neoforge.network.registration.NetworkRegistry.isModdedPayload(packet.payload())) {
-+            net.neoforged.neoforge.client.network.registration.ClientNetworkRegistry.handleModdedPayload(this, packet);
++        if (net.neoforged.neoforge.network.registration.NetworkRegistry.isModdedPayload(p_295727_.payload())) {
++            net.neoforged.neoforge.network.registration.NetworkRegistry.handleModdedPayload(this, p_295727_);
 +            return;
 +        }
 +
-         CustomPacketPayload payload = packet.payload();
-         if (!(payload instanceof DiscardedPayload)) {
-             PacketUtils.ensureRunningOnSameThread(packet, this, this.minecraft.packetProcessor());
-@@ -347,6 +_,8 @@
+         CustomPacketPayload custompacketpayload = p_295727_.payload();
+         if (!(custompacketpayload instanceof DiscardedPayload)) {
+             PacketUtils.ensureRunningOnSameThread(p_295727_, this, this.minecraft);
+@@ -285,6 +_,8 @@
      }
  
-     public void send(Packet<?> packet) {
+     public void send(Packet<?> p_295097_) {
 +        // Neo: Validate modded payloads before sending.
-+        net.neoforged.neoforge.network.registration.NetworkRegistry.checkPacket(packet, this);
-         this.connection.send(packet);
++        net.neoforged.neoforge.network.registration.NetworkRegistry.checkPacket(p_295097_, this);
+         this.connection.send(p_295097_);
      }
  
-@@ -494,5 +_,15 @@
- 
-         private record PendingRequest(UUID id, URL url, String hash) {
+@@ -415,5 +_,10 @@
+         @OnlyIn(Dist.CLIENT)
+         static record PendingRequest(UUID id, URL url, String hash) {
          }
 +    }
 +
 +    @Override
 +    public Connection getConnection() {
 +        return connection;
-+    }
-+
-+    @Override
-+    public net.minecraft.network.PacketProcessor getPacketProcessor() {
-+        return this.minecraft.packetProcessor();
      }
  }

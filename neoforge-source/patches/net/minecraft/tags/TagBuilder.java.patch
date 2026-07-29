@@ -1,35 +1,41 @@
 --- a/net/minecraft/tags/TagBuilder.java
 +++ b/net/minecraft/tags/TagBuilder.java
-@@ -9,6 +_,8 @@
- public class TagBuilder implements ITagBuilderExtension {
-     private final List<TagEntry> entries = new ArrayList<>();
-     private boolean replace = false;
-+    /// Neo: Entries to be removed from this tag
+@@ -5,6 +_,16 @@
+ import net.minecraft.resources.ResourceLocation;
+ 
+ public class TagBuilder implements net.neoforged.neoforge.common.extensions.ITagBuilderExtension {
++    // FORGE: Remove entries are used for datagen.
 +    private final List<TagEntry> removeEntries = new ArrayList<>();
- 
-     public static TagBuilder create() {
-         return new TagBuilder();
-@@ -46,5 +_,23 @@
- 
-     public TagBuilder addOptionalTag(Identifier id) {
-         return this.add(TagEntry.optionalTag(id));
-+    }
-+
-+    /// Neo: Add an entry to be removed from this tag in datagen.
-+    ///
-+    /// @param entry The entry to be removed
-+    public TagBuilder remove(TagEntry entry) {
++    public java.util.stream.Stream<TagEntry> getRemoveEntries() { return this.removeEntries.stream(); }
++    // FORGE: Add an entry to be removed from this tag in datagen.
++    public TagBuilder remove(final TagEntry entry) {
 +        this.removeEntries.add(entry);
 +        return this;
 +    }
-+
-+    /// Neo: Shorthand for `setReplace(true)`.
-+    public TagBuilder replace() {
-+        return setReplace(true);
++    // FORGE: is this tag set to replace or not?
++    private boolean replace = false;
+     private final List<TagEntry> entries = new ArrayList<>();
+ 
+     public static TagBuilder create() {
+@@ -34,5 +_,21 @@
+ 
+     public TagBuilder addOptionalTag(ResourceLocation p_215910_) {
+         return this.add(TagEntry.optionalTag(p_215910_));
 +    }
 +
-+    /// Neo: Returns the entries to be removed from this tag.
-+    public java.util.stream.Stream<TagEntry> getRemoveEntries() {
-+        return this.removeEntries.stream();
++    // FORGE: Set the replace property of this tag.
++    public TagBuilder replace(boolean value) {
++        this.replace = value;
++        return this;
++    }
++
++    // FORGE: Shorthand version of replace(true)
++    public TagBuilder replace() {
++        return replace(true);
++    }
++
++    // FORGE: Is this tag set to replace or not?
++    public boolean isReplace() {
++        return this.replace;
      }
  }

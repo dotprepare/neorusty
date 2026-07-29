@@ -4,14 +4,9 @@
       {
         "directory": "neoforge_overlays_test",
         "formats": [
-          15,
+          0,
           2147483647
-        ],
-        "max_format": [
-          2147483647,
-          0
-        ],
-        "min_format": 15
+        ]
       }
     ]
   },
@@ -20,14 +15,9 @@
       {
         "directory": "pack_overlays_test",
         "formats": [
-          15,
+          0,
           2147483647
-        ],
-        "max_format": [
-          2147483647,
-          0
-        ],
-        "min_format": 15
+        ]
       },
       {
         "neoforge:conditions": [
@@ -38,14 +28,9 @@
         ],
         "directory": "conditional_overlays_enabled",
         "formats": [
-          15,
+          0,
           2147483647
-        ],
-        "max_format": [
-          2147483647,
-          0
-        ],
-        "min_format": 15
+        ]
       },
       {
         "neoforge:conditions": [
@@ -54,26 +39,19 @@
             "modid": "does_not_exist"
           }
         ],
-        "directory": "conditional_overlays_disabled",
+        "directory": "conditional_overlays_enabled",
         "formats": [
-          15,
+          0,
           2147483647
-        ],
-        "max_format": [
-          2147483647,
-          0
-        ],
-        "min_format": 15
+        ]
       }
     ]
   },
   "pack": {
     "description": "NeoForge tests resource pack",
-    "max_format": 2147483647,
-    "min_format": 15,
-    "pack_format": 15,
+    "pack_format": 34,
     "supported_formats": [
-      15,
+      0,
       2147483647
     ]
   }

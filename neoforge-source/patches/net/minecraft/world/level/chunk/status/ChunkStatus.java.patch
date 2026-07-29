@@ -1,10 +1,9 @@
 --- a/net/minecraft/world/level/chunk/status/ChunkStatus.java
 +++ b/net/minecraft/world/level/chunk/status/ChunkStatus.java
-@@ -59,6 +_,13 @@
-         this.chunkType = chunkType;
-         this.heightmapsAfter = heightmapsAfter;
-         this.index = parent == null ? 0 : parent.getIndex() + 1;
-+
+@@ -57,6 +_,12 @@
+         this.chunkType = p_331412_;
+         this.heightmapsAfter = p_331442_;
+         this.index = p_330316_ == null ? 0 : p_330316_.getIndex() + 1;
 +        EnumSet<Heightmap.Types> chunkSaveHeightmaps = EnumSet.copyOf(this.heightmapsAfter);
 +        if (this.chunkType != ChunkType.LEVELCHUNK) {
 +            chunkSaveHeightmaps.add(Heightmap.Types.WORLD_SURFACE_WG);
@@ -14,7 +13,7 @@
      }
  
      public int getIndex() {
-@@ -109,4 +_,16 @@
+@@ -107,4 +_,16 @@
      public String getName() {
          return BuiltInRegistries.CHUNK_STATUS.getKey(this).toString();
      }

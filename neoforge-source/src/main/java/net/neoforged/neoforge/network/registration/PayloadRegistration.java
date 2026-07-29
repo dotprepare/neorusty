@@ -12,7 +12,8 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
@@ -20,6 +21,7 @@ import org.jetbrains.annotations.ApiStatus;
  * 
  * @param type      The type of the payload
  * @param codec     The codec for the payload
+ * @param handler   The handler for the payload
  * @param protocols The protocols this payload supports
  * @param flow      The flow this payload supports (empty if both)
  * @param version   The version of the payload
@@ -30,11 +32,12 @@ import org.jetbrains.annotations.ApiStatus;
 public record PayloadRegistration<T extends CustomPacketPayload>(
         CustomPacketPayload.Type<T> type,
         StreamCodec<? super RegistryFriendlyByteBuf, T> codec,
+        IPayloadHandler<T> handler,
         List<ConnectionProtocol> protocols,
         Optional<PacketFlow> flow,
         String version,
         boolean optional) {
-    public Identifier id() {
+    public ResourceLocation id() {
         return this.type().id();
     }
 

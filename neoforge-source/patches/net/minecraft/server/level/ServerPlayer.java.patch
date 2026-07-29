@@ -1,63 +1,17 @@
 --- a/net/minecraft/server/level/ServerPlayer.java
 +++ b/net/minecraft/server/level/ServerPlayer.java
-@@ -317,6 +_,10 @@
+@@ -252,6 +_,10 @@
          }
  
-         private void broadcastDataValue(AbstractContainerMenu container, int id, int value) {
+         private void broadcastDataValue(AbstractContainerMenu p_143455_, int p_143456_, int p_143457_) {
 +            if (ServerPlayer.this.connection.hasChannel(net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload.TYPE)) {
-+                ServerPlayer.this.connection.send(new net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload((byte) container.containerId, (short) id, value));
++                ServerPlayer.this.connection.send(new net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload((byte) p_143455_.containerId, (short) p_143456_, p_143457_));
 +                return;
 +            }
-             ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(container.containerId, id, value));
+             ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
- 
-@@ -362,10 +_,17 @@
-         public void sendSystemMessage(Component message) {
-             ServerPlayer.this.sendSystemMessage(message);
-         }
-+
-+        @Override
-+        public Optional<GameProfile> getGameProfile() {
-+            return Optional.of(ServerPlayer.this.getGameProfile());
-+        }
      };
-     private Set<DebugSubscription<?>> requestedDebugSubscriptions = Set.of();
-     private int containerCounter;
-     public boolean wonGame;
-+    // Neo: Used to track partial TIME_SINCE_REST increases for dimensions in which clocks move at different speeds. No need to persist, at most Phantoms will spawn one tick too early for each save/load cycle.
-+    private float partialTimeSinceRestTick;
- 
-     public ServerPlayer(MinecraftServer server, ServerLevel level, GameProfile gameProfile, ClientInformation clientInformation) {
-         super(level, gameProfile);
-@@ -665,7 +_,26 @@
-                 }
- 
-                 if (!this.isSleeping()) {
--                    this.awardStat(Stats.TIME_SINCE_REST);
-+                    // Neo: Advance TIME_SINCE_REST if (a) vanilla daytime handling in effect, or (b) days are shorter, or (c) dayTime has ticked, or (d) dayTime advances are off and we need to ignore day length
-+                    var defaultClock = level().dimensionType().defaultClock();
-+                    if (defaultClock.isEmpty() || !level().getGameRules().get(GameRules.ADVANCE_TIME)) {
-+                        // TODO 26.1: It's debatable whether this should advance in a dimension with no clock BUT in Vanilla it does!
-+                        this.awardStat(Stats.TIME_SINCE_REST);
-+                    } else {
-+                        var speed = level().clockManager().getRate(defaultClock.get());
-+                        var fullTicks = (int) speed;
-+                        partialTimeSinceRestTick += speed;
-+                        if (partialTimeSinceRestTick >= 1) {
-+                            partialTimeSinceRestTick = 0;
-+                            fullTicks++;
-+                        }
-+
-+                        for (int i = 0; i < fullTicks; i++) {
-+                            this.awardStat(Stats.TIME_SINCE_REST);
-+                        }
-+                    }
-+                } else {
-+                    partialTimeSinceRestTick = 0;
-                 }
-             }
- 
-@@ -720,6 +_,11 @@
+@@ -606,6 +_,11 @@
                  this.connection.send(new ClientboundSetExperiencePacket(this.experienceProgress, this.totalExperience, this.experienceLevel));
              }
  
@@ -69,193 +23,164 @@
              if (this.tickCount % 20 == 0) {
                  CriteriaTriggers.LOCATION.trigger(this);
              }
-@@ -733,7 +_,7 @@
- 
-     private void synchronizeSpecialItemUpdates(ItemStack itemStack) {
-         MapId mapId = itemStack.get(DataComponents.MAP_ID);
--        MapItemSavedData data = MapItem.getSavedData(mapId, this.level());
-+        MapItemSavedData data = MapItem.getSavedData(itemStack, this.level());
-         if (data != null) {
-             Packet<?> packet = data.getUpdatePacket(mapId, this);
-             if (packet != null) {
-@@ -882,6 +_,7 @@
+@@ -657,6 +_,7 @@
      @Override
-     public void die(DamageSource source) {
+     public void die(DamageSource p_9035_) {
          this.gameEvent(GameEvent.ENTITY_DIE);
-+        if (net.neoforged.neoforge.common.CommonHooks.onLivingDeath(this, source)) return;
-         boolean showDeathMessage = this.level().getGameRules().get(GameRules.SHOW_DEATH_MESSAGES);
-         if (showDeathMessage) {
-             Component deathMessage = this.getCombatTracker().getDeathMessage();
-@@ -1068,7 +_,7 @@
-             }
- 
-             if (!forced) {
--                return Optional.empty();
-+                return blockState.getRespawnPosition(EntityTypes.PLAYER, level, pos, yaw);
-             }
- 
-             boolean freeBottom = block.isPossibleToRespawnInThis(blockState);
-@@ -1091,6 +_,7 @@
-     }
- 
-     public @Nullable ServerPlayer teleport(TeleportTransition transition) {
-+        if (!net.neoforged.neoforge.common.CommonHooks.onTravelToDimension(this, transition.newLevel().dimension())) return null;
++        if (net.neoforged.neoforge.common.CommonHooks.onLivingDeath(this, p_9035_)) return;
+         boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
+         if (flag) {
+             Component component = this.getCombatTracker().getDeathMessage();
+@@ -826,7 +_,7 @@
+             return BedBlock.findStandUpPosition(EntityType.PLAYER, p_348505_, p_348607_, blockstate.getValue(BedBlock.FACING), p_348481_)
+                 .map(p_348148_ -> ServerPlayer.RespawnPosAngle.of(p_348148_, p_348607_));
+         } else if (!p_348513_) {
+-            return Optional.empty();
++            return blockstate.getRespawnPosition(EntityType.PLAYER, p_348505_, p_348607_, p_348481_);
+         } else {
+             boolean flag = block.isPossibleToRespawnInThis(blockstate);
+             BlockState blockstate1 = p_348505_.getBlockState(p_348607_.above());
+@@ -854,6 +_,7 @@
+     @Nullable
+     @Override
+     public Entity changeDimension(DimensionTransition p_350472_) {
++        if (!net.neoforged.neoforge.common.CommonHooks.onTravelToDimension(this, p_350472_.newLevel().dimension())) return null;
          if (this.isRemoved()) {
              return null;
+         } else {
+@@ -877,7 +_,7 @@
+                 PlayerList playerlist = this.server.getPlayerList();
+                 playerlist.sendPlayerPermissionLevel(this);
+                 serverlevel1.removePlayerImmediately(this, Entity.RemovalReason.CHANGED_DIMENSION);
+-                this.unsetRemoved();
++                this.revive();
+                 serverlevel1.getProfiler().push("moving");
+                 if (resourcekey == Level.OVERWORLD && serverlevel.dimension() == Level.NETHER) {
+                     this.enteredNetherPosition = this.position();
+@@ -895,10 +_,14 @@
+                 playerlist.sendLevelInfo(this, serverlevel);
+                 playerlist.sendAllPlayerInfo(this);
+                 playerlist.sendActivePlayerEffects(this);
++                // TODO 1.21: Play custom teleport sound
+                 p_350472_.postDimensionTransition().onTransition(this);
+                 this.lastSentExp = -1;
+                 this.lastSentHealth = -1.0F;
+                 this.lastSentFood = -1;
++                // Neo: On the client all attachments are lost on dimension change and need to be re-sent
++                net.neoforged.neoforge.attachment.AttachmentSync.syncInitialPlayerAttachments(this);
++                net.neoforged.neoforge.event.EventHooks.firePlayerChangedDimensionEvent(this, resourcekey, p_350472_.newLevel().dimension());
+                 return this;
+             }
          }
-@@ -1120,7 +_,7 @@
-         PlayerList playerList = this.server.getPlayerList();
-         playerList.sendPlayerPermissionLevel(this);
-         oldLevel.removePlayerImmediately(this, Entity.RemovalReason.CHANGED_DIMENSION);
--        this.unsetRemoved();
-+        this.revive();
-         ProfilerFiller profiler = Profiler.get();
-         profiler.push("moving");
-         if (lastDimension == Level.OVERWORLD && newLevel.dimension() == Level.NETHER) {
-@@ -1140,11 +_,15 @@
-         playerList.sendLevelInfo(this, newLevel);
-         playerList.sendAllPlayerInfo(this);
-         playerList.sendActivePlayerEffects(this);
-+        // TODO 1.21: Play custom teleport sound
-         transition.postTeleportTransition().onTransition(this);
-         this.lastSentExp = -1;
-         this.lastSentHealth = -1.0F;
-         this.lastSentFood = -1;
-         this.teleportSpectators(transition, oldLevel);
-+        // Neo: On the client all attachments are lost on dimension change and need to be re-sent
-+        net.neoforged.neoforge.attachment.AttachmentSync.syncInitialPlayerAttachments(this);
-+        net.neoforged.neoforge.event.EventHooks.firePlayerChangedDimensionEvent(this, lastDimension, transition.newLevel().dimension());
-         return this;
-     }
- 
-@@ -1184,8 +_,19 @@
+@@ -934,6 +_,15 @@
  
      @Override
-     public Either<Player.BedSleepingProblem, Unit> startSleepInBed(BlockPos pos) {
+     public Either<Player.BedSleepingProblem, Unit> startSleepInBed(BlockPos p_9115_) {
 +        // Neo: Encapsulate the vanilla check logic to supply to the CanPlayerSleepEvent
 +        var vanillaResult = ((java.util.function.Supplier<Either<BedSleepingProblem, Unit>>) () -> {
 +        // Guard against modded beds that may not have the FACING property.
 +        // We just return success (Unit) here. Modders will need to implement conditions in the CanPlayerSleepEvent
-+        if (!this.level().getBlockState(pos).hasProperty(HorizontalDirectionalBlock.FACING)) {
++        if (!this.level().getBlockState(p_9115_).hasProperty(HorizontalDirectionalBlock.FACING)) {
 +            return Either.right(Unit.INSTANCE);
 +        }
 +
 +        // Start vanilla code
-         Direction direction = this.level().getBlockState(pos).getValue(HorizontalDirectionalBlock.FACING);
--        if (!this.isSleeping() && this.isAlive()) {
-+        if (this.isSleeping() || !this.isAlive()) {
-+            return Either.left(Player.BedSleepingProblem.OTHER_PROBLEM);
-+        } else {
-             BedRule rule = this.level().environmentAttributes().getValue(EnvironmentAttributes.BED_RULE, pos);
-             boolean canSleep = rule.canSleep(this.level());
-             boolean canSetSpawn = rule.canSetSpawn(this.level());
-@@ -1226,6 +_,19 @@
+         Direction direction = this.level().getBlockState(p_9115_).getValue(HorizontalDirectionalBlock.FACING);
+         if (this.isSleeping() || !this.isAlive()) {
+             return Either.left(Player.BedSleepingProblem.OTHER_PROBLEM);
+@@ -962,7 +_,21 @@
+                         return Either.left(Player.BedSleepingProblem.NOT_SAFE);
+                     }
                  }
-             }
- 
-+            // End vanilla code
+-
++        // End vanilla code
++            }
 +        }
 +        return Either.right(Unit.INSTANCE);
 +        }).get();
 +
-+        // Neo: Fire the event, and return the error if one exists
-+        vanillaResult = net.neoforged.neoforge.event.EventHooks.canPlayerStartSleeping(this, pos, vanillaResult);
++        // Fire the event. Return the error if one exists after the event, otherwise use the vanilla logic to start sleeping.
++        vanillaResult = net.neoforged.neoforge.event.EventHooks.canPlayerStartSleeping(this, p_9115_, vanillaResult);
 +        if (vanillaResult.left().isPresent()) {
 +            return vanillaResult;
 +        }
 +
 +        {
-+            // Neo: Continue with the vanilla code to start sleeping
-             Either<Player.BedSleepingProblem, Unit> result = super.startSleepInBed(pos).ifRight(unit -> {
-                 this.awardStat(Stats.SLEEP_IN_BED);
-                 CriteriaTriggers.SLEPT_IN_BED.trigger(this);
-@@ -1236,8 +_,6 @@
- 
-             this.level().updateSleepingPlayerList();
-             return result;
--        } else {
--            return Either.left(Player.BedSleepingProblem.OTHER_PROBLEM);
-         }
++            {
++                // Start vanilla code
+                 Either<Player.BedSleepingProblem, Unit> either = super.startSleepInBed(p_9115_).ifRight(p_9029_ -> {
+                     this.awardStat(Stats.SLEEP_IN_BED);
+                     CriteriaTriggers.SLEPT_IN_BED.trigger(this);
+@@ -984,6 +_,7 @@
      }
  
-@@ -1248,6 +_,7 @@
+     private boolean bedInRange(BlockPos p_9117_, Direction p_9118_) {
++        if (p_9118_ == null) return false;
+         return this.isReachableBedBlock(p_9117_) || this.isReachableBedBlock(p_9117_.relative(p_9118_.getOpposite()));
      }
  
-     private boolean bedInRange(BlockPos pos, Direction direction) {
-+        if (direction == null) return false;
-         return this.isReachableBedBlock(pos) || this.isReachableBedBlock(pos.relative(direction.getOpposite()));
-     }
- 
-@@ -1332,12 +_,20 @@
+@@ -1074,11 +_,19 @@
  
      @Override
-     public OptionalInt openMenu(@Nullable MenuProvider provider) {
-+        return openMenu(provider, (java.util.function.Consumer<net.minecraft.network.RegistryFriendlyByteBuf>) null);
+     public OptionalInt openMenu(@Nullable MenuProvider p_9033_) {
++        return openMenu(p_9033_, (java.util.function.Consumer<net.minecraft.network.RegistryFriendlyByteBuf>) null);
 +    }
 +
 +    @Override
-+    public OptionalInt openMenu(@Nullable MenuProvider provider, java.util.function.@Nullable Consumer<net.minecraft.network.RegistryFriendlyByteBuf> extraDataWriter) {
-         if (provider == null) {
-             return OptionalInt.empty();
-         }
- 
-         if (this.containerMenu != this.inventoryMenu) {
-+            if (provider.shouldTriggerClientSideContainerClosingOnOpen())
-             this.closeContainer();
-+            else
-+                this.doCloseContainer();
-         }
- 
-         this.nextContainerCounter();
-@@ -1349,9 +_,31 @@
- 
++    public OptionalInt openMenu(@Nullable MenuProvider p_9033_, @Nullable java.util.function.Consumer<net.minecraft.network.RegistryFriendlyByteBuf> extraDataWriter) {
+         if (p_9033_ == null) {
              return OptionalInt.empty();
          } else {
-+            // Neo: Support sending additional arbitrary data to menu factories on the client-side
-+            var extraData = net.neoforged.neoforge.common.util.FriendlyByteBufUtil.writeCustomData(
-+                    buffer -> {
-+                        provider.writeClientSideData(menu, buffer);
-+                        if (extraDataWriter != null) {
-+                            extraDataWriter.accept(buffer);
-+                        }
-+                    },
-+                    registryAccess()
-+            );
-+            if (extraData.length != 0) {
-+                this.connection.send(
-+                        new net.neoforged.neoforge.network.payload.AdvancedOpenScreenPayload(
-+                                menu.containerId,
-+                                menu.getType(),
-+                                provider.getDisplayName(),
-+                                extraData
-+                        )
+             if (this.containerMenu != this.inventoryMenu) {
++                if (p_9033_.shouldTriggerClientSideContainerClosingOnOpen())
+                 this.closeContainer();
++                else
++                    this.doCloseContainer();
+             }
+ 
+             this.nextContainerCounter();
+@@ -1090,10 +_,32 @@
+ 
+                 return OptionalInt.empty();
+             } else {
++                // Neo: Support sending additional arbitrary data to menu factories on the client-side
++                var extraData = net.neoforged.neoforge.common.util.FriendlyByteBufUtil.writeCustomData(
++                        buffer -> {
++                            p_9033_.writeClientSideData(abstractcontainermenu, buffer);
++                            if (extraDataWriter != null) {
++                                extraDataWriter.accept(buffer);
++                            }
++                        },
++                        registryAccess()
 +                );
-+            } else {
-             this.connection.send(new ClientboundOpenScreenPacket(menu.containerId, menu.getType(), provider.getDisplayName()));
-+            }
-             this.initMenu(menu);
-             this.containerMenu = menu;
-+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.PlayerContainerEvent.Open(this, this.containerMenu));
-             return OptionalInt.of(this.containerCounter);
++                if (extraData.length != 0) {
++                    this.connection.send(
++                        new net.neoforged.neoforge.network.payload.AdvancedOpenScreenPayload(
++                            abstractcontainermenu.containerId,
++                            abstractcontainermenu.getType(),
++                            p_9033_.getDisplayName(),
++                            extraData
++                        )
++                    );
++                } else {
+                 this.connection
+                     .send(new ClientboundOpenScreenPacket(abstractcontainermenu.containerId, abstractcontainermenu.getType(), p_9033_.getDisplayName()));
++                }
+                 this.initMenu(abstractcontainermenu);
+                 this.containerMenu = abstractcontainermenu;
++                net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.PlayerContainerEvent.Open(this, this.containerMenu));
+                 return OptionalInt.of(this.containerCounter);
+             }
          }
-     }
-@@ -1372,6 +_,7 @@
-         this.connection.send(new ClientboundMountScreenOpenPacket(this.containerCounter, inventoryColumns, horse.getId()));
-         this.containerMenu = new HorseInventoryMenu(this.containerCounter, this.getInventory(), container, horse, inventoryColumns);
+@@ -1115,6 +_,7 @@
+         this.connection.send(new ClientboundHorseScreenOpenPacket(this.containerCounter, i, p_9059_.getId()));
+         this.containerMenu = new HorseInventoryMenu(this.containerCounter, this.getInventory(), p_9060_, p_9059_, i);
          this.initMenu(this.containerMenu);
 +        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.PlayerContainerEvent.Open(this, this.containerMenu));
      }
  
      @Override
-@@ -1385,6 +_,7 @@
-         this.connection.send(new ClientboundMountScreenOpenPacket(this.containerCounter, inventoryColumns, nautilus.getId()));
-         this.containerMenu = new NautilusInventoryMenu(this.containerCounter, this.getInventory(), container, nautilus, inventoryColumns);
-         this.initMenu(this.containerMenu);
-+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.PlayerContainerEvent.Open(this, this.containerMenu));
-     }
- 
-     @Override
-@@ -1413,6 +_,7 @@
+@@ -1143,6 +_,7 @@
      public void doCloseContainer() {
          this.containerMenu.removed(this);
          this.inventoryMenu.transferState(this.containerMenu);
@@ -263,43 +188,43 @@
          this.containerMenu = this.inventoryMenu;
      }
  
-@@ -1632,6 +_,15 @@
-         this.setShoulderEntityRight(oldPlayer.getShoulderEntityRight());
-         this.setLastDeathLocation(oldPlayer.getLastDeathLocation());
-         this.waypointIcon().copyFrom(oldPlayer.waypointIcon());
+@@ -1375,6 +_,15 @@
+         this.setShoulderEntityLeft(p_9016_.getShoulderEntityLeft());
+         this.setShoulderEntityRight(p_9016_.getShoulderEntityRight());
+         this.setLastDeathLocation(p_9016_.getLastDeathLocation());
 +
 +        //Copy over a section of the Entity Data from the old player.
 +        //Allows mods to specify data that persists after players respawn.
-+        var old = oldPlayer.getPersistentData();
++        CompoundTag old = p_9016_.getPersistentData();
 +        if (old.contains(PERSISTED_NBT_TAG))
 +             getPersistentData().put(PERSISTED_NBT_TAG, old.get(PERSISTED_NBT_TAG));
-+        net.neoforged.neoforge.event.EventHooks.onPlayerClone(this, oldPlayer, !restoreAll);
-+        this.tabListHeader = oldPlayer.tabListHeader;
-+        this.tabListFooter = oldPlayer.tabListFooter;
++        net.neoforged.neoforge.event.EventHooks.onPlayerClone(this, p_9016_, !p_9017_);
++        this.tabListHeader = p_9016_.tabListHeader;
++        this.tabListFooter = p_9016_.tabListFooter;
      }
  
-     private void transferInventoryXpAndScore(Player oldPlayer) {
-@@ -1734,6 +_,8 @@
+     @Override
+@@ -1469,6 +_,8 @@
  
-     public boolean setGameMode(GameType mode) {
-         boolean wasSpectator = this.isSpectator();
-+        mode = net.neoforged.neoforge.common.CommonHooks.onChangeGameType(this, this.gameMode.getGameModeForPlayer(), mode);
-+        if (mode == null) return false;
-         if (!this.gameMode.changeGameModeForPlayer(mode)) {
+     public boolean setGameMode(GameType p_143404_) {
+         boolean flag = this.isSpectator();
++        p_143404_ = net.neoforged.neoforge.common.CommonHooks.onChangeGameType(this, this.gameMode.getGameModeForPlayer(), p_143404_);
++        if (p_143404_ == null) return false;
+         if (!this.gameMode.changeGameModeForPlayer(p_143404_)) {
              return false;
-         }
-@@ -1917,6 +_,7 @@
-     public void setCamera(@Nullable Entity newCamera) {
-         Entity oldCamera = this.getCamera();
-         this.camera = newCamera == null ? this : newCamera;
+         } else {
+@@ -1617,6 +_,7 @@
+     public void setCamera(@Nullable Entity p_9214_) {
+         Entity entity = this.getCamera();
+         this.camera = (Entity)(p_9214_ == null ? this : p_9214_);
 +        while (this.camera instanceof net.neoforged.neoforge.entity.PartEntity<?> partEntity) this.camera = partEntity.getParent(); // Neo: fix MC-46486
-         if (oldCamera != this.camera) {
-             if (this.camera.level() instanceof ServerLevel level) {
-                 this.teleportTo(level, this.camera.getX(), this.camera.getY(), this.camera.getZ(), Set.of(), this.getYRot(), this.getXRot(), false);
-@@ -1943,7 +_,11 @@
-     }
+         if (entity != this.camera) {
+             if (this.camera.level() instanceof ServerLevel serverlevel) {
+                 this.teleportTo(serverlevel, this.camera.getX(), this.camera.getY(), this.camera.getZ(), Set.of(), this.getYRot(), this.getXRot());
+@@ -1653,7 +_,11 @@
  
-     public @Nullable Component getTabListDisplayName() {
+     @Nullable
+     public Component getTabListDisplayName() {
 -        return null;
 +        if (!this.hasTabListName) {
 +            this.tabListDisplayName = net.neoforged.neoforge.event.EventHooks.getPlayerTabListDisplayName(this);
@@ -308,17 +233,26 @@
 +        return this.tabListDisplayName;
      }
  
-     public int getTabListOrder() {
-@@ -1977,6 +_,7 @@
+     @Override
+@@ -1710,6 +_,7 @@
      }
  
-     public void setRespawnPosition(ServerPlayer.@Nullable RespawnConfig respawnConfig, boolean showMessage) {
-+        if (net.neoforged.neoforge.event.EventHooks.onPlayerSpawnSet(this, respawnConfig)) return;
-         if (showMessage && respawnConfig != null && !respawnConfig.isSamePosition(this.respawnConfig)) {
-             this.sendSystemMessage(SPAWN_SET_MESSAGE);
+     public void setRespawnPosition(ResourceKey<Level> p_9159_, @Nullable BlockPos p_9160_, float p_9161_, boolean p_9162_, boolean p_9163_) {
++        if (net.neoforged.neoforge.event.EventHooks.onPlayerSpawnSet(this, p_9160_ == null ? Level.OVERWORLD : p_9159_, p_9160_, p_9162_)) return;
+         if (p_9160_ != null) {
+             boolean flag = p_9160_.equals(this.respawnPosition) && p_9159_.equals(this.respawnDimension);
+             if (p_9163_ && !flag) {
+@@ -1767,6 +_,8 @@
+         if (itementity == null) {
+             return null;
+         } else {
++            if (captureDrops() != null) captureDrops().add(itementity);
++            else
+             this.level().addFreshEntity(itementity);
+             ItemStack itemstack = itementity.getItem();
+             if (p_9087_) {
+@@ -1781,6 +_,75 @@
          }
-@@ -2014,6 +_,75 @@
-         return entity;
      }
  
 +    /**
@@ -333,7 +267,7 @@
 +    private Component tabListFooter = Component.empty();
 +
 +    public Component getTabListHeader() {
-+        return this.tabListHeader;
++         return this.tabListHeader;
 +    }
 +
 +    /**
@@ -342,11 +276,11 @@
 +     * @param header the new header, or {@link Component#empty()} to clear
 +     */
 +    public void setTabListHeader(final Component header) {
-+        this.setTabListHeaderFooter(header, this.tabListFooter);
++         this.setTabListHeaderFooter(header, this.tabListFooter);
 +    }
 +
 +    public Component getTabListFooter() {
-+        return this.tabListFooter;
++         return this.tabListFooter;
 +    }
 +
 +    /**
@@ -355,7 +289,7 @@
 +     * @param footer the new footer, or {@link Component#empty()} to clear
 +     */
 +    public void setTabListFooter(final Component footer) {
-+        this.setTabListHeaderFooter(this.tabListHeader, footer);
++         this.setTabListHeaderFooter(this.tabListHeader, footer);
 +    }
 +
 +    /**
@@ -365,15 +299,15 @@
 +     * @param footer the new footer, or {@link Component#empty()} to clear
 +     */
 +    public void setTabListHeaderFooter(final Component header, final Component footer) {
-+        if (java.util.Objects.equals(header, this.tabListHeader)
-+                && java.util.Objects.equals(footer, this.tabListFooter)) {
-+            return;
-+        }
++         if (java.util.Objects.equals(header, this.tabListHeader)
++              && java.util.Objects.equals(footer, this.tabListFooter)) {
++              return;
++         }
 +
-+        this.tabListHeader = java.util.Objects.requireNonNull(header, "header");
-+        this.tabListFooter = java.util.Objects.requireNonNull(footer, "footer");
++         this.tabListHeader = java.util.Objects.requireNonNull(header, "header");
++         this.tabListFooter = java.util.Objects.requireNonNull(footer, "footer");
 +
-+        this.connection.send(new net.minecraft.network.protocol.game.ClientboundTabListPacket(header, footer));
++         this.connection.send(new net.minecraft.network.protocol.game.ClientboundTabListPacket(header, footer));
 +    }
 +
 +    // We need this as tablistDisplayname may be null even if the event was fired.
@@ -386,36 +320,24 @@
 +        Component oldName = this.tabListDisplayName;
 +        this.tabListDisplayName = net.neoforged.neoforge.event.EventHooks.getPlayerTabListDisplayName(this);
 +        if (!java.util.Objects.equals(oldName, this.tabListDisplayName)) {
-+            this.server.getPlayerList().broadcastAll(new net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket(net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME, this));
++            this.getServer().getPlayerList().broadcastAll(new net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket(net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME, this));
 +        }
 +    }
 +
      public TextFilter getTextFilter() {
          return this.textFilter;
      }
-@@ -2028,6 +_,7 @@
-     }
+@@ -1841,9 +_,12 @@
  
-     private GameType calculateGameModeForNewPlayer(@Nullable GameType loadedGameType) {
-+        if (isFakePlayer()) return GameType.SURVIVAL; // Neo: Always default fake players to survival
-         GameType forcedGameType = this.server.getForcedGameType();
-         if (forcedGameType != null) {
-             return forcedGameType;
-@@ -2064,6 +_,8 @@
- 
-     public void drop(boolean all) {
+     public boolean drop(boolean p_182295_) {
          Inventory inventory = this.getInventory();
-+        ItemStack selected = inventory.getSelectedItem();
-+        if (selected.isEmpty() || !selected.onDroppedByPlayer(this)) return;
-         ItemStack removed = inventory.removeFromSelected(all);
-         this.containerMenu
-             .findSlot(inventory, inventory.getSelectedSlot())
-@@ -2072,7 +_,7 @@
-             this.stopUsingItem();
-         }
- 
--        this.drop(removed, false, true);
-+        net.neoforged.neoforge.common.CommonHooks.onPlayerTossEvent(this, removed, false, true);
++        ItemStack selected = inventory.getSelected();
++        if (selected.isEmpty() || !selected.onDroppedByPlayer(this)) return false;
++        if (isUsingItem() && getUsedItemHand() == InteractionHand.MAIN_HAND && (p_182295_ || selected.getCount() == 1)) stopUsingItem(); // Forge: fix MC-231097 on the serverside
+         ItemStack itemstack = inventory.removeFromSelected(p_182295_);
+         this.containerMenu.findSlot(inventory, inventory.selected).ifPresent(p_287377_ -> this.containerMenu.setRemoteSlot(p_287377_, inventory.getSelected()));
+-        return this.drop(itemstack, false, true) != null;
++        return net.neoforged.neoforge.common.CommonHooks.onPlayerTossEvent(this, itemstack, true) != null;
      }
  
-     @Override
+     public boolean allowsListing() {

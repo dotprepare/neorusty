@@ -11,17 +11,17 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import net.minecraft.gametest.framework.GameTestException;
-import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestSequence;
 
 public class ParametrizedGameTestSequence<T> {
-    private final GameTestHelper helper;
+    private final GameTestInfo info;
     private final ExtendedSequence sequence;
     private final Supplier<T> value;
 
-    public ParametrizedGameTestSequence(GameTestHelper helper, ExtendedSequence sequence, Supplier<T> value) {
-        this.helper = helper;
+    public ParametrizedGameTestSequence(GameTestInfo info, ExtendedSequence sequence, Supplier<T> value) {
+        this.info = info;
         this.sequence = sequence;
 
         final AtomicReference<Throwable> capturedException = new AtomicReference<>();
@@ -43,7 +43,7 @@ public class ParametrizedGameTestSequence<T> {
                 if (ex != null) {
                     sneakyThrow(ex);
                 }
-                throw helper.assertionException("Expected value to be non-null!");
+                throw new GameTestAssertException("Expected value to be non-null!");
             }
             return v;
         };
@@ -99,7 +99,7 @@ public class ParametrizedGameTestSequence<T> {
     }
 
     public <Z> ParametrizedGameTestSequence<Z> thenMap(Function<T, Z> mapper) {
-        return new ParametrizedGameTestSequence<>(helper, sequence, () -> mapper.apply(value.get()));
+        return new ParametrizedGameTestSequence<>(info, sequence, () -> mapper.apply(value.get()));
     }
 
     public <Z> ParametrizedGameTestSequence<Z> thenMapAfter(int ticks, Function<T, Z> mapper) {
@@ -108,7 +108,7 @@ public class ParametrizedGameTestSequence<T> {
     }
 
     public <Z> ParametrizedGameTestSequence<Z> thenMap(Supplier<Z> value) {
-        return new ParametrizedGameTestSequence<>(helper, sequence, value);
+        return new ParametrizedGameTestSequence<>(info, sequence, value);
     }
 
     public <Z> ParametrizedGameTestSequence<Z> thenMapAfter(int ticks, Supplier<Z> value) {
@@ -118,9 +118,9 @@ public class ParametrizedGameTestSequence<T> {
 
     public <Z> ParametrizedGameTestSequence<Z> thenMapToSequence(BiFunction<ParametrizedGameTestSequence<T>, Supplier<T>, ParametrizedGameTestSequence<Z>> sequence) {
         final AtomicReference<Z> value = new AtomicReference<>();
-        this.sequence.thenSequence(sq -> sequence.apply(new ParametrizedGameTestSequence<>(helper, sq, this.value), this.value)
+        this.sequence.thenSequence(sq -> sequence.apply(new ParametrizedGameTestSequence<>(info, sq, this.value), this.value)
                 .thenExecute(value::set));
-        return new ParametrizedGameTestSequence<>(helper, this.sequence, value::get);
+        return new ParametrizedGameTestSequence<>(info, this.sequence, value::get);
     }
 
     public <Z> ParametrizedGameTestSequence<Z> thenMapToSequence(Function<Supplier<T>, ParametrizedGameTestSequence<Z>> sequence) {
@@ -140,11 +140,11 @@ public class ParametrizedGameTestSequence<T> {
         sequence.thenSucceed();
     }
 
-    public void thenFail(Supplier<GameTestException> exception) {
+    public void thenFail(Supplier<Exception> exception) {
         sequence.thenFail(exception);
     }
 
-    public void thenFail(Function<T, GameTestException> exception) {
+    public void thenFail(Function<T, Exception> exception) {
         thenFail(() -> exception.apply(value.get()));
     }
 

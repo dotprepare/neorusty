@@ -26,7 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Caches player's last known usernames
@@ -39,7 +39,7 @@ import org.jspecify.annotations.Nullable;
 public final class UsernameCache {
     private static Map<UUID, String> map = new HashMap<>();
 
-    private static final Path saveFile = FMLLoader.getCurrent().getGameDir().resolve("usernamecache.json");
+    private static final Path saveFile = FMLLoader.getGamePath().resolve("usernamecache.json");
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private static final Logger LOGGER = LogManager.getLogger(UsernameCache.class);

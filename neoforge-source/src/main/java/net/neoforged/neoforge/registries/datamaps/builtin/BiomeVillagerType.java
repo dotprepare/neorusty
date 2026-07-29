@@ -7,20 +7,19 @@ package net.neoforged.neoforge.registries.datamaps.builtin;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.npc.villager.VillagerType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.npc.VillagerType;
 
 /**
  * Data map value for {@linkplain NeoForgeDataMaps#VILLAGER_TYPES biome villager types}.
  *
  * @param type the type of the villagers present in this biome
  */
-public record BiomeVillagerType(ResourceKey<VillagerType> type) {
-    public static final Codec<BiomeVillagerType> TYPE_CODEC = ResourceKey.codec(Registries.VILLAGER_TYPE)
+public record BiomeVillagerType(VillagerType type) {
+    public static final Codec<BiomeVillagerType> TYPE_CODEC = BuiltInRegistries.VILLAGER_TYPE.byNameCodec()
             .xmap(BiomeVillagerType::new, BiomeVillagerType::type);
     public static final Codec<BiomeVillagerType> CODEC = Codec.withAlternative(
             RecordCodecBuilder.create(in -> in.group(
-                    ResourceKey.codec(Registries.VILLAGER_TYPE).fieldOf("villager_type").forGetter(BiomeVillagerType::type)).apply(in, BiomeVillagerType::new)),
+                    BuiltInRegistries.VILLAGER_TYPE.byNameCodec().fieldOf("villager_type").forGetter(BiomeVillagerType::type)).apply(in, BiomeVillagerType::new)),
             TYPE_CODEC);
 }

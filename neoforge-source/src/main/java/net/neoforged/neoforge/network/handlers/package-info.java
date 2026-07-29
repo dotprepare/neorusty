@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: LGPL-2.1-only
  */
 
-@NullMarked
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 package net.neoforged.neoforge.network.handlers;
 
-import org.jspecify.annotations.NullMarked;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;

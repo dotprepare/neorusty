@@ -11,13 +11,12 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.cow.MushroomCow;
+import net.minecraft.world.entity.animal.MushroomCow;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -61,11 +60,11 @@ public class ManyMobEffectsTest {
             final var index = i;
             effect = MOB_EFFECTS.register("effect_" + i, () -> new MobEffect(MobEffectCategory.NEUTRAL, 0xFF0000) {
                 @Override
-                public boolean applyEffectTick(ServerLevel level, LivingEntity entity, int amplifier) {
-                    if (entity.level().isClientSide()) {
+                public boolean applyEffectTick(LivingEntity entity, int amplifier) {
+                    if (entity.level().isClientSide) {
                         LOGGER.info("Effect Tick for {} on the client", index);
                     }
-                    return super.applyEffectTick(level, entity, amplifier);
+                    return super.applyEffectTick(entity, amplifier);
                 }
 
                 @Override
@@ -81,11 +80,11 @@ public class ManyMobEffectsTest {
         if (!ENABLED) return;
         MOB_EFFECTS.register(modBus);
         NeoForge.EVENT_BUS.addListener(ManyMobEffectsTest::mobInteract);
-        modBus.addListener((final RegisterEvent event) -> event.register(Registries.CREATIVE_MODE_TAB, helper -> helper.register(Identifier.fromNamespaceAndPath(MODID, "many_mob_effects_test"), CreativeModeTab.builder().withSearchBar()
+        modBus.addListener((final RegisterEvent event) -> event.register(Registries.CREATIVE_MODE_TAB, helper -> helper.register(ResourceLocation.fromNamespaceAndPath(MODID, "many_mob_effects_test"), CreativeModeTab.builder().withSearchBar()
                 .icon(() -> new ItemStack(Items.POTION))
                 .displayItems((params, output) -> {
                     var stack = new ItemStack(Items.POTION);
-                    stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.empty(), List.of(new MobEffectInstance(LAST_EFFECT, 1000)), Optional.empty()));
+                    stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.empty(), List.of(new MobEffectInstance(LAST_EFFECT, 1000))));
                     output.accept(stack);
 
                     stack = new ItemStack(Items.SUSPICIOUS_STEW);
@@ -108,7 +107,7 @@ public class ManyMobEffectsTest {
             } else if (heldItem.isEmpty()) {
                 var effect = ((MobEffect) ObfuscationReflectionHelper.getPrivateValue(MushroomCow.class, cow, "effect"));
                 if (effect != null) {
-                    event.getEntity().sendOverlayMessage(Component.literal(String.valueOf(BuiltInRegistries.MOB_EFFECT.getKey(effect))));
+                    event.getEntity().sendSystemMessage(Component.literal(String.valueOf(BuiltInRegistries.MOB_EFFECT.getKey(effect))));
                 }
             }
         }

@@ -9,17 +9,14 @@ import static net.minecraft.commands.Commands.literal;
 
 import com.mojang.brigadier.Command;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import java.util.Objects;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.nbt.IntTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.permissions.LevelBasedPermissionSet;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -27,23 +24,15 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.storage.TagValueInput;
-import net.minecraft.world.level.storage.TagValueOutput;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent;
-import net.neoforged.neoforge.attachment.AttachmentHolder;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.ValueIOSerializable;
+import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
 @ForEachTest(groups = "attachment")
@@ -52,7 +41,7 @@ public class AttachmentTests {
     @EmptyTemplate
     @TestHolder(description = "Ensures that chunk attachments can capture a reference to the containing LevelChunk.")
     static void chunkAttachmentReferenceTest(DynamicTest test, RegistrationHelper reg) {
-        class ChunkMutableInt implements ValueIOSerializable {
+        class ChunkMutableInt implements INBTSerializable<IntTag> {
             private final LevelChunk chunk;
             private int value;
 
@@ -67,17 +56,17 @@ public class AttachmentTests {
 
             public void setValue(int value) {
                 this.value = value;
-                chunk.markUnsaved();
+                chunk.setUnsaved(true);
             }
 
             @Override
-            public void serialize(ValueOutput output) {
-                output.putInt("value", value);
+            public IntTag serializeNBT(HolderLookup.Provider provider) {
+                return IntTag.valueOf(value);
             }
 
             @Override
-            public void deserialize(ValueInput input) {
-                this.value = input.getIntOr("value", 0);
+            public void deserializeNBT(HolderLookup.Provider provider, IntTag nbt) {
+                this.value = nbt.getAsInt();
             }
         }
 
@@ -88,7 +77,7 @@ public class AttachmentTests {
             event.getDispatcher()
                     .register(literal(test.id())
                             .then(literal("print_and_increment")
-                                    .requires(Commands.hasPermission(Commands.LEVEL_OWNERS))
+                                    .requires(source -> source.hasPermission(Commands.LEVEL_OWNERS))
                                     .executes(ctx -> {
                                         var chunk = ctx.getSource().getLevel().getChunkAt(BlockPos.containing(ctx.getSource().getPosition()));
                                         var attachment = chunk.getData(attachmentType);
@@ -99,9 +88,9 @@ public class AttachmentTests {
         });
 
         test.onGameTest(helper -> {
-            var player = helper.makeOpMockPlayer(LevelBasedPermissionSet.OWNER);
+            var player = helper.makeOpMockPlayer(Commands.LEVEL_OWNERS);
             var pos = helper.absolutePos(BlockPos.ZERO);
-            player.setPos(Vec3.atCenterOf(pos));
+            player.setPos(pos.getCenter());
 
             helper.getLevel().getChunk(pos).removeData(attachmentType); // remove data to ensure that the test can run multiple times
 
@@ -122,21 +111,21 @@ public class AttachmentTests {
     @TestHolder(description = "Ensures that player attachments are copied on respawn when appropriate.")
     static void playerAttachmentCopyOnRespawn(DynamicTest test, RegistrationHelper reg) {
         var lostOnDeathBoolean = reg.attachments()
-                .register("lost_on_death_boolean", () -> AttachmentType.builder(() -> false).serialize(Codec.BOOL.fieldOf("value")).build());
+                .register("lost_on_death_boolean", () -> AttachmentType.builder(() -> false).serialize(Codec.BOOL).build());
         var keptOnDeathBoolean = reg.attachments()
-                .register("kept_on_death_boolean", () -> AttachmentType.builder(() -> false).serialize(Codec.BOOL.fieldOf("value")).copyOnDeath().build());
+                .register("kept_on_death_boolean", () -> AttachmentType.builder(() -> false).serialize(Codec.BOOL).copyOnDeath().build());
 
         test.onGameTest(helper -> {
             var player = helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL);
             player.setData(lostOnDeathBoolean, true);
             player.setData(keptOnDeathBoolean, true);
 
-            var returningPlayer = player.level().getServer().getPlayerList().respawn(player, true, Entity.RemovalReason.CHANGED_DIMENSION);
+            var returningPlayer = player.getServer().getPlayerList().respawn(player, true, Entity.RemovalReason.CHANGED_DIMENSION);
 
             helper.assertTrue(returningPlayer.getData(lostOnDeathBoolean), "Lost-on-death attachment should have remained after end portal respawning.");
             helper.assertTrue(returningPlayer.getData(keptOnDeathBoolean), "Kept-on-death attachment should have remained after end portal respawning.");
 
-            var respawnedPlayer = player.level().getServer().getPlayerList().respawn(returningPlayer, false, Entity.RemovalReason.KILLED);
+            var respawnedPlayer = player.getServer().getPlayerList().respawn(returningPlayer, false, Entity.RemovalReason.KILLED);
 
             helper.assertFalse(respawnedPlayer.getData(lostOnDeathBoolean), "Lost-on-death attachment should not have remained after respawning.");
             helper.assertTrue(respawnedPlayer.getData(keptOnDeathBoolean), "Kept-on-death attachment should have remained after respawning.");
@@ -150,74 +139,18 @@ public class AttachmentTests {
     @TestHolder(description = "Tests that attachments with dynamic data are de/serialized well")
     static void dynamicDataContentSerialization(DynamicTest test, RegistrationHelper reg) {
         var stackType = reg.attachments()
-                .register("stack", () -> AttachmentType.builder(() -> new ItemStack(Items.IRON_AXE)).serialize(ItemStack.CODEC.fieldOf("stack")).build());
+                .register("stack", () -> AttachmentType.builder(() -> new ItemStack(Items.IRON_AXE)).serialize(ItemStack.CODEC).build());
         test.onGameTest(helper -> {
             var player = helper.makeMockPlayer();
             var stack = new ItemStack(Items.IRON_SWORD);
             var enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-            enchantments.set(helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SHARPNESS), 3);
+            enchantments.set(helper.getLevel().registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.SHARPNESS), 3);
             stack.set(DataComponents.ENCHANTMENTS, enchantments.toImmutable());
             player.setData(stackType, stack);
             helper.catchException(() -> {
-                var reporter = new ProblemReporter.Collector();
-                var tag = TagValueOutput.createWithContext(reporter, helper.getLevel().registryAccess());
-                player.serializeAttachments(tag); // This will throw if it fails
-                helper.assertTrue(reporter.isEmpty(), "expected no serialisation problems");
+                player.serializeAttachments(helper.getLevel().registryAccess()); // This will throw if it fails
             });
             helper.succeed();
         });
-    }
-
-    @TestHolder(description = "Regression test for neoforged/Neoforge#2728", enabledByDefault = true)
-    static void pseudoEmptyAttachmentSerialization(DynamicTest test, RegistrationHelper reg) {
-        record EmptyObject(int value) {}
-
-        class TestAttachmentHolder extends AttachmentHolder {
-            public void deserialize(ValueInput input) {
-                // Deserialize is protected final, so we need a wrapper method
-                this.deserializeAttachments(input);
-            }
-        }
-
-        var nullableAttachment = reg.attachments()
-                .register("nullable_attachment", () -> AttachmentType.builder(() -> new EmptyObject(1))
-                        .serialize(RecordCodecBuilder.mapCodec(
-                                instance -> instance.group(
-                                        Codec.INT.optionalFieldOf("value", 0).forGetter(EmptyObject::value)).apply(instance, EmptyObject::new)))
-                        .build());
-
-        test.framework().modEventBus().addListener((FMLLoadCompleteEvent event) -> event.enqueueWork(() -> {
-            // Serialize and deserialize object
-            var lookup = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-
-            var originalHolder = new TestAttachmentHolder();
-            originalHolder.setData(nullableAttachment, new EmptyObject(0));
-
-            var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, lookup);
-            originalHolder.serializeAttachments(output);
-
-            var anotherHolder = new TestAttachmentHolder();
-            try {
-                // Try to deserialize
-                anotherHolder.deserialize(TagValueInput.create(ProblemReporter.DISCARDING, lookup, output.buildResult()));
-            } catch (Exception e) {
-                // If an exception is thrown
-                test.fail(e.getMessage());
-            }
-
-            // Check if deserialized successfully
-            if (!anotherHolder.hasData(nullableAttachment)) {
-                test.fail("Unable to find nullable attachment data after deserialiation.");
-            }
-
-            // Check if data matches original
-            if (!Objects.equals(
-                    originalHolder.getData(nullableAttachment).value,
-                    anotherHolder.getData(nullableAttachment).value)) {
-                test.fail("Data from holder does not match after serialization loop.");
-            }
-
-            test.pass();
-        }));
     }
 }

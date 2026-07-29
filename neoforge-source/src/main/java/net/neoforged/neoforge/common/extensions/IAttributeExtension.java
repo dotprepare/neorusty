@@ -9,13 +9,13 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.Util;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.Attribute.Sentiment;
@@ -23,10 +23,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.TooltipFlag;
+import net.neoforged.neoforge.common.NeoForgeConfig;
 import net.neoforged.neoforge.common.NeoForgeMod;
-import net.neoforged.neoforge.common.config.NeoForgeCommonConfig;
 import net.neoforged.neoforge.common.util.AttributeUtil;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface IAttributeExtension {
     public static final DecimalFormat FORMAT = Util.make(new DecimalFormat("#.##"), fmt -> fmt.setDecimalFormatSymbols(DecimalFormatSymbols.getInstance(Locale.ROOT)));;
@@ -84,7 +84,7 @@ public interface IAttributeExtension {
     default Component getDebugInfo(AttributeModifier modif, TooltipFlag flag) {
         Component debugInfo = CommonComponents.EMPTY;
 
-        if (flag.isAdvanced() && NeoForgeCommonConfig.INSTANCE.attributeAdvancedTooltipDebugInfo.get()) {
+        if (flag.isAdvanced() && NeoForgeConfig.COMMON.attributeAdvancedTooltipDebugInfo.get()) {
             // Advanced Tooltips show the underlying operation and the "true" value. We offset MULTIPLY_TOTAL by 1 due to how the operation is calculated.
             double advValue = (modif.operation() == Operation.ADD_MULTIPLIED_TOTAL ? 1 : 0) + modif.amount();
             String valueStr = FORMAT.format(advValue);
@@ -106,7 +106,7 @@ public interface IAttributeExtension {
      * @apiNote Base modifiers always operate as if they were using {@link Operation#ADD_VALUE}.
      */
     @Nullable
-    default Identifier getBaseId() {
+    default ResourceLocation getBaseId() {
         if (this == Attributes.ATTACK_DAMAGE.value()) return AttributeUtil.BASE_ATTACK_DAMAGE_ID;
         else if (this == Attributes.ATTACK_SPEED.value()) return AttributeUtil.BASE_ATTACK_SPEED_ID;
         else if (this == Attributes.ENTITY_INTERACTION_RANGE.value()) return AttributeUtil.BASE_ENTITY_REACH_ID;
@@ -132,7 +132,7 @@ public interface IAttributeExtension {
 
         // Emit both the value of the modifier, and the entity's base value as debug information, since both are flattened into the modifier.
         // Skip showing debug information here when displaying a merged modifier, since it will be shown if the user holds shift to display the un-merged modifier.
-        if (flag.isAdvanced() && !merged && NeoForgeCommonConfig.INSTANCE.attributeAdvancedTooltipDebugInfo.get()) {
+        if (flag.isAdvanced() && !merged && NeoForgeConfig.COMMON.attributeAdvancedTooltipDebugInfo.get()) {
             double baseBonus = value - entityBase;
             String baseBonusText = String.format(Locale.ROOT, baseBonus > 0 ? " + %s" : " - %s", FORMAT.format(Math.abs(baseBonus)));
             Component debugInfo = Component.translatable("neoforge.attribute.debug.base", FORMAT.format(entityBase), baseBonusText).withStyle(ChatFormatting.GRAY);

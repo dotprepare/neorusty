@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:black_dye"
+    "minecraft:black_dye",
+    {
+      "id": "#forge:dyes/black",
+      "required": false
+    }
   ]
 }

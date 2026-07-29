@@ -9,14 +9,8 @@
     "minecraft:breeze": {
       "sound": "minecraft:entity.parrot.imitate.breeze"
     },
-    "minecraft:camel_husk": {
-      "sound": "minecraft:entity.parrot.imitate.camel_husk"
-    },
     "minecraft:cave_spider": {
       "sound": "minecraft:entity.parrot.imitate.spider"
-    },
-    "minecraft:creaking": {
-      "sound": "minecraft:entity.parrot.imitate.creaking"
     },
     "minecraft:creeper": {
       "sound": "minecraft:entity.parrot.imitate.creeper"
@@ -42,9 +36,6 @@
     "minecraft:guardian": {
       "sound": "minecraft:entity.parrot.imitate.guardian"
     },
-    "minecraft:happy_ghast": {
-      "sound": "minecraft:intentionally_empty"
-    },
     "minecraft:hoglin": {
       "sound": "minecraft:entity.parrot.imitate.hoglin"
     },
@@ -56,9 +47,6 @@
     },
     "minecraft:magma_cube": {
       "sound": "minecraft:entity.parrot.imitate.magma_cube"
-    },
-    "minecraft:parched": {
-      "sound": "minecraft:entity.parrot.imitate.parched"
     },
     "minecraft:phantom": {
       "sound": "minecraft:entity.parrot.imitate.phantom"
@@ -116,12 +104,6 @@
     },
     "minecraft:zombie": {
       "sound": "minecraft:entity.parrot.imitate.zombie"
-    },
-    "minecraft:zombie_horse": {
-      "sound": "minecraft:entity.parrot.imitate.zombie_horse"
-    },
-    "minecraft:zombie_nautilus": {
-      "sound": "minecraft:entity.parrot.imitate.zombie_nautilus"
     },
     "minecraft:zombie_villager": {
       "sound": "minecraft:entity.parrot.imitate.zombie_villager"

@@ -12,11 +12,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.BaseFireBlock;
+import net.minecraft.world.level.block.GameMasterBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.portal.PortalShape;
 import net.neoforged.bus.api.Event;
@@ -24,7 +26,7 @@ import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.common.ItemAbilities;
 import net.neoforged.neoforge.common.ItemAbility;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class BlockEvent extends Event {
     private static final boolean DEBUG = Boolean.parseBoolean(System.getProperty("neoforge.debugBlockEvent", "false"));
@@ -49,6 +51,43 @@ public abstract class BlockEvent extends Event {
 
     public BlockState getState() {
         return state;
+    }
+
+    /**
+     * This event is fired on the server when a player attempts to break a block, upon receipt of a block break packet.
+     *
+     * The following conditions may cause this event to fire in a cancelled state:
+     * <ul>
+     * <li>If {@link Player#blockActionRestricted} is true.</li>
+     * <li>If the target block is a {@link GameMasterBlock} and {@link Player#canUseGameMasterBlocks()} is false.</li>
+     * <li>If the the player is holding an item, and {@link Item#canAttackBlock} is false.</li>
+     * </ul>
+     *
+     * In the first two cases, un-cancelling the event will not permit the block to be broken.
+     * In the third case, un-cancelling will allow the break, bypassing the behavior of {@link Item#canAttackBlock}.
+     */
+    public static class BreakEvent extends BlockEvent implements ICancellableEvent {
+        private final Player player;
+
+        public BreakEvent(Level level, BlockPos pos, BlockState state, Player player) {
+            super(level, pos, state);
+            this.player = player;
+        }
+
+        /**
+         * {@return the player who is attempting to break the block}
+         */
+        public Player getPlayer() {
+            return player;
+        }
+
+        /**
+         * Cancelling this event will prevent the block from being broken, and notifies the client of the refusal.
+         */
+        @Override
+        public void setCanceled(boolean canceled) {
+            ICancellableEvent.super.setCanceled(canceled);
+        }
     }
 
     /**
@@ -207,9 +246,9 @@ public abstract class BlockEvent extends Event {
      */
     public static class FarmlandTrampleEvent extends BlockEvent implements ICancellableEvent {
         private final Entity entity;
-        private final double fallDistance;
+        private final float fallDistance;
 
-        public FarmlandTrampleEvent(Level level, BlockPos pos, BlockState state, double fallDistance, Entity entity) {
+        public FarmlandTrampleEvent(Level level, BlockPos pos, BlockState state, float fallDistance, Entity entity) {
             super(level, pos, state);
             this.entity = entity;
             this.fallDistance = fallDistance;
@@ -219,7 +258,7 @@ public abstract class BlockEvent extends Event {
             return entity;
         }
 
-        public double getFallDistance() {
+        public float getFallDistance() {
             return fallDistance;
         }
     }

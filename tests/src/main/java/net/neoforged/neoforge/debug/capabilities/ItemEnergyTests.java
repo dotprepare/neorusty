@@ -9,23 +9,22 @@ import com.mojang.serialization.Codec;
 import java.util.function.Supplier;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.energy.ComponentEnergyStorage;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.transfer.access.ItemAccess;
-import net.neoforged.neoforge.transfer.energy.ItemAccessEnergyHandler;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.TestFramework;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.OnInit;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.DeferredItems;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
@@ -42,15 +41,15 @@ public class ItemEnergyTests {
             .build());
 
     private static final DeferredItems ITEMS = HELPER.items();
-    private static final DeferredItem<Item> BATTERY = ITEMS.registerItem("test_battery", props -> new Item(props.component(ENERGY_COMPONENT, MAX_CAPACITY)));
+    private static final DeferredItem<Item> BATTERY = ITEMS.register("test_battery", () -> new Item(new Item.Properties().component(ENERGY_COMPONENT, MAX_CAPACITY)));
 
     @OnInit
     static void init(final TestFramework framework) {
         COMPONENTS.register(framework.modEventBus());
         ITEMS.register(framework.modEventBus());
         framework.modEventBus().<RegisterCapabilitiesEvent>addListener(e -> {
-            e.registerItem(Capabilities.Energy.ITEM, (stack, itemAccess) -> {
-                return new ItemAccessEnergyHandler(itemAccess, ENERGY_COMPONENT.get(), MAX_CAPACITY);
+            e.registerItem(EnergyStorage.ITEM, (stack, ctx) -> {
+                return new ComponentEnergyStorage(stack, ENERGY_COMPONENT.get(), MAX_CAPACITY);
             }, BATTERY);
         });
     }
@@ -61,9 +60,7 @@ public class ItemEnergyTests {
     public static void testItemEnergy(DynamicTest test, RegistrationHelper reg) {
         test.onGameTest(helper -> {
             ItemStack stack = BATTERY.toStack();
-            ItemAccess itemAccess = ItemAccess.forStack(stack);
-            // Note: this uses the legacy wrappers, testing the wrappers and that the new ItemAccessEnergyHandler matches the old ComponentEnergyStorage.
-            IEnergyStorage energy = IEnergyStorage.of(itemAccess.getCapability(Capabilities.Energy.ITEM));
+            IEnergyStorage energy = stack.getCapability(EnergyStorage.ITEM);
             helper.assertValueEqual(energy.getEnergyStored(), MAX_CAPACITY, "Default stored energy should be equal to the max capacity.");
 
             helper.assertValueEqual(energy.extractEnergy(MAX_CAPACITY, false), MAX_CAPACITY, "Extracted energy should be equal to the target value.");

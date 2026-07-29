@@ -7,10 +7,9 @@ package net.neoforged.neoforge.oldtest.block;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.vehicle.boat.Boat;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.LevelReader;
@@ -22,17 +21,17 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
-@EventBusSubscriber
 @Mod(SlipperinessTest.MOD_ID)
+@EventBusSubscriber
 public class SlipperinessTest {
     static final String MOD_ID = "slipperiness_test";
     static final String BLOCK_ID = "test_block";
 
-    public static final DeferredBlock<Block> BB_BLOCK = DeferredBlock.createBlock(Identifier.fromNamespaceAndPath(MOD_ID, BLOCK_ID));
+    public static final DeferredBlock<Block> BB_BLOCK = DeferredBlock.createBlock(ResourceLocation.fromNamespaceAndPath(MOD_ID, BLOCK_ID));
 
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent e) {
-        e.register(Registries.BLOCK, helper -> helper.register(BB_BLOCK.getId(), new Block(Block.Properties.of().setId(BB_BLOCK.unwrapKey().orElseThrow())) {
+        e.register(Registries.BLOCK, helper -> helper.register(BB_BLOCK.getId(), new Block(Block.Properties.of()) {
             @Override
             public float getFriction(BlockState state, LevelReader level, BlockPos pos, Entity entity) {
                 return entity instanceof Boat ? 2 : super.getFriction(state, level, pos, entity);
@@ -42,7 +41,7 @@ public class SlipperinessTest {
 
     @SubscribeEvent
     public static void registerItems(RegisterEvent e) {
-        e.register(Registries.ITEM, helper -> helper.register(BB_BLOCK.getId(), new BlockItem(BB_BLOCK.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, BB_BLOCK.getId())).useBlockDescriptionPrefix())));
+        e.register(Registries.ITEM, helper -> helper.register(BB_BLOCK.getId(), new BlockItem(BB_BLOCK.get(), new Item.Properties())));
     }
 
     /*

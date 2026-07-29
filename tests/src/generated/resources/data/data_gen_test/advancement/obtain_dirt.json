@@ -17,6 +17,7 @@
       "translate": "dirt_description"
     },
     "icon": {
+      "count": 1,
       "id": "minecraft:dirt"
     },
     "title": {

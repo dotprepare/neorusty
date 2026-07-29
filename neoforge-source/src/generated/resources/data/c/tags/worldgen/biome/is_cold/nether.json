@@ -1,3 +1,8 @@
 {
-  "values": []
+  "values": [
+    {
+      "id": "#forge:is_cold/nether",
+      "required": false
+    }
+  ]
 }

@@ -11,26 +11,24 @@ import java.util.List;
 import java.util.Objects;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementType;
-import net.minecraft.advancements.predicates.DataComponentMatchers;
-import net.minecraft.advancements.predicates.ItemPredicate;
-import net.minecraft.advancements.triggers.InventoryChangeTrigger;
-import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.advancements.critereon.InventoryChangeTrigger;
+import net.minecraft.advancements.critereon.ItemPredicate;
+import net.minecraft.advancements.critereon.ItemSubPredicate;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.component.predicates.DataComponentPredicate;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.advancements.AdvancementProvider;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.neoforged.neoforge.common.data.AdvancementProvider;
 import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
 @ForEachTest(groups = PlayerTests.GROUP + ".advancement")
@@ -40,9 +38,9 @@ public class AdvancementTests {
     @TestHolder(description = "Tests if the advancement earn event is fired", groups = "event")
     static void playerAdvancementEarn(final DynamicTest test) {
         test.eventListeners().forge().addListener((final AdvancementEvent.AdvancementEarnEvent event) -> {
-            if (event.getAdvancement().id().equals(Identifier.withDefaultNamespace("story/root")) && event.getEntity() instanceof ServerPlayer player) {
+            if (event.getAdvancement().id().equals(ResourceLocation.withDefaultNamespace("story/root")) && event.getEntity() instanceof ServerPlayer player) {
                 player.getAdvancements().award(
-                        Objects.requireNonNull(player.level().getServer().getAdvancements().get(Identifier.withDefaultNamespace("story/mine_stone"))),
+                        Objects.requireNonNull(player.server.getAdvancements().get(ResourceLocation.withDefaultNamespace("story/mine_stone"))),
                         "get_stone");
             }
             test.pass();
@@ -53,7 +51,7 @@ public class AdvancementTests {
             helper.startSequence()
                     .thenExecute(() -> player.getInventory().add(Items.CRAFTING_TABLE.getDefaultInstance()))
                     .thenExecuteAfter(5, () -> helper.assertTrue(
-                            player.getAdvancements().getOrStartProgress(player.level().getServer().getAdvancements().get(Identifier.withDefaultNamespace("story/mine_stone"))).isDone(),
+                            player.getAdvancements().getOrStartProgress(player.server.getAdvancements().get(ResourceLocation.withDefaultNamespace("story/mine_stone"))).isDone(),
                             "Player did not receive advancement"))
                     .thenSucceed();
         });
@@ -64,7 +62,7 @@ public class AdvancementTests {
     @TestHolder(description = "Tests if the advancement progress event is fired", groups = "event")
     static void playerAdvancementProgress(final DynamicTest test) {
         test.eventListeners().forge().addListener((final AdvancementEvent.AdvancementProgressEvent event) -> {
-            if (event.getAdvancement().id().equals(Identifier.withDefaultNamespace("story/obtain_armor")) && event.getProgressType() == AdvancementEvent.AdvancementProgressEvent.ProgressType.GRANT && event.getEntity() instanceof ServerPlayer player) {
+            if (event.getAdvancement().id().equals(ResourceLocation.withDefaultNamespace("story/obtain_armor")) && event.getProgressType() == AdvancementEvent.AdvancementProgressEvent.ProgressType.GRANT && event.getEntity() instanceof ServerPlayer player) {
                 player.getAdvancements().getOrStartProgress(event.getAdvancement())
                         .getRemainingCriteria().forEach(criteria -> player.getAdvancements().award(event.getAdvancement(), criteria));
             }
@@ -76,7 +74,7 @@ public class AdvancementTests {
             helper.startSequence()
                     .thenExecute(() -> player.getInventory().add(Items.IRON_HELMET.getDefaultInstance()))
                     .thenExecuteAfter(5, () -> helper.assertTrue(
-                            player.getAdvancements().getOrStartProgress(player.level().getServer().getAdvancements().get(Identifier.withDefaultNamespace("story/obtain_armor"))).isDone(),
+                            player.getAdvancements().getOrStartProgress(player.server.getAdvancements().get(ResourceLocation.withDefaultNamespace("story/obtain_armor"))).isDone(),
                             "Player did not complete advancement"))
                     .thenSucceed();
         });
@@ -87,23 +85,24 @@ public class AdvancementTests {
     @SuppressWarnings("removal")
     @TestHolder(description = "Tests if custom advancement predicates work")
     static void customPredicateTest(final DynamicTest test, final RegistrationHelper reg) {
-        DataComponentPredicate.Type<CustomNamePredicate> type = new DataComponentPredicate.ConcreteType<>(RecordCodecBuilder.create(g -> g.group(
+        ItemSubPredicate.Type<CustomNamePredicate> type = new ItemSubPredicate.Type<>(RecordCodecBuilder.create(g -> g.group(
                 Codec.INT.fieldOf("data1").forGetter(CustomNamePredicate::data1),
                 Codec.INT.fieldOf("data2").forGetter(CustomNamePredicate::data2))
                 .apply(g, CustomNamePredicate::new)));
 
-        reg.registrar(Registries.DATA_COMPONENT_PREDICATE_TYPE)
+        reg.registrar(Registries.ITEM_SUB_PREDICATE_TYPE)
                 .register("custom_name", () -> type);
 
-        reg.addClientProvider(event -> new AdvancementProvider(
+        reg.addProvider(event -> new AdvancementProvider(
                 event.getGenerator().getPackOutput(),
                 event.getLookupProvider(),
-                List.of((registries, saver) -> {
+                event.getExistingFileHelper(),
+                List.of((registries, saver, existingFileHelper) -> {
                     Advancement.Builder.advancement()
-                            .parent(Identifier.withDefaultNamespace("story/root"))
+                            .parent(ResourceLocation.withDefaultNamespace("story/root"))
                             .display(Items.ANVIL, Component.literal("Named!"), Component.literal("Get a named item"), null, AdvancementType.TASK, true, true, false)
-                            .addCriterion("has_named_item", InventoryChangeTrigger.TriggerInstance.hasItems(ItemPredicate.Builder.item().withComponents(DataComponentMatchers.Builder.components().partial(type, new CustomNamePredicate(1, 2)).build())))
-                            .save(saver, Identifier.fromNamespaceAndPath(reg.modId(), "named_item"));
+                            .addCriterion("has_named_item", InventoryChangeTrigger.TriggerInstance.hasItems(ItemPredicate.Builder.item().withSubPredicate(type, new CustomNamePredicate(1, 2))))
+                            .save(saver, ResourceLocation.fromNamespaceAndPath(reg.modId(), "named_item"), existingFileHelper);
                 })));
 
         test.onGameTest(helper -> {
@@ -115,16 +114,16 @@ public class AdvancementTests {
                         player.getInventory().add(stack);
                     })
                     .thenExecuteAfter(5, () -> helper.assertTrue(
-                            player.getAdvancements().getOrStartProgress(player.level().getServer().getAdvancements().get(Identifier.fromNamespaceAndPath(reg.modId(), "named_item"))).isDone(),
+                            player.getAdvancements().getOrStartProgress(player.server.getAdvancements().get(ResourceLocation.fromNamespaceAndPath(reg.modId(), "named_item"))).isDone(),
                             "Player did not complete advancement"))
                     .thenSucceed();
         });
     }
 
-    public record CustomNamePredicate(int data1, int data2) implements DataComponentPredicate {
+    public record CustomNamePredicate(int data1, int data2) implements ItemSubPredicate {
         @Override
-        public boolean matches(DataComponentGetter dataComponentGetter) {
-            return dataComponentGetter.has(DataComponents.CUSTOM_NAME);
+        public boolean matches(ItemStack itemStack) {
+            return itemStack.has(DataComponents.CUSTOM_NAME);
         }
     }
 }

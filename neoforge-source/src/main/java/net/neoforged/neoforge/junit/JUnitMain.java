@@ -5,18 +5,22 @@
 
 package net.neoforged.neoforge.junit;
 
+import cpw.mods.modlauncher.Launcher;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
-import net.neoforged.fml.loading.FMLLoader;
-import net.neoforged.fml.startup.JUnitGameBootstrapper;
+import net.neoforged.fml.common.asm.RuntimeDistCleaner;
 
-public class JUnitMain implements JUnitGameBootstrapper {
-    @Override
-    public void bootstrap(FMLLoader fmlLoader) {
+public class JUnitMain {
+    public static void main(String[] args) {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
 
         // Load mods
-        net.neoforged.neoforge.server.loading.ServerModLoader.load(false);
+        net.neoforged.neoforge.server.loading.ServerModLoader.load();
+
+        // We launch as a server, but we want client classes available.
+        // Passing null disables dist-cleaning.
+        var distCleaner = (RuntimeDistCleaner) Launcher.INSTANCE.environment().findLaunchPlugin("runtimedistcleaner").orElseThrow();
+        distCleaner.setDistribution(null);
     }
 }

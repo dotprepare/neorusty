@@ -5,12 +5,12 @@
 
 package net.neoforged.neoforge.oldtest.misc;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
@@ -33,7 +33,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 
 @Mod("containertypetest")
 public class ContainerTypeTest {
-    public static final DeferredHolder<MenuType<?>, MenuType<TestContainer>> TYPE = DeferredHolder.create(Registries.MENU, Identifier.fromNamespaceAndPath("containertypetest", "container"));
+    public static final DeferredHolder<MenuType<?>, MenuType<TestContainer>> TYPE = DeferredHolder.create(Registries.MENU, ResourceLocation.fromNamespaceAndPath("containertypetest", "container"));
 
     public static class TestContainer extends AbstractContainerMenu {
         private final String text;
@@ -51,7 +51,7 @@ public class ContainerTypeTest {
         }
 
         @Override
-        public ItemStack quickMoveStack(Player player, int slotIndex) {
+        public ItemStack quickMoveStack(Player p_38941_, int p_38942_) {
             return ItemStack.EMPTY;
         }
 
@@ -67,8 +67,8 @@ public class ContainerTypeTest {
         }
 
         @Override
-        public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-            graphics.text(this.font, getMenu().text, mouseX, mouseY, -1);
+        protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+            graphics.drawString(this.font, getMenu().text, mouseX, mouseY, -1);
         }
     }
 
@@ -79,7 +79,7 @@ public class ContainerTypeTest {
     }
 
     private void registerContainers(final RegisterEvent event) {
-        event.register(Registries.MENU, helper -> helper.register(Identifier.fromNamespaceAndPath("containertypetest", "container"), IMenuTypeExtension.create(TestContainer::new)));
+        event.register(Registries.MENU, helper -> helper.register(ResourceLocation.fromNamespaceAndPath("containertypetest", "container"), IMenuTypeExtension.create(TestContainer::new)));
     }
 
     private void registerMenuScreens(RegisterMenuScreensEvent event) {
@@ -87,7 +87,7 @@ public class ContainerTypeTest {
     }
 
     private void onRightClick(PlayerInteractEvent.RightClickBlock event) {
-        if (!event.getLevel().isClientSide() && event.getHand() == InteractionHand.MAIN_HAND) {
+        if (!event.getLevel().isClientSide && event.getHand() == InteractionHand.MAIN_HAND) {
             if (event.getLevel().getBlockState(event.getPos()).getBlock() == Blocks.SPONGE) {
                 String text = "Hello World!";
                 event.getEntity().openMenu(new MenuProvider() {

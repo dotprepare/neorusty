@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: LGPL-2.1-only
  */
 
-@NullMarked
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 package net.neoforged.neoforge.resource;
 
-import org.jspecify.annotations.NullMarked;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;

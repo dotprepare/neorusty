@@ -8,16 +8,16 @@ package net.neoforged.neoforge.resource;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Set;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.AbstractPackResources;
 import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.metadata.MetadataSectionType;
+import net.minecraft.server.packs.metadata.MetadataSectionSerializer;
 import net.minecraft.server.packs.metadata.pack.PackMetadataSection;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.resources.IoSupplier;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class EmptyPackResources extends AbstractPackResources {
     private final PackMetadataSection packMeta;
@@ -27,10 +27,11 @@ public class EmptyPackResources extends AbstractPackResources {
         this.packMeta = packMeta;
     }
 
+    @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    public <T> T getMetadataSection(MetadataSectionType<T> type) {
-        return PackMetadataSection.CLIENT_TYPE.equals(type) || PackMetadataSection.SERVER_TYPE.equals(type) ? (T) this.packMeta : null;
+    public <T> T getMetadataSection(MetadataSectionSerializer<T> deserializer) {
+        return deserializer.getMetadataSectionName().equals("pack") ? (T) this.packMeta : null;
     }
 
     @Override
@@ -53,7 +54,7 @@ public class EmptyPackResources extends AbstractPackResources {
 
     @Nullable
     @Override
-    public IoSupplier<InputStream> getResource(PackType type, Identifier location) {
+    public IoSupplier<InputStream> getResource(PackType type, ResourceLocation location) {
         return null;
     }
 

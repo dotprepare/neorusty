@@ -5,10 +5,12 @@
 
 package net.neoforged.neoforge.common.extensions;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ClientCommonPacketListener;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.util.thread.ReentrantBlockableEventLoop;
 
 /**
  * Extension interface for {@link ClientCommonPacketListener}
@@ -28,5 +30,13 @@ public interface IClientCommonPacketListenerExtension extends ICommonPacketListe
     @Override
     default void disconnect(Component reason) {
         this.getConnection().disconnect(reason);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    default ReentrantBlockableEventLoop<?> getMainThreadEventLoop() {
+        return Minecraft.getInstance();
     }
 }

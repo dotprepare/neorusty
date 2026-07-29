@@ -7,6 +7,10 @@
     "minecraft:grove",
     "minecraft:snowy_slopes",
     "minecraft:jagged_peaks",
-    "minecraft:frozen_peaks"
+    "minecraft:frozen_peaks",
+    {
+      "id": "#forge:is_snowy",
+      "required": false
+    }
   ]
 }

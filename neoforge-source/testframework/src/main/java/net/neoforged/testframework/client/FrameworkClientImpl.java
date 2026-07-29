@@ -7,6 +7,8 @@ package net.neoforged.testframework.client;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.ToggleKeyMapping;
@@ -19,6 +21,8 @@ import net.neoforged.testframework.conf.ClientConfiguration;
 import net.neoforged.testframework.impl.FrameworkClient;
 import net.neoforged.testframework.impl.MutableTestFramework;
 
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public class FrameworkClientImpl implements FrameworkClient {
     private final MutableTestFramework impl;
     private final ClientConfiguration configuration;
@@ -30,15 +34,12 @@ public class FrameworkClientImpl implements FrameworkClient {
 
     @Override
     public void init(IEventBus modBus, ModContainer container) {
-        final KeyMapping.Category keyCategory = new KeyMapping.Category(impl.id());
+        final String keyCategory = "key.categories." + impl.id().getNamespace() + "." + impl.id().getPath();
 
         final BooleanSupplier overlayEnabled;
         if (configuration.toggleOverlayKey() != 0) {
-            final ToggleKeyMapping overlayKey = new ToggleKeyMapping("key.testframework.toggleoverlay", configuration.toggleOverlayKey(), keyCategory, () -> true, true);
-            modBus.addListener((final RegisterKeyMappingsEvent event) -> {
-                event.register(overlayKey);
-                event.registerCategory(keyCategory);
-            });
+            final ToggleKeyMapping overlayKey = new ToggleKeyMapping("key.testframework.toggleoverlay", configuration.toggleOverlayKey(), keyCategory, () -> true);
+            modBus.addListener((final RegisterKeyMappingsEvent event) -> event.register(overlayKey));
             overlayEnabled = () -> !overlayKey.isDown();
         } else {
             overlayEnabled = () -> true;
@@ -51,7 +52,7 @@ public class FrameworkClientImpl implements FrameworkClient {
                 @Override
                 public void setDown(boolean pValue) {
                     if (pValue) {
-                        Minecraft.getInstance().gui.setScreen(new TestScreen(
+                        Minecraft.getInstance().setScreen(new TestScreen(
                                 Component.literal("All tests"), impl, List.copyOf(impl.tests().allGroups())));
                     }
                     super.setDown(pValue);

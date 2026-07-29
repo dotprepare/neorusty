@@ -6,22 +6,18 @@
 package net.neoforged.neoforge.oldtest.client.model;
 
 import com.mojang.math.Transformation;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import net.minecraft.client.renderer.block.BlockAndTintGetter;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
-import net.minecraft.client.resources.model.geometry.QuadCollection;
-import net.minecraft.core.BlockPos;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
-import net.minecraft.util.Util;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
@@ -29,16 +25,17 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.model.DelegateBlockStateModel;
-import net.neoforged.neoforge.client.model.quad.QuadTransforms;
+import net.neoforged.neoforge.client.model.IDynamicBakedModel;
+import net.neoforged.neoforge.client.model.QuadTransformers;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.common.util.TransformationHelper;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.jspecify.annotations.Nullable;
 
 @Mod(TRSRTransformerTest.MODID)
 public class TRSRTransformerTest {
@@ -46,63 +43,78 @@ public class TRSRTransformerTest {
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
 
-    private static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.registerBlock("test", Block::new, props -> props.mapColor(MapColor.STONE));
+    private static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.register("test", () -> new Block(Block.Properties.of().mapColor(MapColor.STONE)));
     @SuppressWarnings("unused")
-    private static final DeferredItem<BlockItem> TEST_ITEM = ITEMS.registerSimpleBlockItem(TEST_BLOCK);
+    private static final DeferredItem<Item> TEST_ITEM = ITEMS.register("test", () -> new BlockItem(TEST_BLOCK.get(), new Item.Properties()));
 
     public TRSRTransformerTest(IEventBus modEventBus) {
-        if (FMLEnvironment.getDist().isClient()) {
-            modEventBus.addListener(TRSRTransformerTest::onModelBake);
+        if (FMLEnvironment.dist.isClient()) {
+            modEventBus.addListener(this::onModelBake);
         }
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
-        modEventBus.addListener(TRSRTransformerTest::addCreative);
+        modEventBus.addListener(this::addCreative);
     }
 
-    private static void addCreative(BuildCreativeModeTabContentsEvent event) {
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS)
             event.accept(TEST_ITEM);
     }
 
-    private static void onModelBake(ModelEvent.ModifyBakingResult e) {
-        Map<BlockState, BlockStateModel> models = e.getBakingResult().blockStateModels();
-        for (BlockState state : models.keySet()) {
-            if (state.is(TEST_BLOCK)) {
-                models.put(state, new MyBakedModel(models.get(state)));
+    public void onModelBake(ModelEvent.ModifyBakingResult e) {
+        for (ModelResourceLocation id : e.getModels().keySet()) {
+            if (MODID.equals(id.id().getNamespace()) && "test".equals(id.id().getPath())) {
+                e.getModels().put(id, new MyBakedModel(e.getModels().get(id)));
             }
         }
     }
 
-    private static class MyBakedModel extends DelegateBlockStateModel {
-        private static final @Nullable Direction[] DIRECTIONS = Arrays.copyOfRange(Direction.values(), 0, 7);
-        private static final Transformation TRANSFORMATION = Util.make(() -> {
-            Quaternionf rot = TransformationHelper.quatFromXYZ(new Vector3f(0, 45, 0), true);
-            Vector3f translation = new Vector3f(0, 0.33f, 0);
-            return new Transformation(translation, rot, null, null).blockCenterToCorner();
-        });
+    public class MyBakedModel implements IDynamicBakedModel {
+        private final BakedModel base;
 
-        public MyBakedModel(BlockStateModel base) {
-            super(base);
+        public MyBakedModel(BakedModel base) {
+            this.base = base;
         }
 
         @Override
-        public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
-            List<BlockStateModelPart> srcParts = new ObjectArrayList<>();
-            delegate.collectParts(level, pos, state, random, srcParts);
-            for (BlockStateModelPart part : srcParts) {
-                QuadCollection.Builder builder = new QuadCollection.Builder();
-                for (Direction side : DIRECTIONS) {
-                    for (BakedQuad quad : part.getQuads(side)) {
-                        quad = QuadTransforms.applyTransformation(quad, TRANSFORMATION);
-                        if (side == null) {
-                            builder.addUnculledFace(quad);
-                        } else {
-                            builder.addCulledFace(side, quad);
-                        }
-                    }
-                }
-                parts.add(new SimpleModelWrapper(builder.build(), part.useAmbientOcclusion(), part.particleMaterial()));
-            }
+        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData data, @Nullable RenderType renderType) {
+            Quaternionf rot = TransformationHelper.quatFromXYZ(new Vector3f(0, 45, 0), true);
+            Vector3f translation = new Vector3f(0, 0.33f, 0);
+
+            Transformation trans = new Transformation(translation, rot, null, null).blockCenterToCorner();
+            var transformer = QuadTransformers.applying(trans);
+
+            return transformer.process(base.getQuads(state, side, rand, data, renderType));
+        }
+
+        @Override
+        public boolean useAmbientOcclusion() {
+            return base.useAmbientOcclusion();
+        }
+
+        @Override
+        public boolean isGui3d() {
+            return base.isGui3d();
+        }
+
+        @Override
+        public boolean usesBlockLight() {
+            return base.usesBlockLight();
+        }
+
+        @Override
+        public boolean isCustomRenderer() {
+            return base.isCustomRenderer();
+        }
+
+        @Override
+        public TextureAtlasSprite getParticleIcon() {
+            return base.getParticleIcon();
+        }
+
+        @Override
+        public ItemOverrides getOverrides() {
+            return base.getOverrides();
         }
     }
 }

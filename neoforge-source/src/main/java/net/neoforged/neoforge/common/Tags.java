@@ -5,28 +5,24 @@
 
 package net.neoforged.neoforge.common;
 
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.commands.TimeCommand;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.clock.WorldClock;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.material.Fluid;
 
@@ -66,12 +62,6 @@ public class Tags {
         // `c` tags for common conventions
         public static final TagKey<Block> BARRELS = tag("barrels");
         public static final TagKey<Block> BARRELS_WOODEN = tag("barrels/wooden");
-        /**
-         * Equivalent to the "minecraft:bars" block tag.
-         */
-        public static final TagKey<Block> BARS = tag("bars");
-        public static final TagKey<Block> BARS_COPPER = tag("bars/copper");
-        public static final TagKey<Block> BARS_IRON = tag("bars/iron");
         public static final TagKey<Block> BOOKSHELVES = tag("bookshelves");
         /**
          * For blocks that are similar to amethyst where their budding block produces buds and cluster blocks
@@ -124,23 +114,6 @@ public class Tags {
         public static final TagKey<Block> FENCES = tag("fences");
         public static final TagKey<Block> FENCES_NETHER_BRICK = tag("fences/nether_brick");
         public static final TagKey<Block> FENCES_WOODEN = tag("fences/wooden");
-        /**
-         * Contains living ground-based flowers that are 1 block tall such as Dandelions or Poppy.
-         * Equivalent to the "minecraft:small_flowers" block tag.
-         */
-        public static final TagKey<Block> FLOWERS_SMALL = tag("flowers/small");
-        /**
-         * Contains living ground-based flowers that are 2 block tall such as Rose Bush or Peony.
-         * Equivalent to the "minecraft:tall_flowers" block tag in past Minecraft version.
-         */
-        public static final TagKey<Block> FLOWERS_TALL = tag("flowers/tall");
-        /**
-         * Contains any living plant block that contains flowers or is a flower itself.
-         * Equivalent to the "minecraft:flowers" block tag.
-         */
-        public static final TagKey<Block> FLOWERS = tag("flowers");
-        /// Light-emitting blocks created when a Frog eats a Magma Cube.
-        public static final TagKey<Block> FROGLIGHTS = tag("froglights");
 
         public static final TagKey<Block> GLASS_BLOCKS = tag("glass_blocks");
         public static final TagKey<Block> GLASS_BLOCKS_COLORLESS = tag("glass_blocks/colorless");
@@ -292,33 +265,9 @@ public class Tags {
         public static final TagKey<Block> STORAGE_BLOCKS_RAW_GOLD = tag("storage_blocks/raw_gold");
         public static final TagKey<Block> STORAGE_BLOCKS_RAW_IRON = tag("storage_blocks/raw_iron");
         public static final TagKey<Block> STORAGE_BLOCKS_REDSTONE = tag("storage_blocks/redstone");
-        public static final TagKey<Block> STORAGE_BLOCKS_RESIN = tag("storage_blocks/resin");
         public static final TagKey<Block> STORAGE_BLOCKS_SLIME = tag("storage_blocks/slime");
         public static final TagKey<Block> STORAGE_BLOCKS_WHEAT = tag("storage_blocks/wheat");
-        /**
-         * For logs found naturally in the Overworld, does not include Stripped Logs.
-         * Contains {@link BlockTags#OVERWORLD_NATURAL_LOGS} for consistency.
-         */
-        public static final TagKey<Block> OVERWORLD_NATURAL_LOGS = tag("natural_logs/overworld");
-        /**
-         * For logs, including Stems, found naturally in the Nether, does not include Stripped Logs.
-         */
-        public static final TagKey<Block> NETHER_NATURAL_LOGS = tag("natural_logs/nether");
-        /**
-         * For logs, including Stems, found naturally that have not been stripped.
-         */
-        public static final TagKey<Block> NATURAL_LOGS = tag("natural_logs");
-        /**
-         * For six-sided wood blocks, including Hyphae, found naturally that have not been stripped.
-         */
-        public static final TagKey<Block> NATURAL_WOODS = tag("natural_woods");
-        /**
-         * For logs, including Stems, found naturally that have been stripped.
-         */
         public static final TagKey<Block> STRIPPED_LOGS = tag("stripped_logs");
-        /**
-         * For six-sided wood blocks, including Hyphae, found naturally that have been stripped.
-         */
         public static final TagKey<Block> STRIPPED_WOODS = tag("stripped_woods");
         public static final TagKey<Block> VILLAGER_JOB_SITES = tag("villager_job_sites");
 
@@ -328,11 +277,11 @@ public class Tags {
         public static final TagKey<Block> VILLAGER_FARMLANDS = neoforgeTag("villager_farmlands");
 
         private static TagKey<Block> tag(String name) {
-            return BlockTags.create(Identifier.fromNamespaceAndPath("c", name));
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("c", name));
         }
 
         private static TagKey<Block> neoforgeTag(String name) {
-            return BlockTags.create(Identifier.fromNamespaceAndPath("neoforge", name));
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("neoforge", name));
         }
     }
 
@@ -340,10 +289,6 @@ public class Tags {
         public static final TagKey<EntityType<?>> BOSSES = tag("bosses");
         public static final TagKey<EntityType<?>> MINECARTS = tag("minecarts");
         public static final TagKey<EntityType<?>> BOATS = tag("boats");
-
-        /// Tag containing entity types, generally extending {@link ItemFrame},
-        /// that can be placed on the surfaces of blocks to display an item.
-        public static final TagKey<EntityType<?>> ITEM_FRAMES = tag("item_frames");
 
         /**
          * Entities should be included in this tag if they are not allowed to be picked up by items or grabbed in a way
@@ -360,7 +305,7 @@ public class Tags {
         public static final TagKey<EntityType<?>> TELEPORTING_NOT_SUPPORTED = tag("teleporting_not_supported");
 
         private static TagKey<EntityType<?>> tag(String name) {
-            return TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath("c", name));
+            return TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("c", name));
         }
     }
 
@@ -371,37 +316,15 @@ public class Tags {
          * This tag defaults to {@link net.minecraft.world.item.Items#LAPIS_LAZULI} when not present in any datapacks, including forge client on vanilla server
          */
         public static final TagKey<Item> ENCHANTING_FUELS = neoforgeTag("enchanting_fuels");
-        /**
-         * Controls what items Piglins can use as default as a valid crossbow
-         * This tag defaults to {@link net.minecraft.world.item.Items#CROSSBOW} when not present in any datapacks, including forge client on vanilla server
-         */
-        public static final TagKey<Item> PIGLIN_USABLE_CROSSBOWS = neoforgeTag("piglin_usable_crossbows");
-        /**
-         * Controls what items Pillagers can use as default as a valid crossbow
-         * This tag defaults to {@link net.minecraft.world.item.Items#CROSSBOW} when not present in any datapacks, including forge client on vanilla server
-         */
-        public static final TagKey<Item> PILLAGER_USABLE_CROSSBOWS = neoforgeTag("pillager_usable_crossbows");
-        /**
-         * Controls what items Skeletons can use as default as a valid bow
-         * This tag defaults to {@link net.minecraft.world.item.Items#BOW} when not present in any datapacks, including forge client on vanilla server
-         */
-        public static final TagKey<Item> SKELETON_USABLE_BOWS = neoforgeTag("skeleton_usable_bows");
 
         // `c` tags for common conventions
         public static final TagKey<Item> BARRELS = tag("barrels");
         public static final TagKey<Item> BARRELS_WOODEN = tag("barrels/wooden");
-        /**
-         * Equivalent to the "minecraft:bars" item tag.
-         */
-        public static final TagKey<Item> BARS = tag("bars");
-        public static final TagKey<Item> BARS_COPPER = tag("bars/copper");
-        public static final TagKey<Item> BARS_IRON = tag("bars/iron");
         public static final TagKey<Item> BONES = tag("bones");
         public static final TagKey<Item> BOOKSHELVES = tag("bookshelves");
         public static final TagKey<Item> BRICKS = tag("bricks");
         public static final TagKey<Item> BRICKS_NORMAL = tag("bricks/normal");
         public static final TagKey<Item> BRICKS_NETHER = tag("bricks/nether");
-        public static final TagKey<Item> BRICKS_RESIN = tag("bricks/resin");
         public static final TagKey<Item> BUCKETS = tag("buckets");
         public static final TagKey<Item> BUCKETS_EMPTY = tag("buckets/empty");
         /**
@@ -416,7 +339,6 @@ public class Tags {
         public static final TagKey<Item> BUCKETS_MILK = tag("buckets/milk");
         public static final TagKey<Item> BUCKETS_POWDER_SNOW = tag("buckets/powder_snow");
         public static final TagKey<Item> BUCKETS_ENTITY_WATER = tag("buckets/entity_water");
-        public static final TagKey<Item> BUCKETS_ENTITY_DRY = tag("buckets/entity_dry");
         /**
          * For blocks that are similar to amethyst where their budding block produces buds and cluster blocks
          */
@@ -444,8 +366,6 @@ public class Tags {
          * For blocks that are similar to amethyst where they have clusters forming from budding blocks
          */
         public static final TagKey<Item> CLUSTERS = tag("clusters");
-        public static final TagKey<Item> CLUMPS = tag("clumps");
-        public static final TagKey<Item> CLUMPS_RESIN = tag("clumps/resin");
         /**
          * For raw materials harvested from growable plants. Crop items can be edible like carrots or
          * non-edible like wheat and cocoa beans.
@@ -576,21 +496,6 @@ public class Tags {
          * (Note: Could include durability-based modded bonemeal-like items. Check for durability {@link net.minecraft.core.component.DataComponents#DAMAGE} DataComponent to handle them properly)
          */
         public static final TagKey<Item> FERTILIZERS = tag("fertilizers");
-        /**
-         * Contains living ground-based flowers that are 1 block tall such as Dandelions or Poppy.
-         * Equivalent to the "minecraft:small_flowers" item tag.
-         */
-        public static final TagKey<Item> FLOWERS_SMALL = tag("flowers/small");
-        /**
-         * Contains living ground-based flowers that are 2 block tall such as Rose Bush or Peony.
-         * Equivalent to the "minecraft:tall_flowers" item tag in past Minecraft version.
-         */
-        public static final TagKey<Item> FLOWERS_TALL = tag("flowers/tall");
-        /**
-         * Contains any living plant block that contains flowers or is a flower itself.
-         * Equivalent to the "minecraft:flowers" item tag in past minecraft versions.
-         */
-        public static final TagKey<Item> FLOWERS = tag("flowers");
         public static final TagKey<Item> FOODS = tag("foods");
         /**
          * Apples and other foods that are considered fruits in the culinary field belong in this tag.
@@ -656,8 +561,6 @@ public class Tags {
          * (Does not include {@link ItemTags#PARROT_POISONOUS_FOOD})
          */
         public static final TagKey<Item> ANIMAL_FOODS = tag("animal_foods");
-        /// Light-emitting blocks created when a Frog eats a Magma Cube.
-        public static final TagKey<Item> FROGLIGHTS = tag("froglights");
         public static final TagKey<Item> GEMS = tag("gems");
         public static final TagKey<Item> GEMS_DIAMOND = tag("gems/diamond");
         public static final TagKey<Item> GEMS_EMERALD = tag("gems/emerald");
@@ -699,12 +602,16 @@ public class Tags {
          * A pancake with a JUKEBOX_PLAYABLE component attached to play in Jukeboxes as an Easter Egg is not a music disc and would not go in this tag.
          */
         public static final TagKey<Item> MUSIC_DISCS = tag("music_discs");
+        /**
+         * For banner patterns to be used in recipes.
+         * This is a backport of 26.1 Minecraft's #minecraft:loom_patterns item tag.
+         */
+        public static final TagKey<Item> LOOM_PATTERNS = tag("loom_patterns");
         public static final TagKey<Item> NETHER_STARS = tag("nether_stars");
         public static final TagKey<Item> NETHERRACKS = tag("netherracks");
         public static final TagKey<Item> NUGGETS = tag("nuggets");
         public static final TagKey<Item> NUGGETS_GOLD = tag("nuggets/gold");
         public static final TagKey<Item> NUGGETS_IRON = tag("nuggets/iron");
-        public static final TagKey<Item> NUGGETS_COPPER = tag("nuggets/copper");
         public static final TagKey<Item> OBSIDIANS = tag("obsidians");
         /**
          * For common obsidian that has no special quirks or behaviors. Ideal for recipe use.
@@ -781,7 +688,7 @@ public class Tags {
          * Examples are splash and lingering potions from vanilla.
          * If a mod adds a new variant like a seeking potion that applies effect to the closest entity at impact, that would in this tag.
          */
-        public static final TagKey<Item> POTIONS_BOTTLE = tag("potions/bottle");
+        public static final TagKey<Item> POTION_BOTTLE = tag("potions/bottle");
         public static final TagKey<Item> PUMPKINS = tag("pumpkins");
         /**
          * For pumpkins that are not carved.
@@ -835,13 +742,19 @@ public class Tags {
         public static final TagKey<Item> SEEDS_MELON = tag("seeds/melon");
         public static final TagKey<Item> SEEDS_PUMPKIN = tag("seeds/pumpkin");
         public static final TagKey<Item> SEEDS_TORCHFLOWER = tag("seeds/torchflower");
-        public static final TagKey<Item> SEEDS_PITCHER_PLANT = tag("seeds/pitcher_plant");
         public static final TagKey<Item> SEEDS_WHEAT = tag("seeds/wheat");
         /**
          * Block tag equivalent is {@link BlockTags#SHULKER_BOXES}
          */
         public static final TagKey<Item> SHULKER_BOXES = tag("shulker_boxes");
         public static final TagKey<Item> SLIME_BALLS = tag("slime_balls");
+        /**
+         * Please use properly named {@link Tags.Items#SLIME_BALLS} tag and field instead
+         * <p></p>
+         * TODO: Remove in 1.21.1
+         */
+        @Deprecated(since = "1.21")
+        public static final TagKey<Item> SLIMEBALLS = tag("slimeballs");
         /**
          * Natural stone-like blocks that can be used as a base ingredient in recipes that takes stone.
          */
@@ -868,34 +781,10 @@ public class Tags {
         public static final TagKey<Item> STORAGE_BLOCKS_RAW_GOLD = tag("storage_blocks/raw_gold");
         public static final TagKey<Item> STORAGE_BLOCKS_RAW_IRON = tag("storage_blocks/raw_iron");
         public static final TagKey<Item> STORAGE_BLOCKS_REDSTONE = tag("storage_blocks/redstone");
-        public static final TagKey<Item> STORAGE_BLOCKS_RESIN = tag("storage_blocks/resin");
         public static final TagKey<Item> STORAGE_BLOCKS_SLIME = tag("storage_blocks/slime");
         public static final TagKey<Item> STORAGE_BLOCKS_WHEAT = tag("storage_blocks/wheat");
         public static final TagKey<Item> STRINGS = tag("strings");
-        /**
-         * For logs found naturally in the Overworld, does not include Stripped Logs.
-         * Contains {@link BlockTags#OVERWORLD_NATURAL_LOGS} for consistency.
-         */
-        public static final TagKey<Item> OVERWORLD_NATURAL_LOGS = tag("natural_logs/overworld");
-        /**
-         * For logs, including Stems, found naturally in the Nether, does not include Stripped Logs.
-         */
-        public static final TagKey<Item> NETHER_NATURAL_LOGS = tag("natural_logs/nether");
-        /**
-         * For logs, including Stems, found naturally that have not been stripped.
-         */
-        public static final TagKey<Item> NATURAL_LOGS = tag("natural_logs");
-        /**
-         * For six-sided wood blocks, including Hyphae, found naturally that have not been stripped.
-         */
-        public static final TagKey<Item> NATURAL_WOODS = tag("natural_woods");
-        /**
-         * For logs, including Stems, found naturally that have been stripped.
-         */
         public static final TagKey<Item> STRIPPED_LOGS = tag("stripped_logs");
-        /**
-         * For six-sided wood blocks, including Hyphae, found naturally that have been stripped.
-         */
         public static final TagKey<Item> STRIPPED_WOODS = tag("stripped_woods");
         public static final TagKey<Item> VILLAGER_JOB_SITES = tag("villager_job_sites");
 
@@ -941,16 +830,15 @@ public class Tags {
          */
         public static final TagKey<Item> TOOLS_FISHING_ROD = tag("tools/fishing_rod");
         /**
-         * A tag containing all existing throwable stick-like weapons like tridents.
-         * Other tools such as throwing knives or boomerangs should not be put into
-         * this tag and should be put into their own tool tags.
+         * A tag containing all existing spears. Other tools such as throwing knives or boomerangs
+         * should not be put into this tag and should be put into their own tool tags.
          * Do not use this tag for determining a tool's behavior.
          * Please use {@link ItemAbilities} instead for what action a tool can do.
          *
          * @see ItemAbility
          * @see ItemAbilities
          */
-        public static final TagKey<Item> TOOLS_TRIDENT = tag("tools/trident");
+        public static final TagKey<Item> TOOLS_SPEAR = tag("tools/spear");
         /**
          * A tag containing all existing shears. Do not use this tag for determining a tool's behavior.
          * Please use {@link ItemAbilities} instead for what action a tool can do.
@@ -1024,37 +912,20 @@ public class Tags {
          */
         public static final TagKey<Item> MINING_TOOL_TOOLS = tag("tools/mining_tool");
         /**
-         * A tag containing all conventional armor tags.
-         * Note that this can contain armor that does not necessarily fit on a player. For that, see {@link Tags.Items#ARMORS_HUMANOID}
+         * Collects the 4 vanilla armor tags into one parent collection for ease.
          */
         public static final TagKey<Item> ARMORS = tag("armors");
-        /**
-         * Armor that can fit on a humanoid mob like the Player. This tag collects the 4 vanilla armor tags into one parent collection for ease.
-         */
-        public static final TagKey<Item> ARMORS_HUMANOID = tag("armors/humanoid");
-        /**
-         * A tag containing armor that can fit on a Horse.
-         */
-        public static final TagKey<Item> ARMORS_HORSE = tag("armors/horse");
-        /**
-         * A tag containing armor that can fit on a Nautilus.
-         */
-        public static final TagKey<Item> ARMORS_NAUTILUS = tag("armors/nautilus");
-        /**
-         * A tag containing armor that can fit on a Wolf.
-         */
-        public static final TagKey<Item> ARMORS_WOLF = tag("armors/wolf");
         /**
          * Collects the many enchantable tags into one parent collection for ease.
          */
         public static final TagKey<Item> ENCHANTABLES = tag("enchantables");
 
         private static TagKey<Item> tag(String name) {
-            return ItemTags.create(Identifier.fromNamespaceAndPath("c", name));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("c", name));
         }
 
         private static TagKey<Item> neoforgeTag(String name) {
-            return ItemTags.create(Identifier.fromNamespaceAndPath("neoforge", name));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("neoforge", name));
         }
     }
 
@@ -1133,7 +1004,7 @@ public class Tags {
         public static final TagKey<Fluid> HIDDEN_FROM_RECIPE_VIEWERS = tag("hidden_from_recipe_viewers");
 
         private static TagKey<Fluid> tag(String name) {
-            return FluidTags.create(Identifier.fromNamespaceAndPath("c", name));
+            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("c", name));
         }
     }
 
@@ -1165,26 +1036,9 @@ public class Tags {
          * For enchantments that decrease damage taken or otherwise benefit, in regard to damage, the entity wearing armor enchanted with it.
          */
         public static final TagKey<Enchantment> ENTITY_DEFENSE_ENHANCEMENTS = tag("entity_defense_enhancements");
-        /**
-         * Tag that holds all enchantments that recipe viewers should not show to users.
-         * Recipe viewers may use this to automatically find the corresponding Enchanted Book to hide.
-         */
-        public static final TagKey<Enchantment> HIDDEN_FROM_RECIPE_VIEWERS = tag("hidden_from_recipe_viewers");
 
         private static TagKey<Enchantment> tag(String name) {
-            return TagKey.create(Registries.ENCHANTMENT, Identifier.fromNamespaceAndPath("c", name));
-        }
-    }
-
-    public static class Potions {
-        /**
-         * Tag that holds all enchantments that recipe viewers should not show to users.
-         * Recipe viewers may use this to automatically find the corresponding Potion items to hide.
-         */
-        public static final TagKey<Potion> HIDDEN_FROM_RECIPE_VIEWERS = tag("hidden_from_recipe_viewers");
-
-        private static TagKey<Potion> tag(String name) {
-            return TagKey.create(Registries.POTION, Identifier.fromNamespaceAndPath("c", name));
+            return TagKey.create(Registries.ENCHANTMENT, ResourceLocation.fromNamespaceAndPath("c", name));
         }
     }
 
@@ -1252,30 +1106,6 @@ public class Tags {
         public static final TagKey<Biome> IS_DRY_END = tag("is_dry/end");
 
         /**
-         * Biomes that are primarily composed of a specific wood type.
-         * For example, normal Forest biomes are mostly Oak Trees with a few Birch Trees. This biome would be in `c:primary_wood_type/oak` tag due to Oak dominance.
-         * For biomes that are composed of multiple wood types but in equal proportions, put the biome into multiple wood type tags. Biomes with very few trees like Plains are skipped.
-         *
-         * <p>
-         * If a mod introduces a new wood type, create a new tag under the `c:primary_wood_type/` folder.
-         * Multiple mods introducing the same new wood type will both be sticking their biomes in same tag.
-         * For example, two mods providing Willow wood types would add their biomes to `c:primary_wood_type/willow` as it is the same kind of wood, despite different blocks.
-         */
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE = tag("primary_wood_type");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_OAK = tag("primary_wood_type/oak");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_BIRCH = tag("primary_wood_type/birch");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_SPRUCE = tag("primary_wood_type/spruce");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_JUNGLE = tag("primary_wood_type/jungle");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_ACACIA = tag("primary_wood_type/acacia");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_DARK_OAK = tag("primary_wood_type/dark_oak");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_MANGROVE = tag("primary_wood_type/mangrove");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_CHERRY = tag("primary_wood_type/cherry");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_PALE_OAK = tag("primary_wood_type/pale_oak");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_BAMBOO = tag("primary_wood_type/bamboo");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_CRIMSON = tag("primary_wood_type/crimson");
-        public static final TagKey<Biome> PRIMARY_WOOD_TYPE_WARPED = tag("primary_wood_type/warped");
-
-        /**
          * Biomes that spawn in the Overworld.
          * (This is for people who want to tag their biomes without getting
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_OVERWORLD}
@@ -1285,25 +1115,9 @@ public class Tags {
          */
         public static final TagKey<Biome> IS_OVERWORLD = tag("is_overworld");
 
-        /**
-         * Biomes whose trees are a kind of Conifer-like tree.
-         * May not necessarily be a Spruce wood type.
-         */
         public static final TagKey<Biome> IS_CONIFEROUS_TREE = tag("is_tree/coniferous");
-        /**
-         * Biomes whose trees are a kind of Savanna-like tree.
-         * May not necessarily be a Savanna wood type.
-         */
         public static final TagKey<Biome> IS_SAVANNA_TREE = tag("is_tree/savanna");
-        /**
-         * Biomes whose trees are a kind of Jungle-like tree.
-         * May not necessarily be a Jungle wood type.
-         */
         public static final TagKey<Biome> IS_JUNGLE_TREE = tag("is_tree/jungle");
-        /**
-         * Biomes whose trees are a kind of Deciduous-like tree.
-         * May not necessarily be an Oak or Birch wood type.
-         */
         public static final TagKey<Biome> IS_DECIDUOUS_TREE = tag("is_tree/deciduous");
 
         /**
@@ -1331,19 +1145,7 @@ public class Tags {
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_FOREST})
          */
         public static final TagKey<Biome> IS_FOREST = tag("is_forest");
-        /**
-         * For biomes that are a variant of Birch Forest (has mostly birch trees)
-         */
         public static final TagKey<Biome> IS_BIRCH_FOREST = tag("is_birch_forest");
-        /**
-         * For biomes that are a variant of Dark Forest. (Has roofed trees that are reminiscent of Dark Forest's style)
-         * Pale Gardens is included in this tag because according to Mojang's blog post, they state it is a variation of the Dark Forest biome.
-         * <a href="https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-4#pale_garden:~:text=The%20Pale%20Garden%20is%20a%20biome%20variation%20of%20Dark%20Forest">...</a>.
-         */
-        public static final TagKey<Biome> IS_DARK_FOREST = tag("is_dark_forest");
-        /**
-         * For biomes that are a variant of Flower Forest (Is very dense in variety of flowers)
-         */
         public static final TagKey<Biome> IS_FLOWER_FOREST = tag("is_flower_forest");
         /**
          * Biomes that spawn as a taiga.
@@ -1351,10 +1153,6 @@ public class Tags {
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_TAIGA})
          */
         public static final TagKey<Biome> IS_TAIGA = tag("is_taiga");
-        /**
-         * For biomes that are an "old growth" variant of a regular biome.
-         * Usually this includes taller or different tree styles as if the biome is older.
-         */
         public static final TagKey<Biome> IS_OLD_GROWTH = tag("is_old_growth");
         /**
          * Biomes that spawn as a hills biome. (Previously was called Extreme Hills biome in past)
@@ -1362,10 +1160,6 @@ public class Tags {
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_HILL})
          */
         public static final TagKey<Biome> IS_HILL = tag("is_hill");
-        /**
-         * For biomes that are a "windswept" variant of a regular biome.
-         * Usually these biomes includes fewer trees than normal and more exposed stone on hilly terrain.
-         */
         public static final TagKey<Biome> IS_WINDSWEPT = tag("is_windswept");
         /**
          * Biomes that spawn as a jungle.
@@ -1379,14 +1173,7 @@ public class Tags {
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_SAVANNA})
          */
         public static final TagKey<Biome> IS_SAVANNA = tag("is_savanna");
-        /**
-         * For biomes that are considered a swamp such as Swamp or Mangrove Swamp.
-         */
         public static final TagKey<Biome> IS_SWAMP = tag("is_swamp");
-        /**
-         * For biomes that are considered a regular desert.
-         * Badlands have their own tag to better separate them from this tag.
-         */
         public static final TagKey<Biome> IS_DESERT = tag("is_desert");
         /**
          * Biomes that spawn as a badlands.
@@ -1395,18 +1182,12 @@ public class Tags {
          */
         public static final TagKey<Biome> IS_BADLANDS = tag("is_badlands");
         /**
-         * Non-stony biomes that are dedicated to spawning on the shoreline of a body of water.
+         * Biomes that are dedicated to spawning on the shoreline of a body of water.
          * (This is for people who want to tag their biomes without getting
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_BEACH})
          */
         public static final TagKey<Biome> IS_BEACH = tag("is_beach");
-        /**
-         * Stony biomes that are dedicated to spawning on the shoreline of a body of water.
-         */
         public static final TagKey<Biome> IS_STONY_SHORES = tag("is_stony_shores");
-        /**
-         * For biomes that spawn primarily mushrooms.
-         */
         public static final TagKey<Biome> IS_MUSHROOM = tag("is_mushroom");
 
         /**
@@ -1427,18 +1208,9 @@ public class Tags {
          * side effects from {@link net.minecraft.tags.BiomeTags#IS_DEEP_OCEAN})
          */
         public static final TagKey<Biome> IS_DEEP_OCEAN = tag("is_deep_ocean");
-        /**
-         * Biomes that spawn as part of the world's oceans that have shallow depth.
-         */
         public static final TagKey<Biome> IS_SHALLOW_OCEAN = tag("is_shallow_ocean");
 
-        /**
-         * Biomes that spawn primarily underground. (Not necessarily always a cave)
-         */
         public static final TagKey<Biome> IS_UNDERGROUND = tag("is_underground");
-        /**
-         * Biomes dedicated to decorating caves such as Lush Caves or Dripstone Caves.
-         */
         public static final TagKey<Biome> IS_CAVE = tag("is_cave");
 
         /**
@@ -1518,8 +1290,15 @@ public class Tags {
          */
         public static final TagKey<Biome> IS_OUTER_END_ISLAND = tag("is_outer_end_island");
 
+        /**
+         * Old legacy tag that lost it's intended use case and is too unclear with regard to the current worldgen biome system today.
+         * TODO: remove in 1.22
+         */
+        @Deprecated(forRemoval = true, since = "21.1")
+        public static final TagKey<Biome> IS_MODIFIED = tag("is_modified");
+
         private static TagKey<Biome> tag(String name) {
-            return TagKey.create(Registries.BIOME, Identifier.fromNamespaceAndPath("c", name));
+            return TagKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath("c", name));
         }
     }
 
@@ -1537,7 +1316,7 @@ public class Tags {
         public static final TagKey<Structure> HIDDEN_FROM_LOCATOR_SELECTION = tag("hidden_from_locator_selection");
 
         private static TagKey<Structure> tag(String name) {
-            return TagKey.create(Registries.STRUCTURE, Identifier.fromNamespaceAndPath("c", name));
+            return TagKey.create(Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath("c", name));
         }
     }
 
@@ -1584,33 +1363,21 @@ public class Tags {
         public static final TagKey<DamageType> NO_FLINCH = neoforgeTag("no_flinch");
 
         private static TagKey<DamageType> neoforgeTag(String name) {
-            return TagKey.create(Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("neoforge", name));
-        }
-    }
-
-    public static class WorldClocks {
-        /// [World Clocks][WorldClock] are disallowed from being paused via the [TimeCommand].
-        public static final TagKey<WorldClock> IGNORES_PAUSE_COMMAND = neoforgeTag("ignores/pause_command");
-
-        /// [World Clocks][WorldClock] with this tag are exempt from pausing when [GameRules#ADVANCE_TIME] is disabled.
-        public static final TagKey<WorldClock> IGNORES_ADVANCE_TIME_RULE = neoforgeTag("ignores/advance_time_rule");
-
-        private static TagKey<WorldClock> neoforgeTag(String name) {
-            return TagKey.create(Registries.WORLD_CLOCK, Identifier.fromNamespaceAndPath(NeoForgeMod.MOD_ID, name));
+            return TagKey.create(Registries.DAMAGE_TYPE, ResourceLocation.fromNamespaceAndPath("neoforge", name));
         }
     }
 
     /**
      * Use this to get a TagKey's translation key safely on any side.
-     *
+     * 
      * @return the translation key for a TagKey.
      */
     public static String getTagTranslationKey(TagKey<?> tagKey) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("tag.");
 
-        Identifier registryIdentifier = tagKey.registry().identifier();
-        Identifier tagIdentifier = tagKey.location();
+        ResourceLocation registryIdentifier = tagKey.registry().location();
+        ResourceLocation tagIdentifier = tagKey.location();
 
         stringBuilder.append(registryIdentifier.toShortLanguageKey().replace("/", "."))
                 .append(".")

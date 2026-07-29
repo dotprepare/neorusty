@@ -11,6 +11,14 @@
     "minecraft:black_stained_glass",
     "minecraft:black_stained_glass_pane",
     "minecraft:black_terracotta",
-    "minecraft:black_wool"
+    "minecraft:black_wool",
+    {
+      "id": "#forge:glass/black",
+      "required": false
+    },
+    {
+      "id": "#forge:stained_glass/black",
+      "required": false
+    }
   ]
 }

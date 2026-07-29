@@ -17,7 +17,7 @@ import net.minecraft.world.level.material.Fluid;
 import net.neoforged.bus.api.Event;
 import net.neoforged.fml.event.IModBusEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Event to register {@link CauldronFluidContent} for modded cauldrons.

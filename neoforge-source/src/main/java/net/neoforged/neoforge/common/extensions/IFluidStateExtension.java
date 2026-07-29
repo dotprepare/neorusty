@@ -6,18 +6,18 @@
 package net.neoforged.neoforge.common.extensions;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface IFluidStateExtension {
     private FluidState self() {
@@ -66,7 +66,7 @@ public interface IFluidStateExtension {
      * @param pos   the location of the fluid
      * @return {@code true} if the fluid can create a source, {@code false} otherwise
      */
-    default boolean canConvertToSource(ServerLevel level, BlockPos pos) {
+    default boolean canConvertToSource(Level level, BlockPos pos) {
         return self().getType().canConvertToSource(self(), level, pos);
     }
 
@@ -76,7 +76,7 @@ public interface IFluidStateExtension {
      * @param boat the boat trying to be used on the fluid
      * @return {@code true} if the boat can be used, {@code false} otherwise
      */
-    default boolean supportsBoating(AbstractBoat boat) {
+    default boolean supportsBoating(Boat boat) {
         return self().getType().supportsBoating(self(), boat);
     }
 
@@ -92,7 +92,7 @@ public interface IFluidStateExtension {
      * @return the path type of this fluid
      */
     @Nullable
-    default PathType getBlockPathType(BlockGetter level, BlockPos pos, @org.jspecify.annotations.Nullable Mob mob, boolean canFluidLog) {
+    default PathType getBlockPathType(BlockGetter level, BlockPos pos, @org.jetbrains.annotations.Nullable Mob mob, boolean canFluidLog) {
         return self().getType().getBlockPathType(self(), level, pos, mob, canFluidLog);
     }
 
@@ -109,7 +109,7 @@ public interface IFluidStateExtension {
      * @return the path type of this fluid
      */
     @Nullable
-    default PathType getAdjacentBlockPathType(BlockGetter level, BlockPos pos, @org.jspecify.annotations.Nullable Mob mob, PathType originalType) {
+    default PathType getAdjacentBlockPathType(BlockGetter level, BlockPos pos, @org.jetbrains.annotations.Nullable Mob mob, PathType originalType) {
         return self().getType().getAdjacentBlockPathType(self(), level, pos, mob, originalType);
     }
 

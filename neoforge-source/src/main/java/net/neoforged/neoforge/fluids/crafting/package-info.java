@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: LGPL-2.1-only
  */
 
-@NullMarked
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 package net.neoforged.neoforge.fluids.crafting;
 
-import org.jspecify.annotations.NullMarked;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;

@@ -11,22 +11,22 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.registries.callback.AddCallback;
 import net.neoforged.neoforge.registries.callback.BakeCallback;
 import net.neoforged.neoforge.registries.callback.ClearCallback;
 import net.neoforged.neoforge.registries.callback.RegistryCallback;
 import net.neoforged.neoforge.registries.datamaps.DataMapType;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 @ApiStatus.Internal
 public abstract class BaseMappedRegistry<T> implements Registry<T> {
     protected final List<AddCallback<T>> addCallbacks = new ArrayList<>();
     protected final List<BakeCallback<T>> bakeCallbacks = new ArrayList<>();
     protected final List<ClearCallback<T>> clearCallbacks = new ArrayList<>();
-    final Map<Identifier, Identifier> aliases = new HashMap<>();
+    final Map<ResourceLocation, ResourceLocation> aliases = new HashMap<>();
     final Map<DataMapType<T, ?>, Map<ResourceKey<T>, ?>> dataMaps = new IdentityHashMap<>();
 
     private int maxId = Integer.MAX_VALUE - 1;
@@ -61,11 +61,11 @@ public abstract class BaseMappedRegistry<T> implements Registry<T> {
     }
 
     @Override
-    public void addAlias(Identifier from, Identifier to) {
+    public void addAlias(ResourceLocation from, ResourceLocation to) {
         if (from.equals(to))
             return;
         if (this.aliases.containsKey(from)) {
-            Identifier old = this.aliases.get(from);
+            ResourceLocation old = this.aliases.get(from);
             if (!old.equals(to))
                 throw new IllegalArgumentException("Duplicate alias with key \"" + from + "\" attempting to map to \"" + to + "\", found existing mapping \"" + old + "\"");
         }
@@ -75,11 +75,11 @@ public abstract class BaseMappedRegistry<T> implements Registry<T> {
     }
 
     @Override
-    public Identifier resolve(Identifier name) {
+    public ResourceLocation resolve(ResourceLocation name) {
         if (this.containsKey(name))
             return name;
 
-        Identifier alias = this.aliases.get(name);
+        ResourceLocation alias = this.aliases.get(name);
         if (alias == null)
             return name;
 
@@ -88,20 +88,20 @@ public abstract class BaseMappedRegistry<T> implements Registry<T> {
 
     @Override
     public ResourceKey<T> resolve(ResourceKey<T> key) {
-        Identifier resolvedName = resolve(key.identifier());
+        ResourceLocation resolvedName = resolve(key.location());
         // Try to reuse the key if possible
-        return resolvedName == key.identifier() ? key : ResourceKey.create(this.key(), resolvedName);
+        return resolvedName == key.location() ? key : ResourceKey.create(this.key(), resolvedName);
     }
 
     @Override
     public int getId(ResourceKey<T> key) {
-        T value = this.getValue(key);
+        T value = this.get(key);
         return value == null ? -1 : this.getId(value);
     }
 
     @Override
-    public int getId(Identifier name) {
-        T value = this.getValue(name);
+    public int getId(ResourceLocation name) {
+        T value = this.get(name);
         return value == null ? -1 : this.getId(value);
     }
 
@@ -118,7 +118,7 @@ public abstract class BaseMappedRegistry<T> implements Registry<T> {
      */
     protected abstract void registerIdMapping(ResourceKey<T> key, int id);
 
-    protected abstract void unfreeze(boolean clearTags);
+    protected abstract void unfreeze();
 
     @Override
     public <A> @Nullable A getData(DataMapType<T, A> type, ResourceKey<T> key) {
@@ -129,9 +129,5 @@ public abstract class BaseMappedRegistry<T> implements Registry<T> {
     @Override
     public <A> Map<ResourceKey<T>, A> getDataMap(DataMapType<T, A> type) {
         return (Map<ResourceKey<T>, A>) dataMaps.getOrDefault(type, Map.of());
-    }
-
-    public Map<DataMapType<T, ?>, Map<ResourceKey<T>, ?>> getDataMaps() {
-        return dataMaps;
     }
 }

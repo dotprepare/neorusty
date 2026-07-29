@@ -6,45 +6,45 @@
 package net.neoforged.testframework.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.testframework.Test;
 import org.jetbrains.annotations.ApiStatus;
 
 @ApiStatus.Internal
+@SuppressWarnings("removal")
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public class EventListenerGroupImpl implements Test.EventListenerGroup {
-    private final EventListenerCollectorImpl mod = new EventListenerCollectorImpl(),
-            game = new EventListenerCollectorImpl();
+    private final Map<EventBusSubscriber.Bus, EventListenerCollectorImpl> collectors = new HashMap<>();
 
     @Override
-    public EventListenerCollector mod() {
-        return mod;
+    public EventListenerCollectorImpl getFor(EventBusSubscriber.Bus bus) {
+        return collectors.computeIfAbsent(bus, it -> new EventListenerCollectorImpl());
     }
 
-    @Override
-    public EventListenerCollector forge() {
-        return game;
+    public void unregister(Map<EventBusSubscriber.Bus, IEventBus> buses) {
+        collectors.forEach((bus, col) -> col.unregisterAll(buses.get(bus)));
     }
 
-    public void unregister(BusSet set) {
-        mod.unregisterAll(set.mod);
-        game.unregisterAll(set.game);
-    }
-
-    public void register(BusSet set) {
-        mod.registerAll(set.mod);
-        game.registerAll(set.game);
+    public void register(Map<EventBusSubscriber.Bus, IEventBus> buses) {
+        collectors.forEach((bus, col) -> col.registerAll(buses.get(bus)));
     }
 
     public void copyFrom(EventListenerGroupImpl other) {
-        this.mod.subscribeActions.addAll(other.mod.subscribeActions);
-        this.mod.subscribers.addAll(other.mod.subscribers);
-
-        this.game.subscribeActions.addAll(other.game.subscribeActions);
-        this.game.subscribers.addAll(other.game.subscribers);
+        other.collectors.forEach((bus, eventListenerCollector) -> {
+            final var ours = getFor(bus);
+            ours.subscribeActions.addAll(eventListenerCollector.subscribeActions);
+            ours.subscribers.addAll(eventListenerCollector.subscribers);
+        });
     }
 
     private static final class EventListenerCollectorImpl implements EventListenerCollector {
@@ -81,6 +81,4 @@ public class EventListenerGroupImpl implements Test.EventListenerGroup {
             subscribeActions.forEach(c -> c.accept(bus));
         }
     }
-
-    public record BusSet(IEventBus mod, IEventBus game) {}
 }

@@ -1,33 +1,33 @@
 --- a/net/minecraft/world/entity/item/ItemEntity.java
 +++ b/net/minecraft/world/entity/item/ItemEntity.java
-@@ -52,6 +_,10 @@
-     private @Nullable EntityReference<Entity> thrower;
-     private @Nullable UUID target;
-     public final float bobOffs = this.random.nextFloat() * (float) Math.PI * 2.0F;
+@@ -49,6 +_,10 @@
+     @Nullable
+     private UUID target;
+     public final float bobOffs;
 +    /**
-+     * The maximum age of this EntityItem. The item is expired once this is reached.
++     * The maximum age of this EntityItem.  The item is expired once this is reached.
 +     */
 +    public int lifespan = ItemEntity.LIFETIME;
  
-     public ItemEntity(EntityType<? extends ItemEntity> type, Level level) {
-         super(type, level);
-@@ -63,6 +_,7 @@
-         this.setPos(x, y, z);
-         this.setItem(itemStack);
-         this.setDeltaMovement(this.random.nextDouble() * 0.2 - 0.1, 0.2, this.random.nextDouble() * 0.2 - 0.1);
-+        this.lifespan = (itemStack.getItem() == null ? LIFETIME : itemStack.getEntityLifespan(level));
+     public ItemEntity(EntityType<? extends ItemEntity> p_31991_, Level p_31992_) {
+         super(p_31991_, p_31992_);
+@@ -67,6 +_,7 @@
+         this.setPos(p_149664_, p_149665_, p_149666_);
+         this.setDeltaMovement(p_149668_, p_149669_, p_149670_);
+         this.setItem(p_149667_);
++        this.lifespan = (p_149667_.getItem() == null ? ItemEntity.LIFETIME : p_149667_.getEntityLifespan(p_149663_));
      }
  
-     public ItemEntity(Level level, double x, double y, double z, ItemStack itemStack, double deltaX, double deltaY, double deltaZ) {
-@@ -70,6 +_,7 @@
-         this.setPos(x, y, z);
-         this.setItem(itemStack);
-         this.setDeltaMovement(deltaX, deltaY, deltaZ);
-+        this.lifespan = (itemStack.getItem() == null ? LIFETIME : itemStack.getEntityLifespan(level));
+     private ItemEntity(ItemEntity p_31994_) {
+@@ -75,6 +_,7 @@
+         this.copyPosition(p_31994_);
+         this.age = p_31994_.age;
+         this.bobOffs = p_31994_.bobOffs;
++        this.lifespan = p_31994_.lifespan;
      }
  
      @Override
-@@ -107,6 +_,7 @@
+@@ -120,6 +_,7 @@
  
      @Override
      public void tick() {
@@ -35,23 +35,33 @@
          if (this.getItem().isEmpty()) {
              this.discard();
          } else {
-@@ -144,7 +_,8 @@
-                 float airDrag = this.getAirDrag();
-                 float groundFriction = airDrag;
+@@ -132,6 +_,9 @@
+             this.yo = this.getY();
+             this.zo = this.getZ();
+             Vec3 vec3 = this.getDeltaMovement();
++            net.neoforged.neoforge.fluids.FluidType fluidType = this.getMaxHeightFluidType();
++            if (!fluidType.isAir() && !fluidType.isVanilla() && this.getFluidTypeHeight(fluidType) > 0.1F) fluidType.setItemMovement(this);
++            else
+             if (this.isInWater() && this.getFluidHeight(FluidTags.WATER) > 0.1F) {
+                 this.setUnderwaterMovement();
+             } else if (this.isInLava() && this.getFluidHeight(FluidTags.LAVA) > 0.1F) {
+@@ -153,7 +_,8 @@
+                 this.move(MoverType.SELF, this.getDeltaMovement());
+                 float f = 0.98F;
                  if (this.onGround()) {
--                    groundFriction *= this.level().getBlockState(this.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction();
+-                    f = this.level().getBlockState(this.getBlockPosBelowThatAffectsMyMovement()).getBlock().getFriction() * 0.98F;
 +                    BlockPos groundPos = getBlockPosBelowThatAffectsMyMovement();
-+                    groundFriction *= this.level().getBlockState(groundPos).getFriction(level(), groundPos, this);
++                    f = this.level().getBlockState(groundPos).getFriction(level(), groundPos, this) * 0.98F;
                  }
  
-                 this.setDeltaMovement(this.getDeltaMovement().multiply(groundFriction, airDrag, groundFriction));
-@@ -176,7 +_,15 @@
+                 this.setDeltaMovement(this.getDeltaMovement().multiply((double)f, 0.98, (double)f));
+@@ -185,7 +_,15 @@
                  }
              }
  
--            if (!this.level().isClientSide() && this.age >= 6000) {
+-            if (!this.level().isClientSide && this.age >= 6000) {
 +            ItemStack item = this.getItem();
-+            if (!this.level().isClientSide() && this.age >= lifespan) {
++            if (!this.level().isClientSide && this.age >= lifespan) {
 +            	  // Clamping to MAX_VALUE -1 as age is a Short and going above that would produce an infinite lifespan implicitly (accidentally)
 +                this.lifespan = Mth.clamp(lifespan + net.neoforged.neoforge.event.EventHooks.onItemExpire(this), 0, Short.MAX_VALUE - 1);
 +                if (this.age >= lifespan) {
@@ -62,57 +72,59 @@
                  this.discard();
              }
          }
-@@ -291,7 +_,7 @@
-         this.health = (int)(this.health - damage);
-         this.gameEvent(GameEvent.ENTITY_DAMAGE, source.getEntity());
-         if (this.health <= 0) {
--            this.getItem().onDestroyed(this);
-+            this.getItem().onDestroyed(this, source);
-             this.discard();
-         }
+@@ -282,7 +_,7 @@
+             this.health = (int)((float)this.health - p_32014_);
+             this.gameEvent(GameEvent.ENTITY_DAMAGE, p_32013_.getEntity());
+             if (this.health <= 0) {
+-                this.getItem().onDestroyed(this);
++                this.getItem().onDestroyed(this, p_32013_);
+                 this.discard();
+             }
  
-@@ -308,6 +_,7 @@
-         output.putShort("Health", (short)this.health);
-         output.putShort("Age", (short)this.age);
-         output.putShort("PickupDelay", (short)this.pickupDelay);
-+        output.putInt("Lifespan", this.lifespan);
-         EntityReference.store(this.thrower, output, "Thrower");
-         output.storeNullable("Owner", UUIDUtil.CODEC, this.target);
-         if (!this.getItem().isEmpty()) {
-@@ -320,6 +_,7 @@
-         this.health = input.getShortOr("Health", (short)5);
-         this.age = input.getShortOr("Age", (short)0);
-         this.pickupDelay = input.getShortOr("PickupDelay", (short)0);
-+        this.lifespan = input.getIntOr("Lifespan", ItemEntity.LIFETIME);
-         this.target = input.read("Owner", UUIDUtil.CODEC).orElse(null);
-         this.thrower = EntityReference.read(input, "Thrower");
-         this.setItem(input.read("Item", ItemStack.CODEC).orElse(ItemStack.EMPTY));
-@@ -334,7 +_,22 @@
-             ItemStack itemStack = this.getItem();
-             Item item = itemStack.getItem();
-             int orgCount = itemStack.getCount();
--            if (this.pickupDelay == 0 && (this.target == null || this.target.equals(player.getUUID())) && player.getInventory().add(itemStack)) {
+@@ -295,6 +_,7 @@
+         p_32050_.putShort("Health", (short)this.health);
+         p_32050_.putShort("Age", (short)this.age);
+         p_32050_.putShort("PickupDelay", (short)this.pickupDelay);
++        p_32050_.putInt("Lifespan", this.lifespan);
+         if (this.thrower != null) {
+             p_32050_.putUUID("Thrower", this.thrower);
+         }
+@@ -315,6 +_,9 @@
+         if (p_32034_.contains("PickupDelay")) {
+             this.pickupDelay = p_32034_.getShort("PickupDelay");
+         }
++        if (p_32034_.contains("Lifespan")) {
++            this.lifespan = p_32034_.getInt("Lifespan");
++        }
+ 
+         if (p_32034_.hasUUID("Owner")) {
+             this.target = p_32034_.getUUID("Owner");
+@@ -343,7 +_,22 @@
+             ItemStack itemstack = this.getItem();
+             Item item = itemstack.getItem();
+             int i = itemstack.getCount();
+-            if (this.pickupDelay == 0 && (this.target == null || this.target.equals(p_32040_.getUUID())) && p_32040_.getInventory().add(itemstack)) {
 +
 +            // Neo: Fire item pickup pre/post and adjust handling logic to adhere to the event result.
-+            var result = net.neoforged.neoforge.event.EventHooks.fireItemPickupPre(this, player).canPickup();
++            var result = net.neoforged.neoforge.event.EventHooks.fireItemPickupPre(this, p_32040_).canPickup();
 +            if (result.isFalse()) {
 +                return;
 +            }
 +
 +            // Make a copy of the original stack for use in ItemEntityPickupEvent.Post
-+            ItemStack originalCopy = itemStack.copy();
++            ItemStack originalCopy = itemstack.copy();
 +            // Subvert the vanilla conditions (pickup delay and target check) if the result is true.
-+            if ((result.isTrue() || this.pickupDelay == 0 && (this.target == null || this.target.equals(player.getUUID()))) && player.getInventory().add(itemStack)) {
++            if ((result.isTrue() || this.pickupDelay == 0 && (this.target == null || this.target.equals(p_32040_.getUUID()))) && p_32040_.getInventory().add(itemstack)) {
 +                // Fire ItemEntityPickupEvent.Post
-+                net.neoforged.neoforge.event.EventHooks.fireItemPickupPost(this, player, originalCopy);
-+                // Update `orgCount` to reflect the actual pickup amount. Vanilla is wrong here and always reports the whole stack.
-+                orgCount = originalCopy.getCount() - itemStack.getCount();
++                net.neoforged.neoforge.event.EventHooks.fireItemPickupPost(this, p_32040_, originalCopy);
++                // Update `i` to reflect the actual pickup amount. Vanilla is wrong here and always reports the whole stack.
++                i = originalCopy.getCount() - itemstack.getCount();
 +
-                 player.take(this, orgCount);
-                 if (itemStack.isEmpty()) {
+                 p_32040_.take(this, i);
+                 if (itemstack.isEmpty()) {
                      this.discard();
-@@ -380,6 +_,15 @@
-         this.target = target;
+@@ -398,6 +_,15 @@
+         this.target = p_266724_;
      }
  
 +    /**
@@ -124,10 +136,10 @@
 +        return this.target;
 +    }
 +
-     public void setThrower(Entity thrower) {
-         this.thrower = EntityReference.of(thrower);
-     }
-@@ -418,7 +_,7 @@
+     public void setThrower(Entity p_306324_) {
+         this.thrower = p_306324_.getUUID();
+         this.cachedThrower = p_306324_;
+@@ -437,7 +_,7 @@
  
      public void makeFakeItem() {
          this.setNeverPickUp();
@@ -135,4 +147,4 @@
 +        this.age = getItem().getEntityLifespan(this.level()) - 1;
      }
  
-     public static float getSpin(float ageInTicks, float bobOffset) {
+     public float getSpin(float p_32009_) {

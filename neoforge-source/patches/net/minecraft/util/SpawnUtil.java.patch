@@ -1,11 +1,11 @@
 --- a/net/minecraft/util/SpawnUtil.java
 +++ b/net/minecraft/util/SpawnUtil.java
-@@ -39,7 +_,7 @@
-                 && (!checkCollisions || level.noCollision(entityType.getSpawnAABB(searchPos.getX() + 0.5, searchPos.getY(), searchPos.getZ() + 0.5)))) {
-                 T mob = (T)entityType.create(level, null, searchPos, spawnReason, false, false);
-                 if (mob != null) {
--                    if (mob.checkSpawnRules(level, spawnReason) && mob.checkSpawnObstruction(level)) {
-+                    if (net.neoforged.neoforge.event.EventHooks.checkSpawnPosition(mob, level, spawnReason)) {
-                         level.addFreshEntityWithPassengers(mob);
-                         mob.playAmbientSound();
-                         return Optional.of(mob);
+@@ -35,7 +_,7 @@
+                 && moveToPossibleSpawnPosition(p_216406_, p_216410_, blockpos$mutableblockpos, p_216411_)) {
+                 T t = (T)p_216404_.create(p_216406_, null, blockpos$mutableblockpos, p_216405_, false, false);
+                 if (t != null) {
+-                    if (t.checkSpawnRules(p_216406_, p_216405_) && t.checkSpawnObstruction(p_216406_)) {
++                    if (net.neoforged.neoforge.event.EventHooks.checkSpawnPosition(t, p_216406_, p_216405_)) {
+                         p_216406_.addFreshEntityWithPassengers(t);
+                         return Optional.of(t);
+                     }

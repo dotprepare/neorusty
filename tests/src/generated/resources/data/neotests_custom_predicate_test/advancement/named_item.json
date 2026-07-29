@@ -20,6 +20,7 @@
   "display": {
     "description": "Get a named item",
     "icon": {
+      "count": 1,
       "id": "minecraft:anvil"
     },
     "title": "Named!"

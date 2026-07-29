@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:infested_cobblestone"
+    "minecraft:infested_cobblestone",
+    {
+      "id": "#forge:cobblestone/infested",
+      "required": false
+    }
   ]
 }

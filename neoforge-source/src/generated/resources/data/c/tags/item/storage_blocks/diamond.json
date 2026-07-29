@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:diamond_block"
+    "minecraft:diamond_block",
+    {
+      "id": "#forge:storage_blocks/diamond",
+      "required": false
+    }
   ]
 }

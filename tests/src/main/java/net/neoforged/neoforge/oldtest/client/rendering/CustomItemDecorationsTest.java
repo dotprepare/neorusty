@@ -5,8 +5,10 @@
 
 package net.neoforged.neoforge.oldtest.client.rendering;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -35,18 +37,19 @@ public class CustomItemDecorationsTest {
 
     private static class StackSizeDurabilityBar implements IItemDecorator {
         @Override
-        public boolean render(GuiGraphicsExtractor graphics, Font font, ItemStack stack, int xOffset, int yOffset) {
+        public boolean render(GuiGraphics graphics, Font font, ItemStack stack, int xOffset, int yOffset) {
+            RenderSystem.disableBlend();
             float f = Math.max(0.0F, (float) stack.getCount() / stack.getMaxStackSize());
             int i = Math.round((float) stack.getCount() * 13.0F / stack.getMaxStackSize());
             int j = Mth.hsvToRgb(f / 3.0F, 1f, 1f) | 0xFF000000;
             int x = xOffset + 2;
             int y = yOffset + 13;
-            graphics.pose().pushMatrix();
-            // TODO 1.21.6 validate that omitting the following actually just works
-            // graphics.pose().translate(0.0F, 0.0F, ItemRenderer.ITEM_DECORATION_BLIT_OFFSET + 1F);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0.0F, 0.0F, ItemRenderer.ITEM_COUNT_BLIT_OFFSET + 1F);
             graphics.fill(x, y, x + 13, y + 2, 0xFF000000);
             graphics.fill(x, y, x + i, y + 1, j);
-            graphics.pose().popMatrix();
+            graphics.pose().popPose();
+            RenderSystem.enableBlend();
             return true;
         }
     }

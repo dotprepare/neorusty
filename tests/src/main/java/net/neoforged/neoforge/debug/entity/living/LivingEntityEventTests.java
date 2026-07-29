@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -25,18 +26,18 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity.RemovalReason;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.animal.allay.Allay;
-import net.minecraft.world.entity.monster.cubemob.Slime;
-import net.minecraft.world.entity.monster.zombie.Zombie;
-import net.minecraft.world.entity.monster.zombie.ZombieVillager;
-import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
-import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.monster.Slime;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.monster.ZombieVillager;
+import net.minecraft.world.entity.monster.ZombifiedPiglin;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
@@ -62,7 +63,6 @@ import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.GameTestPlayer;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
@@ -79,7 +79,7 @@ public class LivingEntityEventTests {
             test.pass();
         });
 
-        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityTypes.ALLAY, 1, 2, 1))
+        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityType.ALLAY, 1, 2, 1))
                 .thenExecute(allay -> allay.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.ACACIA_BOAT)))
                 .thenExecute(allay -> allay.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.APPLE)))
 
@@ -110,8 +110,8 @@ public class LivingEntityEventTests {
         });
 
         test.onGameTest(helper -> {
-            final var converting = helper.spawnWithNoFreeWill(EntityTypes.ZOMBIE_VILLAGER, 1, 2, 0);
-            final var nonConverting = helper.spawnWithNoFreeWill(EntityTypes.ZOMBIE_VILLAGER, 1, 2, 2);
+            final var converting = helper.spawnWithNoFreeWill(EntityType.ZOMBIE_VILLAGER, 1, 2, 0);
+            final var nonConverting = helper.spawnWithNoFreeWill(EntityType.ZOMBIE_VILLAGER, 1, 2, 2);
             nonConverting.setData(shouldConvert, false);
 
             final var startConvertingMethod = helper.catchException(() -> ObfuscationReflectionHelper.findMethod(ZombieVillager.class, "startConverting", UUID.class, int.class));
@@ -125,11 +125,11 @@ public class LivingEntityEventTests {
                     .thenIdle(5)
 
                     // The one with the attachment set to false shouldn't have converted
-                    .thenExecute(() -> helper.assertEntityPresent(EntityTypes.ZOMBIE_VILLAGER, 1, 2, 2))
+                    .thenExecute(() -> helper.assertEntityPresent(EntityType.ZOMBIE_VILLAGER, 1, 2, 2))
 
                     // But the one with the attachment set to true should have
-                    .thenMap(() -> helper.requireEntityAt(EntityTypes.VILLAGER, 1, 2, 0))
-                    .thenExecute(() -> helper.assertEntityNotPresent(EntityTypes.ZOMBIE_VILLAGER, 1, 2, 0))
+                    .thenMap(() -> helper.requireEntityAt(EntityType.VILLAGER, 1, 2, 0))
+                    .thenExecute(() -> helper.assertEntityNotPresent(EntityType.ZOMBIE_VILLAGER, 1, 2, 0))
 
                     .thenExecute(villager -> helper.assertLivingEntityHasMobEffect(
                             villager, MobEffects.LUCK, 0))
@@ -150,8 +150,8 @@ public class LivingEntityEventTests {
         });
 
         test.onGameTest(helper -> {
-            final var skelly = helper.spawnWithNoFreeWill(EntityTypes.SKELETON, 1, 2, 0);
-            final var pig = helper.spawnWithNoFreeWill(EntityTypes.PIG, 1, 2, 2);
+            final var skelly = helper.spawnWithNoFreeWill(EntityType.SKELETON, 1, 2, 0);
+            final var pig = helper.spawnWithNoFreeWill(EntityType.PIG, 1, 2, 2);
             skelly.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BOW));
             skelly.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 10));
             skelly.setData(shootsFireRes, true);
@@ -177,7 +177,7 @@ public class LivingEntityEventTests {
             }
         });
         test.onGameTest(helper -> {
-            final var zombie = helper.spawn(EntityTypes.ZOMBIE, 4, 2, 4);
+            final var zombie = helper.spawn(EntityType.ZOMBIE, 4, 2, 4);
             helper.knockbackResistant(zombie);
             zombie.setData(specialAggro, true);
 
@@ -217,18 +217,18 @@ public class LivingEntityEventTests {
             }
         });
 
-        test.onGameTest(helper -> helper.startSequence(() -> helper.knockbackResistant(helper.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 1, 2, 2)))
+        test.onGameTest(helper -> helper.startSequence(() -> helper.knockbackResistant(helper.spawnWithNoFreeWill(EntityType.ZOMBIE, 1, 2, 2)))
                 .thenExecute(zombie -> zombie.setCustomName(Component.literal("shieldblock")))
                 .thenExecute(zombie -> zombie.setYHeadRot(180)) // Face the zombie towards the skeleton so it can block
 
                 .thenExecute(zombie -> zombie.setItemInHand(InteractionHand.MAIN_HAND, Items.SHIELD.getDefaultInstance()))
                 .thenExecute(zombie -> zombie.startUsingItem(InteractionHand.MAIN_HAND))
                 .thenExecuteAfter(10, zombie -> {
-                    var skelly = helper.spawnWithNoFreeWill(EntityTypes.SKELETON, 1, 2, 0);
+                    var skelly = helper.spawnWithNoFreeWill(EntityType.SKELETON, 1, 2, 0);
                     skelly.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BOW));
                     skelly.performRangedAttack(zombie, 1f);
                 })
-                .thenWaitUntil(() -> helper.assertEntityIsHolding(new BlockPos(1, 2, 2), EntityTypes.ZOMBIE, Items.STONE))
+                .thenWaitUntil(() -> helper.assertEntityIsHolding(new BlockPos(1, 2, 2), EntityType.ZOMBIE, Items.STONE))
                 .thenSucceed());
     }
 
@@ -241,12 +241,12 @@ public class LivingEntityEventTests {
         test.eventListeners().forge().addListener((MobSplitEvent event) -> {
             CompoundTag nbt = event.getParent().getPersistentData();
 
-            if (nbt.getBooleanOr("test.no_split_slime", false)) {
+            if (nbt.getBoolean("test.no_split_slime")) {
                 event.setCanceled(true);
                 return;
             }
 
-            for (String key : nbt.keySet()) {
+            for (String key : nbt.getAllKeys()) {
                 event.getChildren().forEach(slime -> slime.getPersistentData().put(key, nbt.get(key)));
             }
 
@@ -258,15 +258,15 @@ public class LivingEntityEventTests {
         AtomicBoolean throwIfSlimeSpawns = new AtomicBoolean(false);
 
         test.eventListeners().forge().addListener((EntityJoinLevelEvent event) -> {
-            if (event.getEntity() instanceof Slime) {
+            if (event.getEntity() instanceof Slime slime) {
                 if (throwIfSlimeSpawns.get()) {
-                    throw new GameTestAssertException(Component.translatable("Slime should not have been spawned."), -1);
+                    throw new GameTestAssertException("Slime should not have been spawned.");
                 }
             }
         });
 
         test.onGameTest(helper -> {
-            Slime slime = helper.spawnWithNoFreeWill(EntityTypes.SLIME, 1, 1, 1);
+            Slime slime = helper.spawnWithNoFreeWill(EntityType.SLIME, 1, 1, 1);
 
             // Test basic event functionality
             slime.getPersistentData().putString("test.something", "whatever");
@@ -276,11 +276,10 @@ public class LivingEntityEventTests {
 
             helper.assertTrue(!childSlimes.isEmpty(), "No child slimes received by event");
             for (Mob s : childSlimes) {
-                helper.assertValueEqual("whatever", s.getPersistentData().getString("test.something").orElse(null), "NBT Data not copied");
-                s.kill(helper.getLevel());
+                helper.assertTrue(s.getPersistentData().getString("test.something").equals("whatever"), "NBT Data not copied");
             }
 
-            Slime childlessSlime = helper.spawnWithNoFreeWill(EntityTypes.SLIME, 1, 1, 1);
+            Slime childlessSlime = helper.spawnWithNoFreeWill(EntityType.SLIME, 1, 1, 1);
 
             // Test cancellation functionality
             childlessSlime.getPersistentData().putBoolean("test.no_split_slime", true);
@@ -305,7 +304,7 @@ public class LivingEntityEventTests {
         AttachmentType<Float> VALUE_ABSORPTION = reg.attachments().registerSimpleAttachment("absorption_reduction", () -> 0f);
         AttachmentType<Float> VALUE_MOB_EFFECTS = reg.attachments().registerSimpleAttachment("effect_reduction", () -> 0f);
         AttachmentType<Float> VALUE_PRE_POST_DAMAGE = reg.attachments().registerSimpleAttachment("pre_post_damage", () -> 0f);
-        AttachmentType<Float> VALUE_HEALTH_DAMAGE = reg.attachments().registerSimpleAttachment("health_damage", () -> 0f);
+        AttachmentType<Float> VALUE_NEW_DAMAGE = reg.attachments().registerSimpleAttachment("new_damage", () -> 0f);
 
         /* This event listener watches for the first event in the damage sequence.  At this stage we expect to  add our
          * reduction functions and replace the incoming damage amount with a new value. */
@@ -340,7 +339,7 @@ public class LivingEntityEventTests {
         test.eventListeners().forge().addListener((final LivingDamageEvent.Post event) -> {
             if (event.getEntity() instanceof GameTestPlayer player && Objects.equals(player.getCustomName(), NAME)) {
                 player.setData(VALUE_ABSORPTION, event.getReduction(DamageContainer.Reduction.ABSORPTION));
-                player.setData(VALUE_HEALTH_DAMAGE, event.getHealthDamage());
+                player.setData(VALUE_NEW_DAMAGE, event.getNewDamage());
             }
         });
 
@@ -349,30 +348,26 @@ public class LivingEntityEventTests {
                 .thenExecute(player -> {
                     player.setCustomName(NAME);
                     player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 11000));
-                    player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 11000));
+                    player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 11000));
                     player.setItemSlot(EquipmentSlot.CHEST, Items.IRON_CHESTPLATE.getDefaultInstance());
                     ItemEnchantments.Mutable enchants = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-                    enchants.set(helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.PROTECTION), 4);
+                    enchants.set(helper.getLevel().registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.PROTECTION), 4);
                     EnchantmentHelper.setEnchantments(player.getItemBySlot(EquipmentSlot.CHEST), enchants.toImmutable());
                     player.getFoodData().setFoodLevel(1);
                 })
-                .thenIdle(5)
-                .thenExecute(player -> {
-                    // remove spawn invulnerability
-                    player.connection.markClientLoaded();
-                    helper.assertTrue(player.getHealth() == player.getMaxHealth(), "Expected player to be at max health: " + player.getHealth() + " / " + player.getMaxHealth() + " - " + player.getLastDamageSource());
-                    /* The player is damaged with a single point of damage which will be modified in the event listeners*/
-                    player.hurtServer(helper.getLevel(), new DamageSource(helper.getLevel().registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(DamageTypes.MOB_ATTACK)), 1);
-                })
+                /* ServerPlayers have spawn invulnerability.  This waits out that period.*/
+                .thenIdle(2001)
+                /* The player is damaged with a single point of damage which will be modified in the event listeners*/
+                .thenExecute(player -> player.hurt(new DamageSource(helper.getLevel().registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolder(DamageTypes.MOB_ATTACK).get()), 1))
                 /* The player's health and all the stored values from the events are checked to ensure they match the
                  * expected values from our reduction functions and changes to the damage value.*/
                 .thenWaitUntil(player -> {
-                    DecimalFormat formatter = new DecimalFormat("#.###", new DecimalFormatSymbols(Locale.ROOT));
+                    DecimalFormat formatter = new DecimalFormat("#.###", DecimalFormatSymbols.getInstance(Locale.ROOT));
                     String playerHealth = formatter.format(player.getHealth());
                     helper.assertTrue(playerHealth.equals("11"), "player health expected 11, actually " + playerHealth);
 
-                    String valueNewDamage = formatter.format(player.getData(VALUE_HEALTH_DAMAGE));
-                    helper.assertTrue(valueNewDamage.equals("9"), "health damage expected 9, actually " + valueNewDamage);
+                    String valueNewDamage = formatter.format(player.getData(VALUE_NEW_DAMAGE));
+                    helper.assertTrue(valueNewDamage.equals("9"), "new damage expected 9, actually " + valueNewDamage);
 
                     String valuePrePostDamage = formatter.format(player.getData(VALUE_PRE_POST_DAMAGE));
                     helper.assertTrue(valuePrePostDamage.equals("9.451"), "damage from sequence before change expected 9.451, actually " + valuePrePostDamage);

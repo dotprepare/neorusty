@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:diamond"
+    "minecraft:diamond",
+    {
+      "id": "#forge:gems/diamond",
+      "required": false
+    }
   ]
 }

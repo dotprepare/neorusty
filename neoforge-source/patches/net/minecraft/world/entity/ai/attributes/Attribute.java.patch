@@ -1,7 +1,7 @@
 --- a/net/minecraft/world/entity/ai/attributes/Attribute.java
 +++ b/net/minecraft/world/entity/ai/attributes/Attribute.java
-@@ -54,6 +_,21 @@
-         return this.sentiment.getStyle(valueIncrease);
+@@ -52,6 +_,21 @@
+         return this.sentiment.getStyle(p_347715_);
      }
  
 +    // Neo: Patch in the default implementation of IAttributeExtension#getMergedStyle since we need access to Attribute#sentiment
@@ -19,6 +19,6 @@
 +        };
 +    }
 +
-     public enum Sentiment {
+     public static enum Sentiment {
          POSITIVE,
          NEUTRAL,

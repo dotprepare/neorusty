@@ -8,7 +8,6 @@ package net.neoforged.neoforge.common.extensions;
 import com.mojang.math.Transformation;
 import net.minecraft.core.Direction;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
@@ -23,10 +22,10 @@ public interface ITransformationExtension {
     /**
      * {@return whether this transformation is the identity transformation}
      *
-     * @see Transformation#IDENTITY
+     * @see Transformation#identity()
      */
     default boolean isIdentity() {
-        return self().equals(Transformation.IDENTITY);
+        return self().equals(Transformation.identity());
     }
 
     /**
@@ -54,7 +53,7 @@ public interface ITransformationExtension {
      *
      * @param facing the direction to transform
      * @return the {@code Direction} value nearest to the resulting transformed direction
-     * @see Direction#rotate(Matrix4fc, Direction)
+     * @see Direction#rotate(Matrix4f, Direction)
      */
     default Direction rotateTransform(Direction facing) {
         return Direction.rotate(self().getMatrix(), facing);
@@ -89,9 +88,9 @@ public interface ITransformationExtension {
      */
     default Transformation applyOrigin(Vector3f origin) {
         Transformation transform = self();
-        if (transform.isIdentity()) return Transformation.IDENTITY;
+        if (transform.isIdentity()) return Transformation.identity();
 
-        Matrix4f ret = new Matrix4f(transform.getMatrix());
+        Matrix4f ret = transform.getMatrix();
         Matrix4f tmp = new Matrix4f().translation(origin.x(), origin.y(), origin.z());
         tmp.mul(ret, ret);
         tmp.translation(-origin.x(), -origin.y(), -origin.z());

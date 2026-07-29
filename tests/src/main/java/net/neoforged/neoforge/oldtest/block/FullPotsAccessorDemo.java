@@ -5,19 +5,23 @@
 
 package net.neoforged.neoforge.oldtest.block;
 
-import com.mojang.serialization.MapCodec;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import java.util.Arrays;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonObject;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.BlockAndTintGetter;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
-import net.minecraft.client.renderer.block.dispatch.SingleVariant;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.BlockModel;
+import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.Material;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
-import net.minecraft.client.resources.model.geometry.QuadCollection;
+import net.minecraft.client.resources.model.ModelState;
+import net.minecraft.client.resources.model.UnbakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -25,11 +29,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.stats.Stats;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -45,8 +49,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.MapColor;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -55,16 +57,21 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.client.event.RegisterBlockStateModels;
-import net.neoforged.neoforge.client.model.DelegateBlockStateModel;
-import net.neoforged.neoforge.client.model.block.CustomUnbakedBlockStateModel;
+import net.neoforged.neoforge.client.ChunkRenderTypeSet;
+import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.model.BakedModelWrapper;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
+import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
+import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
+import net.neoforged.neoforge.common.util.ConcatenatedListView;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import org.jetbrains.annotations.Nullable;
 
 @Mod(FullPotsAccessorDemo.MOD_ID)
 public class FullPotsAccessorDemo {
@@ -75,22 +82,22 @@ public class FullPotsAccessorDemo {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, MOD_ID);
 
-    private static final DeferredBlock<Block> DIORITE_POT = BLOCKS.registerBlock("diorite_pot", DioriteFlowerPotBlock::new, props -> props.mapColor(MapColor.NONE).instabreak().noOcclusion());
+    private static final DeferredBlock<Block> DIORITE_POT = BLOCKS.register("diorite_pot", DioriteFlowerPotBlock::new);
     private static final DeferredItem<BlockItem> DIORITE_POT_ITEM = ITEMS.registerSimpleBlockItem(DIORITE_POT);
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DioriteFlowerPotBlockEntity>> DIORITE_POT_BLOCK_ENTITY = BLOCK_ENTITIES.register(
             "diorite_pot",
-            () -> new BlockEntityType<>(DioriteFlowerPotBlockEntity::new, DIORITE_POT.get()));
+            () -> BlockEntityType.Builder.of(DioriteFlowerPotBlockEntity::new, DIORITE_POT.get()).build(null));
 
     public FullPotsAccessorDemo(IEventBus bus) {
         if (ENABLED) {
             BLOCKS.register(bus);
             ITEMS.register(bus);
             BLOCK_ENTITIES.register(bus);
-            bus.addListener(FullPotsAccessorDemo::addCreative);
+            bus.addListener(this::addCreative);
         }
     }
 
-    private static void addCreative(BuildCreativeModeTabContentsEvent event) {
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.INGREDIENTS)
             event.accept(DIORITE_POT_ITEM);
     }
@@ -98,12 +105,12 @@ public class FullPotsAccessorDemo {
     private static class DioriteFlowerPotBlock extends Block implements EntityBlock {
         private static final VoxelShape SHAPE = Block.box(5.0D, 0.0D, 5.0D, 11.0D, 6.0D, 11.0D);
 
-        public DioriteFlowerPotBlock(Properties props) {
-            super(props);
+        public DioriteFlowerPotBlock() {
+            super(Properties.of().mapColor(MapColor.NONE).instabreak().noOcclusion());
         }
 
         @Override
-        public InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        public ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
             if (level.getBlockEntity(pos) instanceof DioriteFlowerPotBlockEntity be) {
                 boolean isFlower = stack.getItem() instanceof BlockItem item && ((FlowerPotBlock) Blocks.FLOWER_POT).getFullPotsView().containsKey(BuiltInRegistries.ITEM.getKey(item));
                 boolean hasFlower = be.plant != Blocks.AIR;
@@ -130,15 +137,16 @@ public class FullPotsAccessorDemo {
                     }
 
                     level.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
-                    return InteractionResult.SUCCESS;
+                    return ItemInteractionResult.sidedSuccess(level.isClientSide());
                 } else {
-                    return InteractionResult.CONSUME;
+                    return ItemInteractionResult.CONSUME;
                 }
             }
             return super.useItemOn(stack, state, level, pos, player, hand, hit);
         }
 
         @Override
+        @SuppressWarnings("deprecation")
         public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
             return SHAPE;
         }
@@ -182,8 +190,8 @@ public class FullPotsAccessorDemo {
         }
 
         @Override
-        public void handleUpdateTag(ValueInput input) {
-            super.handleUpdateTag(input);
+        public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider holderLookup) {
+            super.handleUpdateTag(tag, holderLookup);
             modelData = modelData.derive().with(PLANT_PROPERTY, plant).build();
             requestModelDataUpdate();
         }
@@ -194,100 +202,89 @@ public class FullPotsAccessorDemo {
         }
 
         @Override
-        public void onDataPacket(Connection net, ValueInput input) {
-            handleUpdateTag(input);
+        public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider holderLookup) {
+            handleUpdateTag(pkt.getTag(), holderLookup);
             //noinspection ConstantConditions
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), Block.UPDATE_ALL);
         }
 
         @Override
-        public void loadAdditional(ValueInput input) {
-            super.loadAdditional(input);
-            input.getString("plant").ifPresent(id -> plant = BuiltInRegistries.BLOCK.getValue(Identifier.parse(id)));
+        public void loadAdditional(CompoundTag tag, HolderLookup.Provider holderLookup) {
+            super.loadAdditional(tag, holderLookup);
+            plant = BuiltInRegistries.BLOCK.get(ResourceLocation.parse(tag.getString("plant")));
         }
 
         @Override
-        protected void saveAdditional(ValueOutput output) {
+        protected void saveAdditional(CompoundTag tag, HolderLookup.Provider holderLookup) {
             //noinspection ConstantConditions
-            output.putString("plant", BuiltInRegistries.BLOCK.getKey(plant).toString());
-            super.saveAdditional(output);
+            tag.putString("plant", BuiltInRegistries.BLOCK.getKey(plant).toString());
+            super.saveAdditional(tag, holderLookup);
         }
     }
 
     @EventBusSubscriber(modid = MOD_ID, value = Dist.CLIENT)
     private static class ClientHandler {
         @SubscribeEvent
-        public static void registerBlockStateModelType(final RegisterBlockStateModels event) {
-            event.registerModel(Identifier.fromNamespaceAndPath(MOD_ID, "diorite_pot"), DioritePotUnbakedBlockStateModel.CODEC);
+        public static void registerLoader(final ModelEvent.RegisterGeometryLoaders event) {
+            event.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "diorite_pot"), new DioritePotGeometryLoader());
         }
 
-        private static class DioritePotUnbakedBlockStateModel implements CustomUnbakedBlockStateModel {
-            public static final MapCodec<DioritePotUnbakedBlockStateModel> CODEC = SingleVariant.Unbaked.MAP_CODEC
-                    .xmap(DioritePotUnbakedBlockStateModel::new, model -> model.wrapped);
-
-            private final SingleVariant.Unbaked wrapped;
-
-            private DioritePotUnbakedBlockStateModel(SingleVariant.Unbaked wrapped) {
-                this.wrapped = wrapped;
-            }
-
+        private static class DioritePotGeometryLoader implements IGeometryLoader<DioritePotModelGeometry> {
             @Override
-            public BlockStateModel bake(ModelBaker baker) {
-                return new DioritePotModel(this.wrapped.bake(baker));
-            }
-
-            @Override
-            public void resolveDependencies(Resolver resolver) {
-                this.wrapped.resolveDependencies(resolver);
-            }
-
-            @Override
-            public MapCodec<DioritePotUnbakedBlockStateModel> codec() {
-                return CODEC;
+            public DioritePotModelGeometry read(JsonObject jsonObject, JsonDeserializationContext deserializationContext) {
+                JsonObject wrappedModel = jsonObject.getAsJsonObject("model");
+                return new DioritePotModelGeometry(deserializationContext.deserialize(wrappedModel, BlockModel.class));
             }
         }
 
-        private static class DioritePotModel extends DelegateBlockStateModel {
-            private static final Identifier POT_TEXTURE = Identifier.fromNamespaceAndPath("minecraft", "block/flower_pot");
-            private static final Identifier DIRT_TEXTURE = Identifier.fromNamespaceAndPath("minecraft", "block/dirt");
-            private static final Direction[] DIRECTIONS = Arrays.copyOfRange(Direction.values(), 0, 7);
+        private record DioritePotModelGeometry(UnbakedModel wrappedModel) implements IUnbakedGeometry<DioritePotModelGeometry> {
+            @Override
+            public BakedModel bake(IGeometryBakingContext context, ModelBaker baker, Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState, ItemOverrides overrides) {
+                return new DioritePotModel(wrappedModel.bake(baker, spriteGetter, modelState));
+            }
 
-            public DioritePotModel(BlockStateModel wrappedModel) {
+            @Override
+            public void resolveParents(Function<ResourceLocation, UnbakedModel> modelGetter, IGeometryBakingContext context) {
+                wrappedModel.resolveParents(modelGetter);
+            }
+        }
+
+        private static class DioritePotModel extends BakedModelWrapper<BakedModel> {
+            private static final ChunkRenderTypeSet CUTOUT = ChunkRenderTypeSet.of(RenderType.cutout());
+            private static final ResourceLocation POT_TEXTURE = ResourceLocation.fromNamespaceAndPath("minecraft", "block/flower_pot");
+            private static final ResourceLocation DIRT_TEXTURE = ResourceLocation.fromNamespaceAndPath("minecraft", "block/dirt");
+
+            public DioritePotModel(BakedModel wrappedModel) {
                 super(wrappedModel);
             }
 
             @Override
-            public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
-                super.collectParts(level, pos, state, random, parts);
+            public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData extraData, @Nullable RenderType renderType) {
+                List<List<BakedQuad>> quads = new ArrayList<>();
+                quads.add(originalModel.getQuads(state, side, rand, extraData, renderType));
 
-                Block plant = level.getModelData(pos).get(DioriteFlowerPotBlockEntity.PLANT_PROPERTY);
+                Block plant = extraData.get(DioriteFlowerPotBlockEntity.PLANT_PROPERTY);
                 if (plant != null && plant != Blocks.AIR) {
-                    collectPlantParts(plant, level, pos, random, parts);
+                    quads.add(getPlantQuads(plant, side, rand, renderType));
                 }
+
+                return ConcatenatedListView.of(quads);
             }
 
-            private static void collectPlantParts(Block plant, BlockAndTintGetter level, BlockPos pos, RandomSource random, List<BlockStateModelPart> parts) {
+            private List<BakedQuad> getPlantQuads(Block plant, @Nullable Direction face, RandomSource rand, @Nullable RenderType renderType) {
                 BlockState potState = ((FlowerPotBlock) Blocks.FLOWER_POT).getFullPotsView().getOrDefault(BuiltInRegistries.BLOCK.getKey(plant), () -> Blocks.AIR).get().defaultBlockState();
-                BlockStateModel potModel = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(potState);
+                BakedModel potModel = Minecraft.getInstance().getBlockRenderer().getBlockModel(potState);
 
-                List<BlockStateModelPart> srcParts = new ObjectArrayList<>();
-                potModel.collectParts(level, pos, potState, random, srcParts);
-                for (BlockStateModelPart part : srcParts) {
-                    QuadCollection.Builder builder = new QuadCollection.Builder();
-                    for (Direction side : DIRECTIONS) {
-                        for (BakedQuad quad : part.getQuads(side)) {
-                            Identifier texture = quad.materialInfo().sprite().contents().name();
-                            if (!texture.equals(POT_TEXTURE) && !texture.equals(DIRT_TEXTURE)) {
-                                if (side == null) {
-                                    builder.addUnculledFace(quad);
-                                } else {
-                                    builder.addCulledFace(side, quad);
-                                }
-                            }
-                        }
-                    }
-                    parts.add(new SimpleModelWrapper(builder.build(), part.useAmbientOcclusion(), part.particleMaterial()));
-                }
+                return potModel.getQuads(potState, face, rand, ModelData.EMPTY, renderType)
+                        .stream()
+                        .filter(q -> !q.getSprite().contents().name().equals(POT_TEXTURE))
+                        .filter(q -> !q.getSprite().contents().name().equals(DIRT_TEXTURE))
+                        .collect(Collectors.toList());
+            }
+
+            @Override
+            public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
+                return CUTOUT;
             }
         }
     }

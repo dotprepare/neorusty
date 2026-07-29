@@ -5,25 +5,23 @@
 
 package net.neoforged.neoforge.common.util;
 
-import com.mojang.logging.LogUtils;
 import java.lang.ref.WeakReference;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.TagValueInput;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a captured snapshot of a block, including the level, position, state, BE data, and setBlock flags.
@@ -32,7 +30,7 @@ import org.slf4j.Logger;
  */
 public class BlockSnapshot {
     private static final boolean DEBUG = Boolean.parseBoolean(System.getProperty("neoforge.debugBlockSnapshot", "false"));
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private final ResourceKey<Level> dim;
     private final BlockPos pos;
@@ -198,11 +196,9 @@ public class BlockSnapshot {
         if (getTag() != null) {
             be = level.getBlockEntity(pos);
             if (be != null) {
-                try (ProblemReporter.ScopedCollector problems = new ProblemReporter.ScopedCollector(be.problemPath(), LOGGER)) {
-                    be.loadWithComponents(TagValueInput.create(problems, level.registryAccess(), getTag()));
-                    be.setChanged();
-                    return true;
-                }
+                be.loadWithComponents(getTag(), level.registryAccess());
+                be.setChanged();
+                return true;
             }
         }
         return false;
@@ -238,7 +234,7 @@ public class BlockSnapshot {
     public String toString() {
         if (toString == null) {
             this.toString = "BlockSnapshot[" +
-                    "Level:" + this.dim.identifier() + ',' +
+                    "Level:" + this.dim.location() + ',' +
                     "Pos: " + this.pos + ',' +
                     "State: " + this.state + ',' +
                     "Flags: " + this.flags + ',' +

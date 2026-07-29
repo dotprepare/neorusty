@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.protocol.Packet;
@@ -19,12 +20,13 @@ import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.lighting.LightEngine;
+import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.network.payload.AuxiliaryLightDataPayload;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 @ApiStatus.Internal
-public final class LevelChunkAuxiliaryLightManager implements AuxiliaryLightManager {
+public final class LevelChunkAuxiliaryLightManager implements AuxiliaryLightManager, INBTSerializable<ListTag> {
     public static final String LIGHT_NBT_KEY = "neoforge:aux_lights";
 
     private final LevelChunk owner;
@@ -47,7 +49,7 @@ public final class LevelChunkAuxiliaryLightManager implements AuxiliaryLightMana
         }
         if (Objects.requireNonNullElse(oldValue, (byte) 0) != value) {
             owner.getLevel().getChunkSource().getLightEngine().checkBlock(pos);
-            owner.markUnsaved();
+            owner.setUnsaved(true);
         }
     }
 
@@ -57,7 +59,8 @@ public final class LevelChunkAuxiliaryLightManager implements AuxiliaryLightMana
     }
 
     @Nullable
-    public ListTag serializeNBT() {
+    @Override
+    public ListTag serializeNBT(HolderLookup.Provider provider) {
         if (lights.isEmpty()) {
             return null;
         }
@@ -72,8 +75,12 @@ public final class LevelChunkAuxiliaryLightManager implements AuxiliaryLightMana
         return list;
     }
 
-    public void deserializeNBT(ListTag list) {
-        list.compoundStream().forEach(tag -> lights.put(BlockPos.of(tag.getLongOr("pos", 0)), tag.getByteOr("level", (byte) 0)));
+    @Override
+    public void deserializeNBT(HolderLookup.Provider provider, ListTag list) {
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag tag = list.getCompound(i);
+            lights.put(BlockPos.of(tag.getLong("pos")), tag.getByte("level"));
+        }
     }
 
     public Packet<?> sendLightDataTo(ClientboundLevelChunkWithLightPacket chunkPacket) {

@@ -8,11 +8,12 @@ package net.neoforged.neoforge.debug.level;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.data.worldgen.features.TreeFeatures;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Shearable;
-import net.minecraft.world.entity.animal.sheep.Sheep;
+import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Items;
@@ -30,7 +31,6 @@ import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.StructureTemplateBuilder;
 
 @ForEachTest(groups = { LevelTests.GROUP + ".event", "event" })
@@ -58,7 +58,7 @@ public class LevelEventTests {
     @TestHolder(description = "Tests if the alter ground event is fired, replacing podzol with redstone blocks")
     static void alterGroundEvent(final DynamicTest test) {
         test.registerGameTestTemplate(StructureTemplateBuilder.withSize(16, 32, 16)
-                .fill(0, 0, 0, 15, 0, 15, Blocks.GRASS_BLOCK.defaultBlockState())
+                .fill(0, 0, 0, 15, 0, 15, Blocks.DIRT.defaultBlockState())
                 .set(7, 1, 7, Blocks.SPRUCE_SAPLING.defaultBlockState())
                 .set(8, 1, 7, Blocks.SPRUCE_SAPLING.defaultBlockState())
                 .set(7, 1, 8, Blocks.SPRUCE_SAPLING.defaultBlockState())
@@ -66,14 +66,14 @@ public class LevelEventTests {
 
         test.eventListeners().forge().addListener((final AlterGroundEvent event) -> {
             final AlterGroundEvent.StateProvider old = event.getStateProvider();
-            event.setStateProvider((level, rand, pos) -> {
-                final BlockState state = old.getState(level, rand, pos);
-                return state != null && state.is(Blocks.PODZOL) ? Blocks.REDSTONE_BLOCK.defaultBlockState() : state;
+            event.setStateProvider((rand, pos) -> {
+                final BlockState state = old.getState(rand, pos);
+                return state.is(Blocks.PODZOL) ? Blocks.REDSTONE_BLOCK.defaultBlockState() : state;
             });
         });
 
         test.onGameTest(helper -> helper.startSequence(helper::makeMockPlayer)
-                .thenWaitUntil(player -> helper.boneMealUntilGrown(7, 1, 7, player))
+                .thenWaitUntil(player -> helper.boneMealUntilGrown(7, 2, 7, player))
                 .thenExecute(player -> helper.assertTrue(
                         helper.blocksBetween(0, 0, 0, 16, 1, 16).anyMatch(pos -> helper.getLevel().getBlockState(pos).is(Blocks.REDSTONE_BLOCK)),
                         "No redstone blocks have been placed!"))
@@ -99,20 +99,20 @@ public class LevelEventTests {
             }
         });
 
-        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityTypes.SHEEP, new BlockPos(1, 2, 1)))
+        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityType.SHEEP, new BlockPos(1, 2, 1)))
                 .thenExecute(sheep -> sheep.setColor(DyeColor.BLACK))
                 .thenExecute(sheep -> sheep.setSheared(false))
 
                 // Prepare a dispenser to shear the sheep in the second phase
                 .thenSequence(sequence -> sequence
                         .thenExecute(() -> helper.setBlock(1, 1, 1, Blocks.DISPENSER.defaultBlockState().setValue(DispenserBlock.FACING, Direction.UP)))
-                        .thenMap(() -> helper.getBlockEntity(1, 1, 1, DispenserBlockEntity.class))
+                        .thenMap(() -> helper.requireBlockEntity(1, 1, 1, DispenserBlockEntity.class))
                         .thenExecute(dispenser -> dispenser.setItem(1, Items.SHEARS.getDefaultInstance())))
 
                 .thenIdle(5)
                 .thenExecute(sheep -> Items.SHEARS.getDefaultInstance().interactLivingEntity(
                         helper.makeMockPlayer(), sheep, InteractionHand.MAIN_HAND)) // Make a player shear the sheep
-                .thenExecute(() -> helper.assertItemEntityPresent(Items.WOOL.black(), new BlockPos(1, 2, 1), 2)) // Make sure wool was dropped
+                .thenExecute(() -> helper.assertItemEntityPresent(Items.BLACK_WOOL, new BlockPos(1, 2, 1), 2)) // Make sure wool was dropped
                 .thenExecute(sheep -> helper.assertEntityProperty(sheep, Sheep::getHealth, "health", 8f - 3f)) // player did it, so hurt by 3
 
                 .thenExecuteAfter(5, sheep -> {
@@ -125,7 +125,7 @@ public class LevelEventTests {
                 // Power the dispenser
                 .thenExecute(() -> helper.setBlock(2, 1, 1, Blocks.REDSTONE_BLOCK))
                 .thenIdle(5)
-                .thenExecute(() -> helper.assertItemEntityPresent(Items.WOOL.blue(), new BlockPos(1, 2, 1), 2)) // Make sure wool was dropped
+                .thenExecute(() -> helper.assertItemEntityPresent(Items.BLUE_WOOL, new BlockPos(1, 2, 1), 2)) // Make sure wool was dropped
                 .thenExecute(sheep -> helper.assertEntityProperty(sheep, Sheep::getHealth, "health", (8f - 3f) - 1f)) // dispenser did it, so hurt by 1
 
                 .thenIdle(5)

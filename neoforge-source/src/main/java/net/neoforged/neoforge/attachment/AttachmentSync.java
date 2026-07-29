@@ -15,29 +15,30 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.common.NeoForgeMod;
 import net.neoforged.neoforge.common.util.FriendlyByteBufUtil;
 import net.neoforged.neoforge.event.level.ChunkWatchEvent;
+import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 import net.neoforged.neoforge.network.payload.SyncAttachmentsPayload;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.neoforge.registries.RegistryBuilder;
 import net.neoforged.neoforge.registries.callback.AddCallback;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 @ApiStatus.Internal
-@EventBusSubscriber(modid = NeoForgeMod.MOD_ID)
+@EventBusSubscriber(modid = NeoForgeVersion.MOD_ID)
 public final class AttachmentSync {
     /**
      * Contains all entries added to {@link NeoForgeRegistries#ATTACHMENT_TYPES} with a sync handler.
@@ -50,13 +51,13 @@ public final class AttachmentSync {
      */
     public static final Registry<AttachmentType<?>> SYNCED_ATTACHMENT_TYPES = new RegistryBuilder<>(
             ResourceKey.<AttachmentType<?>>createRegistryKey(
-                    Identifier.fromNamespaceAndPath(NeoForgeMod.MOD_ID, "synced_attachment_types")))
+                    ResourceLocation.fromNamespaceAndPath(NeoForgeVersion.MOD_ID, "synced_attachment_types")))
                             .sync(true)
                             .callback((AddCallback<AttachmentType<?>>) (registry, id, key, value) -> {
                                 // Sanity check to ensure that no entries are added to this registry by accident
-                                if (!NeoForgeRegistries.ATTACHMENT_TYPES.containsKey(key.identifier())
+                                if (!NeoForgeRegistries.ATTACHMENT_TYPES.containsKey(key.location())
                                         || !NeoForgeRegistries.ATTACHMENT_TYPES.containsValue(value)
-                                        || NeoForgeRegistries.ATTACHMENT_TYPES.getValue(key.identifier()) != value) {
+                                        || NeoForgeRegistries.ATTACHMENT_TYPES.get(key.location()) != value) {
                                     throw new IllegalStateException("Cannot add entries to the SYNCED_ATTACHMENT_TYPES registry directly.");
                                 }
                             })
@@ -64,7 +65,7 @@ public final class AttachmentSync {
 
     public static final AddCallback<AttachmentType<?>> ATTACHMENT_TYPE_ADD_CALLBACK = (registry, id, key, value) -> {
         if (value.syncHandler != null) {
-            Registry.register(SYNCED_ATTACHMENT_TYPES, key.identifier(), value);
+            Registry.register(SYNCED_ATTACHMENT_TYPES, key.location(), value);
         }
     };
 
@@ -105,25 +106,16 @@ public final class AttachmentSync {
         var packet = new SyncAttachmentsPayload(syncTarget(holder), List.of(type), data).toVanillaClientbound();
         for (var player : players) {
             if (type.syncHandler.sendToPlayer(holder.getExposedHolder(), player)) {
-                if (player.connection.hasChannel(SyncAttachmentsPayload.TYPE)) {
-                    player.connection.send(packet);
-                }
+                player.connection.send(packet);
             }
         }
     }
 
-    public static void syncBlockEntityUpdates(BlockEntity blockEntity, List<ServerPlayer> players) {
-        var toSync = blockEntity.getAndClearAttachmentTypesToSync();
-        if (toSync == null) {
+    public static void syncBlockEntityUpdate(BlockEntity blockEntity, AttachmentType<?> type) {
+        if (type.syncHandler == null || !(blockEntity.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
-        // For now, we send one packet per attachment type. In the future, consider bundling all the updates in a single packet.
-        for (var type : toSync) {
-            if (type.syncHandler == null) {
-                continue;
-            }
-            syncUpdate(blockEntity, type, players);
-        }
+        syncUpdate(blockEntity, type, serverLevel.getChunkSource().chunkMap.getPlayers(new ChunkPos(blockEntity.getBlockPos()), false));
     }
 
     public static void syncChunkUpdate(LevelChunk chunk, AttachmentHolder.AsField holder, AttachmentType<?> type) {
@@ -161,9 +153,6 @@ public final class AttachmentSync {
     @Nullable
     private static SyncAttachmentsPayload syncInitialAttachments(AttachmentHolder holder, ServerPlayer to) {
         if (holder.attachments == null) {
-            return null;
-        }
-        if (!to.connection.hasChannel(SyncAttachmentsPayload.TYPE)) {
             return null;
         }
         boolean anySyncableAttachment = false;

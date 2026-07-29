@@ -6,6 +6,8 @@
 package net.neoforged.neoforge.oldtest.client.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.Collections;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -15,16 +17,14 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
-import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.ARGB;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
@@ -43,17 +43,17 @@ import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
-@EventBusSubscriber
 @Mod("entity_renderer_events_test")
+@EventBusSubscriber(modid = "entity_renderer_events_test")
 public class EntityRendererEventsTest {
-    private static final Identifier MY_ENTITY = Identifier.fromNamespaceAndPath("entity_renderer_events_test", "test_entity");
+    private static final ResourceLocation MY_ENTITY = ResourceLocation.fromNamespaceAndPath("entity_renderer_events_test", "test_entity");
 
     public static final DeferredHolder<EntityType<?>, EntityType<MyEntity>> MY_ENTITY_TYPE = DeferredHolder.create(Registries.ENTITY_TYPE, MY_ENTITY);
 
     @SubscribeEvent
     public static void entityRegistry(RegisterEvent event) {
         if (event.getRegistryKey().equals(Registries.ENTITY_TYPE)) {
-            event.register(Registries.ENTITY_TYPE, MY_ENTITY, () -> EntityType.Builder.of(MyEntity::new, MobCategory.MONSTER).build(ResourceKey.create(Registries.ENTITY_TYPE, MY_ENTITY)));
+            event.register(Registries.ENTITY_TYPE, MY_ENTITY, () -> EntityType.Builder.of(MyEntity::new, MobCategory.MONSTER).build("test_entity"));
         }
     }
 
@@ -62,7 +62,7 @@ public class EntityRendererEventsTest {
         event.put(MY_ENTITY_TYPE.get(), Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 1.0D).build());
     }
 
-    @EventBusSubscriber(value = Dist.CLIENT, modid = "entity_renderer_events_test")
+    @EventBusSubscriber(value = Dist.CLIENT)
     private static class EntityRenderEventsTestClientModStuff {
         private static final ModelLayerLocation MAIN_LAYER = new ModelLayerLocation(MY_ENTITY, "main");
         private static final ModelLayerLocation OUTER_LAYER = new ModelLayerLocation(MY_ENTITY, "main");
@@ -86,7 +86,7 @@ public class EntityRendererEventsTest {
             renderer.addLayer(new MyEntityLayer(renderer, new MyEntityModel(event.getEntityModels().bakeLayer(ADDED_LAYER)), 0.5f));
         }
 
-        private static class MyEntityModel extends EntityModel<LivingEntityRenderState> {
+        private static class MyEntityModel extends EntityModel<MyEntity> {
             public static final String BODY = "body";
             public static final String HEAD = "head";
 
@@ -102,13 +102,26 @@ public class EntityRendererEventsTest {
                 return LayerDefinition.create(definition, 64, 32);
             }
 
+            private final ModelPart headRenderer;
+            private final ModelPart bodyRenderer;
+
             public MyEntityModel(ModelPart modelPart) {
-                super(modelPart);
+                this.headRenderer = modelPart.getChild(HEAD);
+                this.bodyRenderer = modelPart.getChild(BODY);
+            }
+
+            @Override
+            public void setupAnim(MyEntity p_102618_, float p_102619_, float p_102620_, float p_102621_, float p_102622_, float p_102623_) {}
+
+            @Override
+            public void renderToBuffer(PoseStack poseStack, VertexConsumer vertexConsumer, int light, int overlay, int color) {
+                headRenderer.render(poseStack, vertexConsumer, light, overlay, color);
+                bodyRenderer.render(poseStack, vertexConsumer, light, overlay, color);
             }
         }
 
-        private static class MyEntityRenderer extends LivingEntityRenderer<MyEntity, LivingEntityRenderState, MyEntityModel> {
-            private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath("entity_renderer_events_test", "textures/entity/test_entity.png");
+        private static class MyEntityRenderer extends LivingEntityRenderer<MyEntity, MyEntityModel> {
+            private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("entity_renderer_events_test", "textures/entity/test_entity.png");
 
             public MyEntityRenderer(EntityRendererProvider.Context context) {
                 super(context, new MyEntityModel(context.bakeLayer(MAIN_LAYER)), 1.0f);
@@ -116,45 +129,46 @@ public class EntityRendererEventsTest {
             }
 
             @Override
-            public Identifier getTextureLocation(LivingEntityRenderState p_114482_) {
+            public ResourceLocation getTextureLocation(MyEntity p_114482_) {
                 return TEXTURE;
-            }
-
-            @Override
-            public LivingEntityRenderState createRenderState() {
-                return new LivingEntityRenderState();
             }
         }
 
-        private static class MyEntityLayer extends RenderLayer<LivingEntityRenderState, MyEntityModel> {
+        private static class MyEntityLayer extends RenderLayer<MyEntity, MyEntityModel> {
             private final MyEntityModel model;
             private final int color;
 
             public MyEntityLayer(MyEntityRenderer renderer, MyEntityModel model, float r) {
                 super(renderer);
                 this.model = model;
-                this.color = ARGB.colorFromFloat(1F, r, 1F, 1F);
+                this.color = FastColor.ARGB32.colorFromFloat(1F, r, 1F, 1F);
             }
 
             @Override
-            public void submit(PoseStack poseStack, SubmitNodeCollector nodeCollector, int lightness, LivingEntityRenderState renderState, float netHeadYaw, float headPitch) {
-                nodeCollector.submitModel(model, renderState, poseStack, this.getParentModel().renderType(MyEntityRenderer.TEXTURE), lightness, OverlayTexture.NO_OVERLAY, color, null);
+            public void render(PoseStack poseStack, MultiBufferSource bufferSource, int lightness, MyEntity entity, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
+                VertexConsumer vertexConsumer = bufferSource.getBuffer(this.getParentModel().renderType(this.getTextureLocation(entity)));
+                model.renderToBuffer(poseStack, vertexConsumer, lightness, OverlayTexture.NO_OVERLAY, color);
             }
         }
     }
 
     private static class MyEntity extends LivingEntity {
-        protected MyEntity(EntityType<? extends LivingEntity> type, Level level) {
-            super(type, level);
+        protected MyEntity(EntityType<? extends LivingEntity> p_20966_, Level p_20967_) {
+            super(p_20966_, p_20967_);
         }
 
         @Override
-        public ItemStack getItemBySlot(EquipmentSlot slot) {
+        public Iterable<ItemStack> getArmorSlots() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public ItemStack getItemBySlot(EquipmentSlot p_21127_) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public void setItemSlot(EquipmentSlot slot, ItemStack itemStack) {}
+        public void setItemSlot(EquipmentSlot p_21036_, ItemStack p_21037_) {}
 
         @Override
         public HumanoidArm getMainArm() {

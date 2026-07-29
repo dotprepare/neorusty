@@ -46,6 +46,7 @@
     }
   ],
   "textures": {
-    "all": "testframework:block/white"
+    "all": "testframework:block/white",
+    "particle": "testframework:block/white"
   }
 }

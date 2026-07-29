@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "key": {
-    "#": "minecraft:obsidian",
-    "B": "minecraft:book",
-    "D": "#c:gems/diamond"
+    "#": {
+      "item": "minecraft:obsidian"
+    },
+    "B": {
+      "item": "minecraft:book"
+    },
+    "D": {
+      "tag": "c:gems/diamond"
+    }
   },
   "pattern": [
     " B ",
@@ -11,6 +18,7 @@
     "###"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:enchanting_table"
   }
 }

@@ -9,51 +9,33 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import java.util.stream.Stream;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementHolder;
-import net.minecraft.advancements.predicates.ContextAwarePredicate;
-import net.minecraft.advancements.predicates.DamagePredicate;
-import net.minecraft.advancements.predicates.DamageSourcePredicate;
-import net.minecraft.advancements.predicates.DataComponentMatchers;
-import net.minecraft.advancements.predicates.ItemPredicate;
-import net.minecraft.advancements.predicates.entity.EntityEquipmentPredicate;
-import net.minecraft.advancements.predicates.entity.EntityPredicate;
-import net.minecraft.advancements.predicates.entity.EntitySubPredicate;
-import net.minecraft.advancements.predicates.entity.EntityTypePredicate;
-import net.minecraft.advancements.triggers.Criterion;
-import net.minecraft.advancements.triggers.ItemUsedOnLocationTrigger;
-import net.minecraft.advancements.triggers.PlayerHurtEntityTrigger;
-import net.minecraft.advancements.triggers.PlayerInteractTrigger;
-import net.minecraft.advancements.triggers.SimpleCriterionTrigger;
+import net.minecraft.advancements.Criterion;
+import net.minecraft.advancements.critereon.ContextAwarePredicate;
+import net.minecraft.advancements.critereon.EntityEquipmentPredicate;
+import net.minecraft.advancements.critereon.EntityPredicate;
+import net.minecraft.advancements.critereon.EntitySubPredicate;
+import net.minecraft.advancements.critereon.ItemPredicate;
+import net.minecraft.advancements.critereon.ItemUsedOnLocationTrigger;
+import net.minecraft.advancements.critereon.PlayerInteractTrigger;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.HolderOwner;
 import net.minecraft.core.HolderSet;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.PackOutput;
-import net.minecraft.data.advancements.AdvancementProvider;
 import net.minecraft.data.advancements.AdvancementSubProvider;
 import net.minecraft.data.advancements.packs.VanillaAdvancementProvider;
 import net.minecraft.data.advancements.packs.VanillaHusbandryAdvancements;
 import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.monster.piglin.PiglinAi;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -69,61 +51,43 @@ import net.neoforged.neoforge.common.advancements.critereon.ItemAbilityPredicate
 import net.neoforged.neoforge.common.advancements.critereon.PiglinCurrencyItemPredicate;
 import net.neoforged.neoforge.common.advancements.critereon.PiglinNeutralArmorEntityPredicate;
 import net.neoforged.neoforge.common.advancements.critereon.SnowBootsEntityPredicate;
-import net.neoforged.neoforge.common.advancements.critereon.TridentEntityPredicate;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.common.data.AdvancementProvider;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import org.jetbrains.annotations.Nullable;
 
 public class NeoForgeAdvancementProvider extends AdvancementProvider {
-    public NeoForgeAdvancementProvider(PackOutput output, CompletableFuture<HolderLookup.Provider> registries) {
-        super(output, registries, getVanillaAdvancementProviders(output, registries));
+    public NeoForgeAdvancementProvider(PackOutput output, CompletableFuture<HolderLookup.Provider> registries, ExistingFileHelper existingFileHelper) {
+        super(output, registries, existingFileHelper, getVanillaAdvancementProviders(output, registries));
     }
 
-    private static List<AdvancementSubProvider> getVanillaAdvancementProviders(PackOutput output, CompletableFuture<HolderLookup.Provider> registries) {
+    private static List<AdvancementGenerator> getVanillaAdvancementProviders(PackOutput output, CompletableFuture<HolderLookup.Provider> registries) {
         List<BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>>> criteriaReplacers = new ArrayList<>();
         criteriaReplacers.add(replaceMatchToolCriteria(ItemAbilities.AXE_WAX_OFF, getPrivateValue(VanillaHusbandryAdvancements.class, null, "WAX_SCRAPING_TOOLS")));
-        criteriaReplacers.add(replaceInteractCriteria(ItemPredicate.Builder.item().withComponents(DataComponentMatchers.Builder.components().partial(ItemAbilityPredicate.TYPE, new ItemAbilityPredicate(ItemAbilities.SHEARS_REMOVE_ARMOR)).build()).build(), Items.SHEARS));
-        criteriaReplacers.add(replaceInteractCriteria(ItemPredicate.Builder.item().withComponents(DataComponentMatchers.Builder.components().partial(PiglinCurrencyItemPredicate.TYPE, PiglinCurrencyItemPredicate.INSTANCE).build()).build(), PiglinAi.BARTERING_ITEM));
-        criteriaReplacers.add(replaceLootEntityPredicate(helper -> {
-            if (helper.clearEquipmentIfMatches(predicate -> {
-                if (predicate.head().filter(item -> predicateMatches(item, ItemTags.PIGLIN_SAFE_ARMOR)).isPresent()) {
-                    return true;
-                } else if (predicate.chest().filter(item -> predicateMatches(item, ItemTags.PIGLIN_SAFE_ARMOR)).isPresent()) {
-                    return true;
-                } else if (predicate.legs().filter(item -> predicateMatches(item, ItemTags.PIGLIN_SAFE_ARMOR)).isPresent()) {
-                    return true;
-                }
-                return predicate.feet().filter(item -> predicateMatches(item, ItemTags.PIGLIN_SAFE_ARMOR)).isPresent();
-            })) {
-                helper.addSubPredicate(PiglinNeutralArmorEntityPredicate.CODEC, PiglinNeutralArmorEntityPredicate.INSTANCE);
+        criteriaReplacers.add(replaceInteractCriteria(ItemPredicate.Builder.item().withSubPredicate(ItemAbilityPredicate.TYPE, new ItemAbilityPredicate(ItemAbilities.SHEARS_REMOVE_ARMOR)).build(), Items.SHEARS));
+        criteriaReplacers.add(replaceInteractCriteria(ItemPredicate.Builder.item().withSubPredicate(PiglinCurrencyItemPredicate.TYPE, PiglinCurrencyItemPredicate.INSTANCE).build(), PiglinAi.BARTERING_ITEM));
+        criteriaReplacers.add(replaceWearingPredicate(PiglinNeutralArmorEntityPredicate.INSTANCE, predicate -> {
+            if (predicate.head().filter(item -> predicateMatches(item, Items.GOLDEN_HELMET)).isPresent()) {
+                return true;
+            } else if (predicate.chest().filter(item -> predicateMatches(item, Items.GOLDEN_CHESTPLATE)).isPresent()) {
+                return true;
+            } else if (predicate.legs().filter(item -> predicateMatches(item, Items.GOLDEN_LEGGINGS)).isPresent()) {
                 return true;
             }
-            return false;
-        }));
-        criteriaReplacers.add(replacePlayerHurtEntityCriteria(helper -> {
-            if (helper.clearTypeIfMatches(EntityTypes.TRIDENT)) {
-                helper.addSubPredicate(TridentEntityPredicate.CODEC, TridentEntityPredicate.INSTANCE);
-                return true;
-            }
-            return false;
+            return predicate.feet().filter(item -> predicateMatches(item, Items.GOLDEN_BOOTS)).isPresent();
         }));
         //Walk on powdered snow
-        criteriaReplacers.add(replaceLootEntityPredicate(helper -> {
-            if (helper.clearEquipmentIfMatches(predicate -> predicate.feet().filter(item -> predicateMatches(item, Items.LEATHER_BOOTS)).isPresent())) {
-                helper.addSubPredicate(SnowBootsEntityPredicate.CODEC, SnowBootsEntityPredicate.INSTANCE);
-                return true;
-            }
-            return false;
-        }));
+        criteriaReplacers.add(replaceWearingPredicate(SnowBootsEntityPredicate.INSTANCE, predicate -> predicate.feet().filter(item -> predicateMatches(item, Items.LEATHER_BOOTS)).isPresent()));
 
-        List<AdvancementSubProvider> subProviders = getPrivateValue(AdvancementProvider.class, VanillaAdvancementProvider.create(output, registries), "subProviders");
+        List<AdvancementSubProvider> subProviders = getPrivateValue(net.minecraft.data.advancements.AdvancementProvider.class, VanillaAdvancementProvider.create(output, registries), "subProviders");
         return subProviders.stream()
-                .<AdvancementSubProvider>map(vanillaProvider -> new NeoForgeAdvancementGenerator(vanillaProvider, criteriaReplacers))
+                .<AdvancementGenerator>map(vanillaProvider -> new NeoForgeAdvancementGenerator(vanillaProvider, criteriaReplacers))
                 .toList();
     }
 
     private static BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>> replaceMatchToolCriteria(ItemAbility itemAbility, ItemLike... targetItem) {
         UnaryOperator<LootItemCondition> replacer = condition -> {
             if (condition instanceof MatchTool toolMatch && toolMatch.predicate().filter(predicate -> predicateMatches(predicate, targetItem)).isPresent()) {
-                return new MatchTool(Optional.of(ItemPredicate.Builder.item().withComponents(DataComponentMatchers.Builder.components().partial(ItemAbilityPredicate.TYPE, new ItemAbilityPredicate(itemAbility)).build()).build()));
+                return new MatchTool(Optional.of(ItemPredicate.Builder.item().withSubPredicate(ItemAbilityPredicate.TYPE, new ItemAbilityPredicate(itemAbility)).build()));
             }
             return null;
         };
@@ -149,30 +113,6 @@ public class NeoForgeAdvancementProvider extends AdvancementProvider {
         };
     }
 
-    private static BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>> replacePlayerHurtEntityCriteria(Predicate<EntityPredicateReplacementHelper> predicateHelper) {
-        return (criterion, registries) -> {
-            if (criterion.trigger() instanceof PlayerHurtEntityTrigger trigger && criterion.triggerInstance() instanceof PlayerHurtEntityTrigger.TriggerInstance instance) {
-                if (instance.damage().isPresent()) {
-                    DamagePredicate damagePredicate = instance.damage().get();
-                    if (damagePredicate.type().isPresent()) {
-                        DamageSourcePredicate sourcePredicate = damagePredicate.type().get();
-                        if (sourcePredicate.directEntity().isPresent()) {
-                            EntityPredicateReplacementHelper helper = new EntityPredicateReplacementHelper(sourcePredicate.directEntity().get());
-                            if (predicateHelper.test(helper)) {
-                                DamageSourcePredicate replacementSourcePredicate = new DamageSourcePredicate(sourcePredicate.tags(),
-                                        Optional.of(helper.create()), sourcePredicate.sourceEntity(), sourcePredicate.isDirect());
-                                DamagePredicate replacement = new DamagePredicate(damagePredicate.dealtDamage(), damagePredicate.takenDamage(), damagePredicate.sourceEntity(),
-                                        damagePredicate.blocked(), Optional.of(replacementSourcePredicate));
-                                return new Criterion<>(trigger, new PlayerHurtEntityTrigger.TriggerInstance(instance.player(), Optional.of(replacement), instance.entity()));
-                            }
-                        }
-                    }
-                }
-            }
-            return null;
-        };
-    }
-
     private static boolean predicateMatches(ItemPredicate predicate, ItemLike... targets) {
         Optional<HolderSet<Item>> items = predicate.items();
         if (items.isEmpty()) {
@@ -187,14 +127,7 @@ public class NeoForgeAdvancementProvider extends AdvancementProvider {
         return true;
     }
 
-    private static boolean predicateMatches(ItemPredicate predicate, TagKey<Item> tagKey) {
-        return predicate.items().orElse(HolderSet.empty())
-                .unwrapKey()
-                .map(k -> k == tagKey)
-                .orElse(false);
-    }
-
-    private static BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>> replaceLootEntityPredicate(Predicate<EntityPredicateReplacementHelper> predicateHelper) {
+    private static BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>> replaceWearingPredicate(EntitySubPredicate subPredicate, Predicate<EntityEquipmentPredicate> shouldReplace) {
         return replacePlayerPredicate(condition -> {
             boolean invert = false;
             if (condition instanceof InvertedLootItemCondition inverted) {
@@ -204,9 +137,28 @@ public class NeoForgeAdvancementProvider extends AdvancementProvider {
             if (condition instanceof LootItemEntityPropertyCondition entityPropertyCondition) {
                 Optional<EntityPredicate> predicate = entityPropertyCondition.predicate();
                 if (predicate.isPresent()) {
-                    EntityPredicateReplacementHelper helper = new EntityPredicateReplacementHelper(predicate.get());
-                    if (predicateHelper.test(helper)) {
-                        LootItemCondition.Builder conditionBuilder = LootItemEntityPropertyCondition.hasProperties(entityPropertyCondition.entityTarget(), helper.create());
+                    EntityPredicate entityPredicate = predicate.get();
+                    if (entityPredicate.equipment().filter(shouldReplace).isPresent()) {
+                        if (entityPredicate.subPredicate().isPresent()) {
+                            throw new IllegalStateException("Attempting to replace an entity predicate that already has a sub predicate");
+                        }
+                        EntityPredicate replacement = new EntityPredicate(
+                                entityPredicate.entityType(),
+                                entityPredicate.distanceToPlayer(),
+                                entityPredicate.movement(),
+                                entityPredicate.location(),
+                                entityPredicate.effects(),
+                                entityPredicate.nbt(),
+                                entityPredicate.flags(),
+                                Optional.empty(),
+                                Optional.of(subPredicate),
+                                entityPredicate.periodicTick(),
+                                entityPredicate.vehicle(),
+                                entityPredicate.passenger(),
+                                entityPredicate.targetedEntity(),
+                                entityPredicate.team(),
+                                entityPredicate.slots());
+                        LootItemCondition.Builder conditionBuilder = LootItemEntityPropertyCondition.hasProperties(entityPropertyCondition.entityTarget(), replacement);
                         if (invert) {
                             return conditionBuilder.invert().build();
                         }
@@ -280,64 +232,19 @@ public class NeoForgeAdvancementProvider extends AdvancementProvider {
         return value;
     }
 
-    private record NeoForgeAdvancementGenerator(AdvancementSubProvider vanillaProvider, List<BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>>> criteriaReplacers) implements AdvancementSubProvider {
+    private record NeoForgeAdvancementGenerator(AdvancementSubProvider vanillaProvider, List<BiFunction<Criterion<?>, HolderLookup.Provider, Criterion<?>>> criteriaReplacers) implements AdvancementGenerator {
         @Override
-        public void generate(HolderLookup.Provider registries, Consumer<AdvancementHolder> saver) {
-            // Warning: ugly code here.
-            // Wrap the registries to allow using any tag. This is used to make decoding using the codec work in `replacePlayerPredicate`.
-            var registriesWithAnyTag = new HolderLookup.Provider() {
-                @Override
-                public Stream<ResourceKey<? extends Registry<?>>> listRegistryKeys() {
-                    return registries.listRegistryKeys();
-                }
-
-                @Override
-                public <T> Optional<? extends HolderLookup.RegistryLookup<T>> lookup(ResourceKey<? extends Registry<? extends T>> key) {
-                    return registries.lookup(key);
-                }
-
-                @Override
-                public <V> RegistryOps<V> createSerializationContext(DynamicOps<V> parent) {
-                    return RegistryOps.create(parent, new RegistryOps.RegistryInfoLookup() {
-                        @Override
-                        public <T> Optional<RegistryOps.RegistryInfo<T>> lookup(ResourceKey<? extends Registry<? extends T>> registry) {
-                            var builtInRegistry = (Registry<T>) BuiltInRegistries.REGISTRY.getValue(registry.identifier());
-                            return registries.lookup(registry)
-                                    // Need to pass the builtin registry as the holder owner to make deserialization work!
-                                    .map(lookup -> new RegistryOps.RegistryInfo<>(builtInRegistry, new HolderLookup.RegistryLookup.Delegate<>() {
-                                        @Override
-                                        public RegistryLookup<T> parent() {
-                                            return lookup;
-                                        }
-
-                                        @Override
-                                        public boolean canSerializeIn(HolderOwner<T> context) {
-                                            return parent().canSerializeIn(context);
-                                        }
-
-                                        @Override
-                                        public Optional<HolderSet.Named<T>> get(TagKey<T> tagKey) {
-                                            var ret = Delegate.super.get(tagKey);
-                                            if (ret.isEmpty()) {
-                                                ret = Optional.of(HolderSet.emptyNamed(lookup, tagKey));
-                                            }
-                                            return ret;
-                                        }
-                                    }, lookup.registryLifecycle()));
-                        }
-                    });
-                }
-            };
-            vanillaProvider.generate(registriesWithAnyTag, advancementHolder -> {
-                Advancement.Builder newBuilder = findAndReplaceInHolder(advancementHolder, registriesWithAnyTag);
+        public void generate(HolderLookup.Provider registries, Consumer<AdvancementHolder> saver, ExistingFileHelper existingFileHelper) {
+            vanillaProvider.generate(registries, advancementHolder -> {
+                Advancement.Builder newBuilder = findAndReplaceInHolder(advancementHolder, registries);
                 if (newBuilder != null) {
-                    newBuilder.save(saver, advancementHolder.id());
+                    newBuilder.save(saver, advancementHolder.id(), existingFileHelper);
                 }
             });
         }
 
-        @SuppressWarnings("removal")
-        private Advancement.@Nullable Builder findAndReplaceInHolder(AdvancementHolder advancementHolder, HolderLookup.Provider registries) {
+        @Nullable
+        private Advancement.Builder findAndReplaceInHolder(AdvancementHolder advancementHolder, HolderLookup.Provider registries) {
             Advancement advancement = advancementHolder.value();
             Advancement.Builder builder = Advancement.Builder.advancement();
             boolean hasReplaced = false;
@@ -365,52 +272,6 @@ public class NeoForgeAdvancementProvider extends AdvancementProvider {
                 builder.sendsTelemetryEvent();
             }
             return builder;
-        }
-    }
-
-    private static class EntityPredicateReplacementHelper {
-        private final EntityPredicate source;
-        private final Map<Codec<? extends EntitySubPredicate>, EntitySubPredicate> extra = new HashMap<>();
-        private Optional<EntityTypePredicate> entityType;
-        private Optional<EntityEquipmentPredicate> equipment;
-
-        public EntityPredicateReplacementHelper(EntityPredicate source) {
-            this.source = source;
-            this.entityType = Optional.ofNullable(this.source.getPartIfExists(EntityTypePredicate.CODEC));
-            this.equipment = Optional.ofNullable(this.source.getPartIfExists(EntityEquipmentPredicate.CODEC));
-        }
-
-        public boolean clearTypeIfMatches(EntityType<?> type) {
-            if (entityType.isPresent() && entityType.get().matches(type.builtInRegistryHolder())) {
-                entityType = Optional.empty();
-                return true;
-            }
-            return false;
-        }
-
-        public boolean clearEquipmentIfMatches(Predicate<EntityEquipmentPredicate> shouldReplace) {
-            if (equipment.isPresent() && shouldReplace.test(equipment.get())) {
-                equipment = Optional.empty();
-                return true;
-            }
-            return false;
-        }
-
-        public <T extends EntitySubPredicate> void addSubPredicate(Codec<T> key, T predicate) {
-            extra.put(key, predicate);
-        }
-
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        public EntityPredicate create() {
-            var builder = EntityPredicate.Builder.from(source, c -> c != EntityEquipmentPredicate.CODEC && c != EntityTypePredicate.CODEC);
-            if (entityType.isPresent()) {
-                builder.entityType(entityType.orElseThrow());
-            }
-            if (equipment.isPresent()) {
-                builder.equipment(equipment.orElseThrow());
-            }
-            extra.forEach((k, v) -> builder.put((Codec) k, v));
-            return builder.build();
         }
     }
 }

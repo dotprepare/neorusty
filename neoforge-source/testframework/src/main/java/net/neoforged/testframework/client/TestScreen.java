@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -44,13 +44,13 @@ public class TestScreen extends AbstractTestScreen {
             this.groupableList.setScrollAmount(0);
         };
         this.showAsGroup = addRenderableWidget(CycleButton.booleanBuilder(Component.literal("Show groups"),
-                Component.literal("Show all tests"), isGroup)
-                .displayOnlyValue()
+                Component.literal("Show all tests"))
+                .displayOnlyValue().withInitialValue(isGroup)
                 .create(20, this.height - 26, 100, 20, Component.empty(), (pCycleButton, pValue) -> {
                     reloader.run();
                     isGroup = pValue;
                 }));
-        this.filterMode = addRenderableWidget(CycleButton.<FilterMode>builder(mode -> mode.name, FilterMode.ALL)
+        this.filterMode = addRenderableWidget(CycleButton.<FilterMode>builder(mode -> mode.name)
                 .withValues(FilterMode.values()).create((this.width - 160) / 2, this.height - 26, 150, 20, Component.literal("Filter"), (pCycleButton, pValue) -> reloader.run()));
 
         final List<Test> tests = groups.stream().flatMap(it -> it.resolveAll().stream()).distinct().toList();
@@ -79,20 +79,22 @@ public class TestScreen extends AbstractTestScreen {
 
         addRenderableWidget(Button.builder(Component.literal("Disable"), pButton -> groupableList.getSelected().enable(false)).bounds(searchTextField.getX() - 43, searchTextField.getY(), 40, 20).build(builder -> new Button(builder) {
             @Override
-            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            public void renderWidget(GuiGraphics pPoseStack, int pMouseX, int pMouseY, float pPartialTick) {
                 this.active = groupableList != null && groupableList.getSelected() != null && groupableList.getSelected().canDisable();
+                super.renderWidget(pPoseStack, pMouseX, pMouseY, pPartialTick);
             }
         }));
         addRenderableWidget(Button.builder(Component.literal("Enable"), pButton -> groupableList.getSelected().enable(true)).bounds(searchTextField.getX() + searchTextField.getWidth() + 3, searchTextField.getY(), 40, 20).build(builder -> new Button(builder) {
             @Override
-            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            public void renderWidget(GuiGraphics pPoseStack, int pMouseX, int pMouseY, float pPartialTick) {
                 this.active = groupableList != null && groupableList.getSelected() != null && groupableList.getSelected().canEnable();
+                super.renderWidget(pPoseStack, pMouseX, pMouseY, pPartialTick);
             }
         }));
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+    public void render(GuiGraphics pPoseStack, int pMouseX, int pMouseY, float pPartialTick) {
         if (showAsGroup.getValue()) {
             filterMode.visible = false;
             filterMode.active = false;
@@ -101,10 +103,10 @@ public class TestScreen extends AbstractTestScreen {
             filterMode.active = true;
         }
 
-        super.extractRenderState(graphics, mouseX, mouseY, a);
-        searchTextField.extractRenderState(graphics, mouseX, mouseY, a);
+        super.render(pPoseStack, pMouseX, pMouseY, pPartialTick);
+        searchTextField.render(pPoseStack, pMouseX, pMouseY, pPartialTick);
 
-        graphics.centeredText(font, getTitle(), this.width / 2, 7, 0xffffffff);
+        pPoseStack.drawCenteredString(font, getTitle(), this.width / 2, 7, 0xffffff);
     }
 
     public static <T> void updateSearchTextFieldSuggestion(EditBox editBox, String value, List<T> entries, Function<T, String> nameProvider) {

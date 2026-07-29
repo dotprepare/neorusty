@@ -9,20 +9,21 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
-import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.RangedAttribute;
-import net.minecraft.world.entity.animal.cow.Cow;
-import net.minecraft.world.entity.animal.pig.Pig;
+import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.portal.TeleportTransition;
+import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.EntityAttributeModificationEvent;
 import net.neoforged.neoforge.event.entity.EntityInvulnerabilityCheckEvent;
@@ -35,7 +36,6 @@ import net.neoforged.testframework.Test;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.GameTestPlayer;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
@@ -45,7 +45,7 @@ public class EntityEventTests {
     @EmptyTemplate(value = "15x5x15", floor = true)
     @TestHolder(description = "Tests if the entity teleport event is fired")
     static void entityTeleportEvent(final DynamicTest test) {
-        test.eventListeners().forge().addListener((final EntityTeleportEvent.ItemConsumption event) -> {
+        test.eventListeners().forge().addListener((final EntityTeleportEvent.ChorusFruit event) -> {
             if (event.getEntity() instanceof Pig) {
                 event.setCanceled(true);
             } else if (event.getEntity() instanceof Cow cow) {
@@ -57,16 +57,16 @@ public class EntityEventTests {
 
         test.onGameTest(helper -> helper.startSequence()
                 .thenSequence(seq -> seq
-                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityTypes.PIG, 7, 2, 7))
+                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityType.PIG, 7, 2, 7))
                         .thenExecute(pig -> new ItemStack(Items.CHORUS_FRUIT).finishUsingItem(helper.getLevel(), pig))
-                        .thenExecute(() -> helper.assertEntityPresent(EntityTypes.PIG, 7, 2, 7)))
+                        .thenExecute(() -> helper.assertEntityPresent(EntityType.PIG, 7, 2, 7)))
 
                 .thenIdle(10)
 
                 .thenSequence(seq -> seq
-                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityTypes.COW, 7, 2, 7))
+                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityType.COW, 7, 2, 7))
                         .thenExecute(cow -> new ItemStack(Items.CHORUS_FRUIT).finishUsingItem(helper.getLevel(), cow))
-                        .thenExecute(() -> helper.assertEntityNotPresent(EntityTypes.COW, 7, 2, 7)))
+                        .thenExecute(() -> helper.assertEntityNotPresent(EntityType.COW, 7, 2, 7)))
 
                 .thenIdle(10)
                 .thenExecute(helper::killAllEntities)
@@ -79,10 +79,10 @@ public class EntityEventTests {
     static void entityAttributeModificationEvent(final DynamicTest test, final RegistrationHelper reg) {
         final var testAttr = reg.registrar(Registries.ATTRIBUTE).register("test_attribute", () -> new RangedAttribute(reg.modId() + ".test_attr", 1.5D, 0.0D, 1024.0D).setSyncable(true));
         test.framework().modEventBus().addListener((final EntityAttributeModificationEvent event) -> {
-            event.add(EntityTypes.DONKEY, testAttr);
+            event.add(EntityType.DONKEY, testAttr);
         });
 
-        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityTypes.DONKEY, 1, 2, 1))
+        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityType.DONKEY, 1, 2, 1))
                 .thenExecute(donkey -> helper.assertEntityProperty(
                         donkey, d -> d.getAttribute(testAttr).getValue(), "test attribute", 1.5D))
                 .thenSucceed());
@@ -99,11 +99,11 @@ public class EntityEventTests {
         });
 
         test.onGameTest(helper -> {
-            DamageSource source = new DamageSource(helper.getLevel().registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(DamageTypes.MOB_ATTACK));
+            DamageSource source = new DamageSource(helper.getLevel().registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(DamageTypes.MOB_ATTACK));
             helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.SURVIVAL))
                     .thenExecute(player -> player.setCustomName(NAME))
                     .thenExecute(player -> player.setInvulnerable(true))
-                    .thenWaitUntil(player -> helper.assertFalse(player.isInvulnerableTo(helper.getLevel(), source), "Player Invulnerability not bypassed."))
+                    .thenWaitUntil(player -> helper.assertFalse(player.isInvulnerableTo(source), "Player Invulnerability not bypassed."))
                     .thenSucceed();
         });
     }
@@ -118,10 +118,10 @@ public class EntityEventTests {
             }
         });
 
-        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityTypes.PIG, 8, 3, 7))
-                .thenExecute(_ -> helper.setBlock(8, 2, 7, Blocks.ACACIA_LEAVES))
-                .thenExecute(_ -> helper.getLevel().explode(null, helper.getLevel().damageSources().generic(), null, Vec3.atCenterOf(helper.absolutePos(new BlockPos(7, 2, 7))), 2f, false, Level.ExplosionInteraction.TNT))
-                .thenExecute(pig -> helper.assertEntityProperty(pig, _ -> pig.getDeltaMovement().x() == 0 && pig.getDeltaMovement().y() != 0 && pig.getDeltaMovement().z() == 0, "Check explosion Knockback"))
+        test.onGameTest(helper -> helper.startSequence(() -> helper.spawnWithNoFreeWill(EntityType.PIG, 8, 3, 7))
+                .thenExecute(pig -> helper.setBlock(8, 2, 7, Blocks.ACACIA_LEAVES))
+                .thenExecute(pig -> helper.getLevel().explode(null, helper.getLevel().damageSources().generic(), null, helper.absolutePos(new BlockPos(7, 2, 7)).getCenter(), 2f, false, Level.ExplosionInteraction.TNT))
+                .thenExecute(pig -> helper.assertEntityProperty(pig, p -> pig.getDeltaMovement().x() == 0 && pig.getDeltaMovement().y() != 0 && pig.getDeltaMovement().z() == 0, "Check explosion Knockback"))
                 .thenIdle(10)
                 .thenExecute(helper::killAllEntities)
                 .thenSucceed());
@@ -142,28 +142,28 @@ public class EntityEventTests {
 
         test.onGameTest(helper -> helper.startSequence()
                 .thenSequence(seq -> seq
-                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityTypes.PIG, 0, 2, 0))
+                        .thenMap(() -> helper.spawnWithNoFreeWill(EntityType.PIG, 0, 2, 0))
                         .thenExecute(pig -> pig.setCustomName(Component.literal("travel-to-dimension-test")))
-                        .thenExecute(pig -> pig.teleport(new TeleportTransition(helper.getLevel(), pig.position().add(1.0, 0.0, 0.0), Vec3.ZERO, 0.0f, 0.0f,
-                                TeleportTransition.DO_NOTHING)))
+                        .thenExecute(pig -> pig.changeDimension(new DimensionTransition(helper.getLevel(), pig.position().add(1.0, 0.0, 0.0), Vec3.ZERO, 0.0f, 0.0f,
+                                DimensionTransition.DO_NOTHING)))
                         .thenExecute(() -> {
-                            helper.assertEntityPresent(EntityTypes.PIG, 0, 2, 0);
-                            helper.assertEntityNotPresent(EntityTypes.PIG, 1, 2, 0);
+                            helper.assertEntityPresent(EntityType.PIG, 0, 2, 0);
+                            helper.assertEntityNotPresent(EntityType.PIG, 1, 2, 0);
                         })
-                        .thenExecute(pig -> pig.teleport(new TeleportTransition(helper.getLevel().getServer().getLevel(Level.NETHER), Vec3.ZERO, Vec3.ZERO, 0.0f, 0.0f, TeleportTransition.DO_NOTHING)))
+                        .thenExecute(pig -> pig.changeDimension(new DimensionTransition(helper.getLevel().getServer().getLevel(Level.NETHER), Vec3.ZERO, Vec3.ZERO, 0.0f, 0.0f, DimensionTransition.DO_NOTHING)))
                         .thenExecute(pig -> helper.assertTrue(pig.level().dimension() == Level.OVERWORLD, "Dimension change was not prevented")))
 
                 .thenSequence(seq -> seq
                         .thenMap(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
                         .thenExecute(player -> player.setCustomName(Component.literal("travel-to-dimension-test")))
-                        .thenExecute(player -> player.teleport(new TeleportTransition(helper.getLevel(), player.position().add(1.0, 0.0, 0.0), Vec3.ZERO, 0.0f, 0.0f, TeleportTransition.DO_NOTHING)))
+                        .thenExecute(player -> player.changeDimension(new DimensionTransition(helper.getLevel(), player.position().add(1.0, 0.0, 0.0), Vec3.ZERO, 0.0f, 0.0f, DimensionTransition.DO_NOTHING)))
                         .thenExecute(() -> {
-                            helper.assertEntityPresent(EntityTypes.PLAYER, 0, 2, 0);
-                            helper.assertEntityNotPresent(EntityTypes.PLAYER, 1, 2, 0);
+                            helper.assertEntityPresent(EntityType.PLAYER, 0, 2, 0);
+                            helper.assertEntityNotPresent(EntityType.PLAYER, 1, 2, 0);
                         })
-                        .thenExecute(player -> player.teleport(new TeleportTransition(helper.getLevel().getServer().getLevel(Level.NETHER), Vec3.ZERO, Vec3.ZERO, 0.0f, 0.0f, TeleportTransition.DO_NOTHING)))
+                        .thenExecute(player -> player.changeDimension(new DimensionTransition(helper.getLevel().getServer().getLevel(Level.NETHER), Vec3.ZERO, Vec3.ZERO, 0.0f, 0.0f, DimensionTransition.DO_NOTHING)))
                         .thenExecute(player -> {
-                            helper.assertEntityPresent(EntityTypes.PLAYER, 0, 2, 0);
+                            helper.assertEntityPresent(EntityType.PLAYER, 0, 2, 0);
                             helper.assertTrue(player.level().dimension() == Level.OVERWORLD, "Dimension change was not prevented");
                         }))
                 .thenExecute(helper::killAllEntities)
@@ -188,17 +188,17 @@ public class EntityEventTests {
                 .thenExecute(() -> {
                     var spawnPos = helper.absolutePos(BlockPos.ZERO);
                     spawnPosRef.set(spawnPos);
-                    EntityTypes.PIG.create(
+                    EntityType.PIG.create(
                             helper.getLevel(),
                             ignored -> {},
                             spawnPos,
-                            EntitySpawnReason.SPAWN_ITEM_USE,
+                            MobSpawnType.SPAWN_EGG,
                             false,
                             false);
                 })
                 .thenExecute(() -> {
                     // The event handler canceled the spawn
-                    helper.assertEntityNotPresent(EntityTypes.PIG);
+                    helper.assertEntityNotPresent(EntityType.PIG);
                 })
                 .thenWaitUntil(() -> helper.assertValueEqual(test.status(), Test.Status.PASSED, "listener called"))
                 .thenExecute(helper::killAllEntities)

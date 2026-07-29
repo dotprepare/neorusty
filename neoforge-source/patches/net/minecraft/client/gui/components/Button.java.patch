@@ -1,7 +1,7 @@
 --- a/net/minecraft/client/gui/components/Button.java
 +++ b/net/minecraft/client/gui/components/Button.java
 @@ -31,6 +_,11 @@
-         this.createNarration = createNarration;
+         this.createNarration = p_259552_;
      }
  
 +    protected Button(Builder builder) {
@@ -10,27 +10,20 @@
 +    }
 +
      @Override
-     public void onPress(InputWithModifiers input) {
+     public void onPress() {
          this.onPress.onPress(this);
-@@ -97,6 +_,10 @@
-             button.setTooltip(this.tooltip);
-             return button;
+@@ -95,9 +_,11 @@
          }
+ 
+         public Button build() {
+-            Button button = new Button(this.x, this.y, this.width, this.height, this.message, this.onPress, this.createNarration);
+-            button.setTooltip(this.tooltip);
+-            return button;
++            return build(Button::new);
++        }
 +
 +        public Button build(java.util.function.Function<Builder, Button> builder) {
 +            return builder.apply(this);
-+        }
+         }
      }
  
-     public interface CreateNarration {
-@@ -110,6 +_,10 @@
-     public static class Plain extends Button {
-         protected Plain(int x, int y, int width, int height, Component message, Button.OnPress onPress, Button.CreateNarration createNarration) {
-             super(x, y, width, height, message, onPress, createNarration);
-+        }
-+
-+        protected Plain(Builder builder) {
-+            super(builder);
-         }
- 
-         @Override

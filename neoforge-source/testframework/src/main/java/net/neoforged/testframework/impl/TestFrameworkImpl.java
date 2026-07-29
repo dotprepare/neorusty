@@ -21,31 +21,28 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.ParametersAreNonnullByDefault;
 import net.minecraft.ChatFormatting;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.saveddata.SavedDataType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -67,12 +64,15 @@ import net.neoforged.testframework.summary.SummaryDumper;
 import net.neoforged.testframework.summary.TestSummary;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnknownNullability;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ApiStatus.Internal
+@SuppressWarnings("removal")
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public class TestFrameworkImpl implements MutableTestFramework {
     static final Set<TestFrameworkImpl> FRAMEWORKS = Collections.synchronizedSet(new HashSet<>());
 
@@ -80,7 +80,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
     private final @Nullable FrameworkClient client;
 
     private final Logger logger;
-    private final Identifier id;
+    private final ResourceLocation id;
     private final TestsImpl tests = new TestsImpl();
 
     private @Nullable MinecraftServer server;
@@ -88,8 +88,6 @@ public class TestFrameworkImpl implements MutableTestFramework {
     private boolean inClientWorld = false;
 
     private @UnknownNullability String commandName;
-
-    private final SavedDataType<PlayerTestStore> playerTestStoreType;
 
     public TestFrameworkImpl(FrameworkConfiguration configuration) {
         FRAMEWORKS.add(this);
@@ -101,7 +99,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
         this.logger = LoggerFactory.getLogger("TestFramework " + this.id);
         new LoggerSetup(this).prepareLogger();
 
-        if (FMLEnvironment.getDist().isClient() && configuration.clientConfiguration() != null) {
+        if (FMLLoader.getDist().isClient() && configuration.clientConfiguration() != null) {
             this.client = FrameworkClient.factory().map(it -> it.create(this, configuration.clientConfiguration().get())).orElse(null);
         } else {
             this.client = null;
@@ -112,10 +110,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
             tests.initialiseDefaultEnabledTests();
 
             try {
-                HolderLookup.RegistryLookup<Block> blockLookup = server.registryAccess()
-                        .lookupOrThrow(Registries.BLOCK)
-                        .filterFeatures(server.getWorldData().enabledFeatures());
-                structures.setup(server.getStructureManager(), server.getFixerUpper(), blockLookup);
+                structures.setup(event.getServer().getStructureManager());
             } catch (Throwable exception) {
                 throw new RuntimeException(exception);
             }
@@ -127,7 +122,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
                 boolean isGameTestRun = event.getServer() instanceof GameTestServer;
 
                 // Summarise test results
-                var builder = new TestSummary.Builder(this, isGameTestRun);
+                var builder = new TestSummary.Builder(id(), isGameTestRun);
                 tests().all().forEach(test -> {
                     String id = test.id();
                     Test.Status status = tests().getStatus(id);
@@ -175,13 +170,9 @@ public class TestFrameworkImpl implements MutableTestFramework {
                         message = message.append("\n");
                     }
                 }
-                ((ServerPlayer) event.getEntity()).sendSystemMessage(message);
+                event.getEntity().sendSystemMessage(message);
             });
         }
-
-        this.playerTestStoreType = new SavedDataType<>(
-                id().withPrefix("tests/"),
-                PlayerTestStore::new, PlayerTestStore.FACTORY);
     }
 
     private void processSummary(TestSummary summary) {
@@ -199,7 +190,8 @@ public class TestFrameworkImpl implements MutableTestFramework {
 
     @Override
     public PlayerTestStore playerTestStore() {
-        return server.overworld().getDataStorage().computeIfAbsent(playerTestStoreType);
+        return server.overworld().getDataStorage()
+                .computeIfAbsent(PlayerTestStore.FACTORY, "tests/" + id().getNamespace() + "_" + id().getPath());
     }
 
     @Override
@@ -227,7 +219,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
                 .onInitMethodsWithAnnotation(container);
 
         this.modBus = modBus;
-        tests.buses = new EventListenerGroupImpl.BusSet(modBus, NeoForge.EVENT_BUS);
+        tests.buses = Map.of(EventBusSubscriber.Bus.GAME, NeoForge.EVENT_BUS, EventBusSubscriber.Bus.MOD, modBus);
 
         byStage.get(OnInit.Stage.BEFORE_SETUP).forEach(cons -> cons.accept(this));
 
@@ -245,14 +237,14 @@ public class TestFrameworkImpl implements MutableTestFramework {
         });
 
         modBus.addListener(new TestFrameworkPayloadInitialization(this)::onNetworkSetup);
-        modBus.addListener(GameTestRegistration::register);
+        modBus.addListener((final RegisterGameTestsEvent event) -> event.register(GameTestRegistration.REGISTER_METHOD));
 
         synchronized (tests().enabled) {
             List.copyOf(tests().enabled).forEach(tests()::disable);
         }
         tests().initialiseDefaultEnabledTests();
 
-        if (FMLEnvironment.getDist().isClient()) {
+        if (FMLLoader.getDist().isClient()) {
             setupClient(this, modBus, container);
         }
 
@@ -294,7 +286,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
     }
 
     @Override
-    public Identifier id() {
+    public ResourceLocation id() {
         return id;
     }
 
@@ -319,16 +311,14 @@ public class TestFrameworkImpl implements MutableTestFramework {
         tests.globalListeners.forEach(listener -> listener.onStatusChange(this, test, oldStatus, newStatus, changer));
         test.listeners().forEach(listener -> listener.onStatusChange(this, test, oldStatus, newStatus, changer));
 
-        BiConsumer<String, Object[]> logger = newStatus.result() == Test.Result.FAILED ? this.logger::error : this.logger::info;
-
-        logger.accept("Test '{}' has had status changed to {}{}.", new Object[] { test.id(), newStatus, changer instanceof Player player ? " by " + player.getGameProfile().name() : "" });
+        logger.info("Status of test '{}' has had status changed to {}{}.", test.id(), newStatus, changer instanceof Player player ? " by " + player.getGameProfile().getName() : "");
 
         if (server == null && !inClientWorld) return;
 
         final ChangeStatusPayload packet = new ChangeStatusPayload(this, test.id(), newStatus);
         sendPacketIfOn(
                 () -> PacketDistributor.sendToAllPlayers(packet),
-                () -> ClientPacketDistributor.sendToServer(packet),
+                () -> PacketDistributor.sendToServer(packet),
                 null);
     }
 
@@ -342,7 +332,7 @@ public class TestFrameworkImpl implements MutableTestFramework {
             tests.disable(test.id());
         }
 
-        logger.info("Test '{}' has been {}{}.", test.id(), enabled ? "enabled" : "disabled", changer instanceof Player player ? " by " + player.getGameProfile().name() : "");
+        logger.info("Test '{}' has been {}{}.", test.id(), enabled ? "enabled" : "disabled", changer instanceof Player player ? " by " + player.getGameProfile().getName() : "");
 
         if (enabled) {
             changeStatus(test, Test.Status.DEFAULT, changer);
@@ -355,28 +345,30 @@ public class TestFrameworkImpl implements MutableTestFramework {
         final ChangeEnabledPayload packet = new ChangeEnabledPayload(TestFrameworkImpl.this, test.id(), enabled);
         sendPacketIfOn(
                 () -> PacketDistributor.sendToAllPlayers(packet),
-                () -> ClientPacketDistributor.sendToServer(packet),
+                () -> PacketDistributor.sendToServer(packet),
                 null);
     }
 
     @SuppressWarnings("SameParameterValue")
     private void sendPacketIfOn(@Nullable Runnable onServer, @Nullable Runnable remoteClient, @Nullable Runnable singlePlayer) {
-        if (FMLEnvironment.getDist().isClient() && server != null) {
+        if (FMLLoader.getDist().isClient() && server != null) {
             if (singlePlayer != null) singlePlayer.run();
-        } else if (FMLEnvironment.getDist().isClient()) {
+        } else if (FMLLoader.getDist().isClient()) {
             if (remoteClient != null && configuration.isEnabled(Feature.CLIENT_MODIFICATIONS)) remoteClient.run();
-        } else if (FMLEnvironment.getDist().isDedicatedServer() && server != null) {
+        } else if (FMLLoader.getDist().isDedicatedServer() && server != null) {
             if (onServer != null && configuration.isEnabled(Feature.CLIENT_SYNC)) onServer.run();
         }
     }
 
+    @ParametersAreNonnullByDefault
+    @MethodsReturnNonnullByDefault
     public final class TestsImpl implements MutableTests {
         private final Map<String, Test> tests = Collections.synchronizedMap(new LinkedHashMap<>());
         private final Map<String, Group> groups = Collections.synchronizedMap(new LinkedHashMap<>());
         private final Map<String, EventListenerGroupImpl> collectors = new HashMap<>();
         private final Set<String> enabled = Collections.synchronizedSet(new LinkedHashSet<>());
         private final Map<String, Test.Status> statuses = new ConcurrentHashMap<>();
-        private EventListenerGroupImpl.BusSet buses;
+        private Map<EventBusSubscriber.Bus, IEventBus> buses = Map.of();
 
         private final Set<TestListener> globalListeners = new HashSet<>();
 
@@ -463,10 +455,6 @@ public class TestFrameworkImpl implements MutableTestFramework {
                 test.groups().forEach(group -> getOrCreateGroup(group).add(test));
             }
             test.init(TestFrameworkImpl.this);
-
-            if (test.asGameTest() == null) {
-                getOrCreateGroup("manual").add(test);
-            }
         }
 
         private Group addGroupToParents(Group group) {

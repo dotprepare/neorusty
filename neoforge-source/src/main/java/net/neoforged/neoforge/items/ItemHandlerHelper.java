@@ -9,32 +9,13 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
-import net.neoforged.neoforge.transfer.item.ItemResource;
-import net.neoforged.neoforge.transfer.item.ItemUtil;
-import net.neoforged.neoforge.transfer.resource.Resource;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * @deprecated Use {@link ResourceHandler} with an {@link ItemResource} instead of {@link IItemHandler}.
- *             For available utils, see {@link ResourceHandlerUtil} as well as {@link ItemUtil}.
- */
-@Deprecated(since = "1.21.9", forRemoval = true)
 public class ItemHandlerHelper {
-    /**
-     * @deprecated Use {@link ResourceHandler#insert(Resource, int, TransactionContext)} instead.
-     *             Note that {@code ResourceHandler.insert} returns <strong>how much was inserted</strong>,
-     *             unlike this method which returns the leftover (i.e. how much was <strong>not</strong> inserted).
-     *             Alternatively use the {@link ItemUtil#insertItemReturnRemaining} helper.
-     */
-    @Deprecated(since = "1.21.9", forRemoval = true)
     public static ItemStack insertItem(IItemHandler dest, ItemStack stack, boolean simulate) {
         if (dest == null || stack.isEmpty())
             return stack;
@@ -53,12 +34,7 @@ public class ItemHandlerHelper {
      * Inserts the ItemStack into the inventory, filling up already present stacks first.
      * This is equivalent to the behaviour of a player picking up an item.
      * Note: This function stacks items without subtypes with different metadata together.
-     *
-     * @deprecated Use {@link ResourceHandlerUtil#insertStacking(ResourceHandler, Resource, int, TransactionContext)} instead.
-     *             Note that {@code ResourceHandlerUtil.insertStacking} returns <strong>how much was inserted</strong>,
-     *             unlike this method which returns the leftover (i.e. how much was <strong>not</strong> inserted).
      */
-    @Deprecated(since = "1.21.9", forRemoval = true)
     public static ItemStack insertItemStacked(IItemHandler inventory, ItemStack stack, boolean simulate) {
         if (inventory == null || stack.isEmpty())
             return stack;
@@ -99,7 +75,6 @@ public class ItemHandlerHelper {
     }
 
     /** giveItemToPlayer without preferred slot */
-    @Deprecated(since = "1.21.9", forRemoval = true)
     public static void giveItemToPlayer(Player player, ItemStack stack) {
         giveItemToPlayer(player, stack, -1);
     }
@@ -110,9 +85,7 @@ public class ItemHandlerHelper {
      *
      * @param player The player to give the item to
      * @param stack  The itemstack to insert
-     * @deprecated Use {@link Inventory#placeItemBackInInventory} or {@link Inventory#add} instead.
      */
-    @Deprecated(since = "1.21.9", forRemoval = true)
     public static void giveItemToPlayer(Player player, ItemStack stack, int preferredSlot) {
         if (stack.isEmpty()) return;
 
@@ -133,11 +106,11 @@ public class ItemHandlerHelper {
         // play sound if something got picked up
         if (remainder.isEmpty() || remainder.getCount() != stack.getCount()) {
             level.playSound(null, player.getX(), player.getY() + 0.5, player.getZ(),
-                    SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.2F, ((level.getRandom().nextFloat() - level.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F);
+                    SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.2F, ((level.random.nextFloat() - level.random.nextFloat()) * 0.7F + 1.0F) * 2.0F);
         }
 
         // drop remaining itemstack into the level
-        if (!remainder.isEmpty() && !level.isClientSide()) {
+        if (!remainder.isEmpty() && !level.isClientSide) {
             ItemEntity entityitem = new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), remainder);
             entityitem.setPickUpDelay(40);
             entityitem.setDeltaMovement(entityitem.getDeltaMovement().multiply(0, 1, 0));
@@ -152,9 +125,7 @@ public class ItemHandlerHelper {
      * 
      * @param inv The inventory handler to test.
      * @return A redstone value in the range [0,15] representing how "full" this inventory is.
-     * @deprecated Use {@link ResourceHandlerUtil#getRedstoneSignalFromResourceHandler} instead.
      */
-    @Deprecated(since = "1.21.9", forRemoval = true)
     public static int calcRedstoneFromInventory(@Nullable IItemHandler inv) {
         if (inv == null) {
             return 0;

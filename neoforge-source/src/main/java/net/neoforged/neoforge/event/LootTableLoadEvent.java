@@ -7,16 +7,17 @@ package net.neoforged.neoforge.event;
 
 import java.util.Objects;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fired when a {@link LootTable} is loaded from JSON.
@@ -32,14 +33,22 @@ import org.jspecify.annotations.Nullable;
  */
 public class LootTableLoadEvent extends Event implements ICancellableEvent {
     private final HolderLookup.Provider registries;
-    private final Identifier name;
+    private final ResourceLocation name;
     private LootTable table;
 
     @Nullable
     private ResourceKey<LootTable> key;
 
+    /**
+     * @deprecated Neo: use the constructor {@link #LootTableLoadEvent(HolderLookup.Provider, ResourceLocation, LootTable) with a lookup provider}
+     */
+    @Deprecated
+    public LootTableLoadEvent(ResourceLocation name, LootTable table) {
+        this(RegistryAccess.EMPTY, name, table);
+    }
+
     @ApiStatus.Internal
-    public LootTableLoadEvent(HolderLookup.Provider registries, Identifier name, LootTable table) {
+    public LootTableLoadEvent(HolderLookup.Provider registries, ResourceLocation name, LootTable table) {
         this.registries = registries;
         this.name = name;
         this.table = table;
@@ -52,7 +61,7 @@ public class LootTableLoadEvent extends Event implements ICancellableEvent {
         return this.registries;
     }
 
-    public Identifier getName() {
+    public ResourceLocation getName() {
         return this.name;
     }
 

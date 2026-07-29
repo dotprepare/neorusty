@@ -1,15 +1,15 @@
 --- a/net/minecraft/world/damagesource/DamageEffects.java
 +++ b/net/minecraft/world/damagesource/DamageEffects.java
-@@ -7,6 +_,8 @@
- 
- import net.neoforged.fml.common.asm.enumextension.IExtensibleEnum;
+@@ -5,6 +_,8 @@
+ import net.minecraft.sounds.SoundEvents;
+ import net.minecraft.util.StringRepresentable;
  
 +@net.neoforged.fml.common.asm.enumextension.NamedEnum
 +@net.neoforged.fml.common.asm.enumextension.NetworkedEnum(net.neoforged.fml.common.asm.enumextension.NetworkedEnum.NetworkCheck.CLIENTBOUND)
- public enum DamageEffects implements StringRepresentable, IExtensibleEnum {
+ public enum DamageEffects implements StringRepresentable, net.neoforged.fml.common.asm.enumextension.IExtensibleEnum {
      HURT("hurt", SoundEvents.PLAYER_HURT),
-     THORNS("thorns", SoundEvents.PLAYER_HURT),
-@@ -17,11 +_,33 @@
+     THORNS("thorns", SoundEvents.THORNS_HIT),
+@@ -15,11 +_,33 @@
  
      public static final Codec<DamageEffects> CODEC = StringRepresentable.fromEnum(DamageEffects::values);
      private final String id;
@@ -18,8 +18,10 @@
 +    private final java.util.function.Supplier<SoundEvent> soundSupplier;
  
 +    @net.neoforged.fml.common.asm.enumextension.ReservedConstructor
-     DamageEffects(String id, SoundEvent sound) {
-+        this(id, () -> sound);
+     private DamageEffects(String p_270875_, SoundEvent p_270383_) {
+-        this.id = p_270875_;
+-        this.sound = p_270383_;
++        this(p_270875_, () -> p_270383_);
 +    }
 +
 +    /**
@@ -37,14 +39,13 @@
 +     * @apiNote This method must be called as early as possible, as if {@link #CODEC} is resolved before this is called, it will be unusable.
 +     */
 +    private DamageEffects(String id, java.util.function.Supplier<SoundEvent> sound) {
-         this.id = id;
--        this.sound = sound;
++        this.id = id;
 +        this.soundSupplier = sound;
 +        this.sound = null;
      }
  
      @Override
-@@ -30,6 +_,10 @@
+@@ -28,6 +_,10 @@
      }
  
      public SoundEvent sound() {

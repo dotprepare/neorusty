@@ -13,7 +13,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.neoforged.bus.api.ICancellableEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This event is fired whenever a block (like a sapling) grows into a feature (like a tree).
@@ -72,7 +72,7 @@ public class BlockGrowFeatureEvent extends LevelEvent implements ICancellableEve
      * @param featureKey a {@linkplain ResourceKey} referencing a new feature to be placed instead of the current feature.
      */
     public void setFeature(ResourceKey<ConfiguredFeature<?, ?>> featureKey) {
-        this.feature = this.getLevel().registryAccess().lookupOrThrow(Registries.CONFIGURED_FEATURE).get(featureKey).orElse(null);
+        this.feature = this.getLevel().registryAccess().registryOrThrow(Registries.CONFIGURED_FEATURE).getHolder(featureKey).orElse(null);
     }
 
     /**

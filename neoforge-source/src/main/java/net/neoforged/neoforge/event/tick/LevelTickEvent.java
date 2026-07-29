@@ -6,6 +6,7 @@
 package net.neoforged.neoforge.event.tick;
 
 import java.util.function.BooleanSupplier;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.Event;
@@ -45,7 +46,7 @@ public abstract class LevelTickEvent extends Event {
     /**
      * {@link LevelTickEvent.Pre} is fired once per game tick, per level, before the level performs work for the current tick.
      * <p>
-     * This event fires on both the logical client and logical server, for {@code ClientLevel} and {@link ServerLevel} respectively.
+     * This event fires on both the logical client and logical server, for {@link ClientLevel} and {@link ServerLevel} respectively.
      */
     public static class Pre extends LevelTickEvent {
         public Pre(BooleanSupplier haveTime, Level level) {
@@ -56,7 +57,7 @@ public abstract class LevelTickEvent extends Event {
     /**
      * {@link LevelTickEvent.Post} is fired once per game tick, per level, after the level performs work for the current tick.
      * <p>
-     * This event fires on both the logical client and logical server, for {@code ClientLevel} and {@link ServerLevel} respectively.
+     * This event fires on both the logical client and logical server, for {@link ClientLevel} and {@link ServerLevel} respectively.
      */
     public static class Post extends LevelTickEvent {
         public Post(BooleanSupplier haveTime, Level level) {

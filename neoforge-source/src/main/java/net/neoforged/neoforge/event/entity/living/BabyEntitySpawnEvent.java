@@ -9,11 +9,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.fox.Fox;
+import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * BabyEntitySpawnEvent is fired just before a baby entity is about to be spawned. <br>
@@ -30,6 +30,8 @@ import org.jspecify.annotations.Nullable;
  * This event is {@link ICancellableEvent}.<br>
  * If this event is canceled, the child Entity is not added to the world, and the parents <br>
  * will no longer attempt to mate.
+ * <br>
+ * This event does not have a result. {@link HasResult}<br>
  * <br>
  * This event is fired on the {@link NeoForge#EVENT_BUS}.
  **/

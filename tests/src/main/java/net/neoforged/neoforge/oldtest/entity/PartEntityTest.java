@@ -7,24 +7,19 @@ package net.neoforged.neoforge.oldtest.entity;
 
 import net.minecraft.client.renderer.entity.PigRenderer;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerEntity;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.animal.pig.Pig;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -43,7 +38,7 @@ public class PartEntityTest {
     static final boolean ENABLED = true;
 
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(BuiltInRegistries.ENTITY_TYPE, MOD_ID);
-    private static final DeferredHolder<EntityType<?>, EntityType<TestEntity>> TEST_ENTITY = ENTITIES.register("test_entity", () -> EntityType.Builder.of(TestEntity::new, MobCategory.CREATURE).sized(16.0F, 8.0F).clientTrackingRange(10).build(ResourceKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "test_entity"))));
+    private static final DeferredHolder<EntityType<?>, EntityType<TestEntity>> TEST_ENTITY = ENTITIES.register("test_entity", () -> EntityType.Builder.of(TestEntity::new, MobCategory.CREATURE).sized(16.0F, 8.0F).clientTrackingRange(10).build("test_entity"));
 
     public PartEntityTest(IEventBus modEventBus) {
         if (ENABLED) {
@@ -147,13 +142,13 @@ public class PartEntityTest {
         }
 
         @Override
-        protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder entityData) {}
+        protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder p_326003_) {}
 
         @Override
-        protected void readAdditionalSaveData(ValueInput valueInput) {}
+        protected void readAdditionalSaveData(CompoundTag nbt) {}
 
         @Override
-        protected void addAdditionalSaveData(ValueOutput valueOutput) {}
+        protected void addAdditionalSaveData(CompoundTag nbt) {}
 
         @Override
         public boolean isPickable() {
@@ -161,8 +156,8 @@ public class PartEntityTest {
         }
 
         @Override
-        public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-            return !this.isInvulnerableToBase(source) && this.parent.hurtServer(level, source, amount);
+        public boolean hurt(DamageSource source, float amount) {
+            return !this.isInvulnerableTo(source) && this.parent.hurt(source, amount);
         }
 
         @Override

@@ -6,32 +6,30 @@
 package net.neoforged.neoforge.event.entity.player;
 
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item.TooltipContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class ItemTooltipEvent extends PlayerEvent {
     private final TooltipFlag flags;
     private final ItemStack itemStack;
     private final List<Component> toolTip;
     private final TooltipContext context;
-    private final TooltipDisplay display;
 
     /**
      * This event is fired in {@link ItemStack#getTooltipLines(TooltipContext, Player, TooltipFlag)}, which in turn is called from its respective GUIContainer.
      * Tooltips are also gathered with a null player during startup by {@link Minecraft#createSearchTrees()}.
      */
-    public ItemTooltipEvent(ItemStack itemStack, @Nullable Player player, List<Component> list, TooltipFlag flags, TooltipContext context, TooltipDisplay display) {
+    public ItemTooltipEvent(ItemStack itemStack, @Nullable Player player, List<Component> list, TooltipFlag flags, TooltipContext context) {
         super(player);
         this.itemStack = itemStack;
         this.toolTip = list;
         this.flags = flags;
         this.context = context;
-        this.display = display;
     }
 
     /**
@@ -69,10 +67,5 @@ public class ItemTooltipEvent extends PlayerEvent {
      */
     public TooltipContext getContext() {
         return context;
-    }
-
-    /// Used to determine what components on the item tooltip should be hidden
-    public TooltipDisplay getDisplay() {
-        return display;
     }
 }

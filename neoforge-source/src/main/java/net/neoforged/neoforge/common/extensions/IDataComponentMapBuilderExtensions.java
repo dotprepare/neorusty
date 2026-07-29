@@ -6,12 +6,11 @@
 package net.neoforged.neoforge.common.extensions;
 
 import java.util.function.Supplier;
-import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
-public interface IDataComponentMapBuilderExtensions extends DataComponentGetter {
+public interface IDataComponentMapBuilderExtensions {
     private DataComponentMap.Builder self() {
         return (DataComponentMap.Builder) this;
     }

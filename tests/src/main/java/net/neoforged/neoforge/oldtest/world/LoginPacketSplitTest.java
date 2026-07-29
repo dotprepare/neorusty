@@ -37,28 +37,26 @@ import net.minecraft.core.Registry;
 import net.minecraft.network.CompressionDecoder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.PackSelectionConfig;
 import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.metadata.MetadataSectionType;
-import net.minecraft.server.packs.metadata.pack.PackMetadataSection;
+import net.minecraft.server.packs.metadata.MetadataSectionSerializer;
 import net.minecraft.server.packs.repository.BuiltInPackSource;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.server.packs.resources.IoSupplier;
 import net.minecraft.util.GsonHelper;
-import net.minecraft.util.InclusiveRange;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.registries.DataPackRegistryEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -76,9 +74,9 @@ import org.slf4j.Logger;
 public class LoginPacketSplitTest {
     public static final Logger LOG = LogUtils.getLogger();
     public static final String MOD_ID = "login_packet_split_test";
-    public static final boolean ENABLED = false;
+    public static final boolean ENABLED = true;
     private static final Gson GSON = new Gson();
-    public static final ResourceKey<Registry<BigData>> BIG_DATA = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath(MOD_ID, "big_data"));
+    public static final ResourceKey<Registry<BigData>> BIG_DATA = ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MOD_ID, "big_data"));
 
     public LoginPacketSplitTest(IEventBus bus) {
         bus.addListener((final DataPackRegistryEvent.NewRegistry event) -> event.dataPackRegistry(BIG_DATA, BigData.CODEC, BigData.CODEC));
@@ -97,10 +95,10 @@ public class LoginPacketSplitTest {
                 }
             });
 
-            if (FMLEnvironment.getDist().isClient()) {
+            if (FMLLoader.getDist().isClient()) {
                 NeoForge.EVENT_BUS.addListener((final RegisterClientCommandsEvent event) -> event.getDispatcher().register(Commands.literal("big_data")
                         .executes(context -> {
-                            context.getSource().sendSuccess(() -> Component.literal("Registry has " + context.getSource().registryAccess().lookupOrThrow(BIG_DATA).size() + " entries."), true);
+                            context.getSource().sendSuccess(() -> Component.literal("Registry has " + context.getSource().registryAccess().registryOrThrow(BIG_DATA).holders().count() + " entries."), true);
                             return Command.SINGLE_SUCCESS;
                         })));
             }
@@ -118,14 +116,14 @@ public class LoginPacketSplitTest {
             final JsonObject json = new JsonObject();
             json.addProperty("text", bigData.text);
             json.addProperty("number", bigData.number);
-            pack.putData(Identifier.fromNamespaceAndPath(MOD_ID, MOD_ID + "/big_data/entry_" + i + ".json"), json);
-            Registry.register(dummyRegistry, Identifier.fromNamespaceAndPath(MOD_ID, MOD_ID + "/big_data/entry_" + i), bigData);
+            pack.putData(ResourceLocation.fromNamespaceAndPath(MOD_ID, MOD_ID + "/big_data/entry_" + i + ".json"), json);
+            Registry.register(dummyRegistry, ResourceLocation.fromNamespaceAndPath(MOD_ID, MOD_ID + "/big_data/entry_" + i), bigData);
         }
         stopwatch.stop();
         LOG.warn("Setting up big data registry took " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " miliseconds.");
 
         final FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        dummyRegistry.listElements().forEach(ref -> {
+        dummyRegistry.holders().forEach(ref -> {
             buf.writeUtf(ref.getRegisteredName());
             buf.writeJsonWithCodec(BigData.CODEC, ref.value());
         });
@@ -148,7 +146,7 @@ public class LoginPacketSplitTest {
     }
 
     public static final class InMemoryResourcePack implements PackResources {
-        private final Map<Identifier, Supplier<byte[]>> data = new ConcurrentHashMap<>();
+        private final Map<ResourceLocation, Supplier<byte[]>> data = new ConcurrentHashMap<>();
         private final Map<String, Supplier<byte[]>> root = new ConcurrentHashMap<>();
 
         private final PackLocationInfo info;
@@ -157,12 +155,10 @@ public class LoginPacketSplitTest {
             this.info = info;
 
             final JsonObject mcmeta = new JsonObject();
-            mcmeta.add("pack", PackMetadataSection.SERVER_TYPE
-                    .codec()
-                    .encodeStart(JsonOps.INSTANCE, new PackMetadataSection(
-                            Component.literal("A virtual resource pack."),
-                            new InclusiveRange<>(SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA))))
-                    .getOrThrow());
+            final JsonObject packJson = new JsonObject();
+            packJson.addProperty("description", "A virtual resource pack.");
+            packJson.addProperty("pack_format", SharedConstants.getCurrentVersion().getPackVersion(PackType.SERVER_DATA));
+            mcmeta.add("pack", packJson);
 
             putRoot("pack.mcmeta", mcmeta);
         }
@@ -175,7 +171,7 @@ public class LoginPacketSplitTest {
 
         @Nullable
         @Override
-        public IoSupplier<InputStream> getResource(PackType type, Identifier loc) {
+        public IoSupplier<InputStream> getResource(PackType type, ResourceLocation loc) {
             if (type != PackType.SERVER_DATA) return null;
             return openResource(data, loc);
         }
@@ -208,20 +204,18 @@ public class LoginPacketSplitTest {
         @Override
         public Set<String> getNamespaces(PackType type) {
             return type == PackType.CLIENT_RESOURCES ? Set.of()
-                    : data.keySet().stream().map(Identifier::getNamespace)
+                    : data.keySet().stream().map(ResourceLocation::getNamespace)
                             .collect(Collectors.toUnmodifiableSet());
         }
 
         @Nullable
         @Override
-        public <T> T getMetadataSection(MetadataSectionType<T> section) throws IOException {
+        public <T> T getMetadataSection(MetadataSectionSerializer<T> section) throws IOException {
             final JsonObject json = GsonHelper.parse(new String(root.get("pack.mcmeta").get()));
-            if (!json.has(section.name())) {
+            if (!json.has(section.getMetadataSectionName())) {
                 return null;
             } else {
-                return section.codec().parse(JsonOps.INSTANCE, json.get(section.name()))
-                        .result()
-                        .orElse(null);
+                return section.fromJson(GsonHelper.getAsJsonObject(json, section.getMetadataSectionName()));
             }
         }
 
@@ -242,12 +236,12 @@ public class LoginPacketSplitTest {
             root.put(path, data);
         }
 
-        public void putData(Identifier path, JsonObject json) {
+        public void putData(ResourceLocation path, JsonObject json) {
             final byte[] bytes = fromJson(json);
             putData(path, () -> bytes);
         }
 
-        public void putData(Identifier path, Supplier<byte[]> data) {
+        public void putData(ResourceLocation path, Supplier<byte[]> data) {
             this.data.put(path, data);
         }
 

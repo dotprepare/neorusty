@@ -10,11 +10,12 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.debug.EventTests;
@@ -24,7 +25,6 @@ import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
 @ForEachTest(groups = ItemTests.GROUP + ".component")
@@ -69,43 +69,18 @@ public class ItemComponentTests {
     @EmptyTemplate
     @TestHolder(description = "Tests if the ModifyDefaultComponentsEvent works", groups = EventTests.GROUP)
     static void testModifyDefaultComponentsEvent(DynamicTest test, RegistrationHelper reg) {
-        final var testItem = reg.items().registerSimpleItem("test_item", props -> props
+        final var testItem = reg.items().registerSimpleItem("test_item", new Item.Properties()
                 .component(DataComponents.BASE_COLOR, DyeColor.BLUE))
                 .withLang("Test components item");
         test.framework().modEventBus().addListener((final ModifyDefaultComponentsEvent event) -> {
-            event.modify(testItem, (builder, _, _) -> builder
-                    .set(DataComponents.BASE_COLOR, null)
+            event.modify(testItem, builder -> builder
+                    .remove(DataComponents.BASE_COLOR)
                     .set(DataComponents.MAX_STACK_SIZE, 5));
         });
 
         test.onGameTest(helper -> {
-            helper.assertFalse(testItem.asItem().components().has(DataComponents.BASE_COLOR), "Default component was removed");
+            helper.assertFalse(testItem.asItem().components().has(DataComponents.BASE_COLOR), "Default component was not removed");
             helper.assertValueEqual(testItem.asItem().getDefaultMaxStackSize(), 5, "max stack size");
-            helper.succeed();
-        });
-    }
-
-    @GameTest
-    @EmptyTemplate
-    @TestHolder(description = "Tests if the ModifyDefaultComponentsEvent can modify based on another default component", groups = EventTests.GROUP)
-    static void testModifyDefaultComponentsEventOnDefaultComponentMatching(DynamicTest test, RegistrationHelper reg) {
-        final var testItem = reg.items().registerSimpleItem("test_item_2", props -> props
-                .component(DataComponents.BASE_COLOR, DyeColor.BLUE))
-                .withLang("Test components item 2");
-
-        test.framework().modEventBus().addListener((final ModifyDefaultComponentsEvent event) -> {
-            event.modifyMatching(
-                    (item, components) -> components.has(DataComponents.BASE_COLOR) && item == testItem.asItem(),
-                    (builder, _, _) -> builder.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
-            event.modifyMatching(
-                    (item, components) -> components.get(DataComponents.BASE_COLOR) == DyeColor.BLUE && item == testItem.asItem(),
-                    (builder, _, _) -> builder.set(DataComponents.RARITY, Rarity.EPIC));
-        });
-
-        test.onGameTest(helper -> {
-            helper.assertTrue(testItem.asItem().components().has(DataComponents.ENCHANTMENT_GLINT_OVERRIDE), "New default component added from has check");
-            helper.assertTrue(testItem.asItem().components().get(DataComponents.RARITY) == Rarity.EPIC, "New default component added from get check");
-            helper.assertTrue(testItem.asItem().components().has(DataComponents.BASE_COLOR), "Default component was not removed");
             helper.succeed();
         });
     }

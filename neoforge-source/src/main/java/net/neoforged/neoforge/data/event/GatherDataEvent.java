@@ -6,6 +6,7 @@
 package net.neoforged.neoforge.data.event;
 
 import com.google.common.collect.Lists;
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -24,6 +25,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.DetectedVersion;
+import net.minecraft.client.resources.ClientPackSource;
+import net.minecraft.client.resources.IndexedAssetSource;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistrySetBuilder;
 import net.minecraft.data.DataGenerator;
@@ -46,25 +49,29 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.IModBusEvent;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.conditions.ICondition;
 import net.neoforged.neoforge.common.data.DatapackBuiltinEntriesProvider;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.resource.ResourcePackLoader;
 import org.apache.commons.lang3.function.Consumers;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class GatherDataEvent extends Event implements IModBusEvent {
+public class GatherDataEvent extends Event implements IModBusEvent {
     private final DataGenerator dataGenerator;
     private final DataGeneratorConfig config;
+    private final ExistingFileHelper existingFileHelper;
     private final ModContainer modContainer;
 
     @Nullable
     private CompletableFuture<HolderLookup.Provider> registriesWithModdedEntries = null;
 
-    public GatherDataEvent(final ModContainer mc, final DataGenerator dataGenerator, final DataGeneratorConfig dataGeneratorConfig) {
+    public GatherDataEvent(final ModContainer mc, final DataGenerator dataGenerator, final DataGeneratorConfig dataGeneratorConfig, final ExistingFileHelper existingFileHelper) {
         this.modContainer = mc;
         this.dataGenerator = dataGenerator;
         this.config = dataGeneratorConfig;
+        this.existingFileHelper = existingFileHelper;
     }
 
     public ModContainer getModContainer() {
@@ -82,12 +89,31 @@ public abstract class GatherDataEvent extends Event implements IModBusEvent {
         return this.config.getInputs();
     }
 
+    /**
+     * @return the mod IDs for which data should be generated
+     */
+    public Set<String> getMods() {
+        return this.config.getMods();
+    }
+
     public DataGenerator getGenerator() {
         return this.dataGenerator;
     }
 
+    public ExistingFileHelper getExistingFileHelper() {
+        return existingFileHelper;
+    }
+
     public CompletableFuture<HolderLookup.Provider> getLookupProvider() {
         return Objects.requireNonNullElse(this.registriesWithModdedEntries, this.config.lookupProvider);
+    }
+
+    public boolean includeServer() {
+        return this.config.server;
+    }
+
+    public boolean includeClient() {
+        return this.config.client;
     }
 
     public boolean includeDev() {
@@ -102,24 +128,14 @@ public abstract class GatherDataEvent extends Event implements IModBusEvent {
         return this.config.validate;
     }
 
-    public static class Server extends GatherDataEvent {
-        public Server(ModContainer mc, DataGenerator dataGenerator, DataGeneratorConfig dataGeneratorConfig) {
-            super(mc, dataGenerator, dataGeneratorConfig);
-        }
-    }
-
-    public static class Client extends GatherDataEvent {
-        public Client(ModContainer mc, DataGenerator dataGenerator, DataGeneratorConfig dataGeneratorConfig) {
-            super(mc, dataGenerator, dataGeneratorConfig);
-        }
-    }
-
     @ApiStatus.Internal
     public static class DataGeneratorConfig {
         private final Set<String> mods;
         private final Path path;
         private final Collection<Path> inputs;
         private final CompletableFuture<HolderLookup.Provider> lookupProvider;
+        private final boolean server;
+        private final boolean client;
         private final boolean dev;
         private final boolean reports;
         private final boolean validate;
@@ -128,34 +144,31 @@ public abstract class GatherDataEvent extends Event implements IModBusEvent {
         private final ResourceManager clientResourceManager;
         private final ResourceManager serverResourceManager;
 
-        public DataGeneratorConfig(
-                final Set<String> mods,
-                final Path path,
-                final Collection<Path> inputs,
-                final CompletableFuture<HolderLookup.Provider> lookupProvider,
-                final boolean dev,
-                final boolean reports,
-                final boolean validate,
-                final boolean flat,
-                final DataGenerator vanillaGenerator,
-                Collection<Path> existingPacks,
-                Consumer<Consumer<PackResources>> vanillaClientAssets) {
+        @Deprecated(forRemoval = true)
+        public DataGeneratorConfig(final Set<String> mods, final Path path, final Collection<Path> inputs, final CompletableFuture<HolderLookup.Provider> lookupProvider,
+                final boolean server, final boolean client, final boolean dev, final boolean reports, final boolean validate, final boolean flat) {
+            this(mods, path, inputs, lookupProvider, server, client, dev, reports, validate, flat, null, null, List.of());
+        }
+
+        public DataGeneratorConfig(final Set<String> mods, final Path path, final Collection<Path> inputs, final CompletableFuture<HolderLookup.Provider> lookupProvider,
+                final boolean server, final boolean client, final boolean dev, final boolean reports, final boolean validate, final boolean flat, final @Nullable String assetIndex, final @Nullable File assetsDir, Collection<Path> existingPacks) {
             this.mods = mods;
             this.path = path;
             this.inputs = inputs;
             this.lookupProvider = lookupProvider;
+            this.server = server;
+            this.client = client;
             this.dev = dev;
             this.reports = reports;
             this.validate = validate;
             this.flat = flat;
 
-            clientResourceManager = createResourceManager(PackType.CLIENT_RESOURCES, mods::contains, existingPacks, vanillaClientAssets);
+            clientResourceManager = createResourceManager(PackType.CLIENT_RESOURCES, mods::contains, existingPacks, consumer -> {
+                if (FMLEnvironment.dist.isClient() && assetIndex != null && assetsDir != null)
+                    consumer.accept(ClientPackSource.createVanillaPackSource(IndexedAssetSource.createIndexFs(assetsDir.toPath(), assetIndex)));
+            });
 
             serverResourceManager = createResourceManager(PackType.SERVER_DATA, mods::contains, existingPacks, consumer -> consumer.accept(ServerPacksSource.createVanillaPackSource()));
-
-            if (mods.contains("minecraft") || mods.isEmpty()) {
-                this.generators.add(vanillaGenerator);
-            }
         }
 
         public Collection<Path> getInputs() {
@@ -170,9 +183,10 @@ public abstract class GatherDataEvent extends Event implements IModBusEvent {
             return flat || getMods().size() == 1;
         }
 
-        public DataGenerator makeGenerator(final Function<Path, Path> pathEnhancer, boolean uncached) {
-            final DataGenerator generator = uncached ? new DataGenerator.Uncached(pathEnhancer.apply(path)) : new DataGenerator.Cached(pathEnhancer.apply(path), DetectedVersion.tryDetectVersion(), true);
-            generators.add(generator);
+        public DataGenerator makeGenerator(final Function<Path, Path> pathEnhancer, final boolean shouldExecute) {
+            final DataGenerator generator = new DataGenerator(pathEnhancer.apply(path), DetectedVersion.tryDetectVersion(), shouldExecute);
+            if (shouldExecute)
+                generators.add(generator);
             return generator;
         }
 

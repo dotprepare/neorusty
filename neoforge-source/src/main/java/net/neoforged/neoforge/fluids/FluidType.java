@@ -8,26 +8,27 @@ package net.neoforged.neoforge.fluids;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.util.Util;
-import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
-import net.minecraft.world.level.BlockAndLightGetter;
+import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -41,12 +42,13 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.common.NeoForgeMod;
 import net.neoforged.neoforge.common.SoundAction;
 import net.neoforged.neoforge.common.SoundActions;
 import net.neoforged.neoforge.common.util.Lazy;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A definition of common attributes, properties, and methods that is applied
@@ -90,7 +92,6 @@ public class FluidType {
     private final Rarity rarity;
     @Nullable
     private final DripstoneDripInfo dripInfo;
-    private final boolean isWaterLike;
 
     /**
      * A map of actions performed to sound that should be played.
@@ -122,7 +123,6 @@ public class FluidType {
         this.viscosity = properties.viscosity;
         this.rarity = properties.rarity;
         this.dripInfo = properties.dripInfo;
-        this.isWaterLike = properties.isWaterLike;
     }
 
     /* Default Accessors */
@@ -333,7 +333,7 @@ public class FluidType {
      * @param boat the boat trying to be used on the fluid
      * @return {@code true} if the boat can be used, {@code false} otherwise
      */
-    public boolean supportsBoating(AbstractBoat boat) {
+    public boolean supportsBoating(Boat boat) {
         return this.supportsBoating;
     }
 
@@ -344,7 +344,7 @@ public class FluidType {
      * @param boat  the boat trying to be used on the fluid
      * @return {@code true} if the boat can be used, {@code false} otherwise
      */
-    public boolean supportsBoating(FluidState state, AbstractBoat boat) {
+    public boolean supportsBoating(FluidState state, Boat boat) {
         return this.supportsBoating(boat);
     }
 
@@ -453,14 +453,14 @@ public class FluidType {
      * Returns a sound to play when a certain action is performed at a
      * position. If no sound is present, then the sound will be {@code null}.
      *
-     * @param entity the entity listening to the sound
+     * @param player the player listening to the sound
      * @param getter the getter which can get the fluid
      * @param pos    the position of the fluid
      * @param action the action being performed
      * @return the sound to play when performing the action
      */
     @Nullable
-    public SoundEvent getSound(@Nullable LivingEntity entity, BlockGetter getter, BlockPos pos, SoundAction action) {
+    public SoundEvent getSound(@Nullable Player player, BlockGetter getter, BlockPos pos, SoundAction action) {
         return this.getSound(action);
     }
 
@@ -496,7 +496,7 @@ public class FluidType {
      * @param pos    the position of the fluid
      * @return the light level emitted by the fluid
      */
-    public int getLightLevel(FluidState state, BlockAndLightGetter getter, BlockPos pos) {
+    public int getLightLevel(FluidState state, BlockAndTintGetter getter, BlockPos pos) {
         return this.getLightLevel();
     }
 
@@ -512,7 +512,7 @@ public class FluidType {
      * @param pos    the position of the fluid
      * @return the density of the fluid
      */
-    public int getDensity(FluidState state, BlockAndLightGetter getter, BlockPos pos) {
+    public int getDensity(FluidState state, BlockAndTintGetter getter, BlockPos pos) {
         return this.getDensity();
     }
 
@@ -528,7 +528,7 @@ public class FluidType {
      * @param pos    the position of the fluid
      * @return the temperature of the fluid
      */
-    public int getTemperature(FluidState state, BlockAndLightGetter getter, BlockPos pos) {
+    public int getTemperature(FluidState state, BlockAndTintGetter getter, BlockPos pos) {
         return this.getTemperature();
     }
 
@@ -545,7 +545,7 @@ public class FluidType {
      * @param pos    the position of the fluid
      * @return the viscosity of the fluid
      */
-    public int getViscosity(FluidState state, BlockAndLightGetter getter, BlockPos pos) {
+    public int getViscosity(FluidState state, BlockAndTintGetter getter, BlockPos pos) {
         return this.getViscosity();
     }
 
@@ -576,15 +576,6 @@ public class FluidType {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Returns if the fluid is water-like in some behaviors.
-     *
-     * @return whether the fluid is water-like
-     */
-    public boolean getIsWaterLike() {
-        return this.isWaterLike;
     }
 
     /* Stack-Based Accessors */
@@ -752,7 +743,7 @@ public class FluidType {
      * @param state  the state of the fluid
      * @return the {@link BlockState} of a fluid
      */
-    public BlockState getBlockForFluidState(BlockAndLightGetter getter, BlockPos pos, FluidState state) {
+    public BlockState getBlockForFluidState(BlockAndTintGetter getter, BlockPos pos, FluidState state) {
         return state.createLegacyBlock();
     }
 
@@ -765,7 +756,7 @@ public class FluidType {
      * @param stack  the stack holding the fluid
      * @return the {@link FluidState} being placed
      */
-    public FluidState getStateForPlacement(BlockAndLightGetter getter, BlockPos pos, FluidStack stack) {
+    public FluidState getStateForPlacement(BlockAndTintGetter getter, BlockPos pos, FluidStack stack) {
         return stack.getFluid().defaultFluidState();
     }
 
@@ -777,7 +768,7 @@ public class FluidType {
      * @param state  the state of the fluid being placed
      * @return {@code true} if the fluid can be placed, {@code false} otherwise
      */
-    public final boolean canBePlacedInLevel(BlockAndLightGetter getter, BlockPos pos, FluidState state) {
+    public final boolean canBePlacedInLevel(BlockAndTintGetter getter, BlockPos pos, FluidState state) {
         return !this.getBlockForFluidState(getter, pos, state).isAir();
     }
 
@@ -789,7 +780,7 @@ public class FluidType {
      * @param stack  the stack holding the fluid
      * @return {@code true} if the fluid can be placed, {@code false} otherwise
      */
-    public final boolean canBePlacedInLevel(BlockAndLightGetter getter, BlockPos pos, FluidStack stack) {
+    public final boolean canBePlacedInLevel(BlockAndTintGetter getter, BlockPos pos, FluidStack stack) {
         return this.canBePlacedInLevel(getter, pos, this.getStateForPlacement(getter, pos, stack));
     }
 
@@ -819,10 +810,10 @@ public class FluidType {
      * @param stack the stack holding the fluid being placed
      * @return {@code true} if this fluid should be vaporized on placement, {@code false} otherwise
      *
-     * @see BucketItem#emptyContents(LivingEntity, Level, BlockPos, BlockHitResult)
+     * @see BucketItem#emptyContents(Player, Level, BlockPos, BlockHitResult)
      */
     public boolean isVaporizedOnPlacement(Level level, BlockPos pos, FluidStack stack) {
-        if (level.environmentAttributes().getValue(EnvironmentAttributes.WATER_EVAPORATES, pos)) {
+        if (level.dimensionType().ultraWarm()) {
             return this == NeoForgeMod.WATER_TYPE.value() || this.getStateForPlacement(level, pos, stack).is(FluidTags.WATER);
         }
         return false;
@@ -833,15 +824,16 @@ public class FluidType {
      *
      * <p>Note: The fluid will already have been drained from the stack.
      *
-     * @param entity the player placing the fluid, may be {@code null} for blocks like dispensers
+     * @param player the player placing the fluid, may be {@code null} for blocks like dispensers
      * @param level  the level the fluid is vaporized in
      * @param pos    the position the fluid is vaporized at
      * @param stack  the stack holding the fluid being vaporized
-     * @see BucketItem#emptyContents(LivingEntity, Level, BlockPos, BlockHitResult)
+     *
+     * @see BucketItem#emptyContents(Player, Level, BlockPos, BlockHitResult)
      */
-    public void onVaporize(@Nullable LivingEntity entity, Level level, BlockPos pos, FluidStack stack) {
-        SoundEvent sound = this.getSound(entity, level, pos, SoundActions.FLUID_VAPORIZE);
-        level.playSound(entity, pos, sound != null ? sound : SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 2.6F + (level.getRandom().nextFloat() - level.getRandom().nextFloat()) * 0.8F);
+    public void onVaporize(@Nullable Player player, Level level, BlockPos pos, FluidStack stack) {
+        SoundEvent sound = this.getSound(player, level, pos, SoundActions.FLUID_VAPORIZE);
+        level.playSound(player, pos, sound != null ? sound : SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F, 2.6F + (level.random.nextFloat() - level.random.nextFloat()) * 0.8F);
 
         for (int l = 0; l < 8; ++l)
             level.addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE, (double) pos.getX() + Math.random(), (double) pos.getY() + Math.random(), (double) pos.getZ() + Math.random(), 0.0D, 0.0D, 0.0D);
@@ -850,9 +842,15 @@ public class FluidType {
     @Override
     public String toString() {
         @Nullable
-        Identifier name = NeoForgeRegistries.FLUID_TYPES.getKey(this);
+        ResourceLocation name = NeoForgeRegistries.FLUID_TYPES.getKey(this);
         return name != null ? name.toString() : "Unregistered FluidType";
     }
+
+    /**
+     * @deprecated Use {@link net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent} instead
+     */
+    @Deprecated(forRemoval = true, since = "1.21")
+    public void initializeClient(Consumer<IClientFluidTypeExtensions> consumer) {}
 
     /**
      * The properties of the fluid. The simple forms of each property can
@@ -880,7 +878,6 @@ public class FluidType {
         private Rarity rarity = Rarity.COMMON;
         @Nullable
         private DripstoneDripInfo dripInfo;
-        private boolean isWaterLike = false;
 
         private Properties() {}
 
@@ -1117,34 +1114,6 @@ public class FluidType {
                 this.sounds.put(SoundActions.CAULDRON_DRIP, fillSound);
             }
             this.dripInfo = new DripstoneDripInfo(chance, dripParticle, cauldron);
-            return this;
-        }
-
-        /**
-         * Sets whether the fluid does the following:
-         * 
-         * <pre>
-         * - Triggers splash effects when entering
-         * - Crouching in fluid causes player to sink
-         * - Reduces fall damage and resets fall distance when touching fluid
-         * - Triggers water swim sounds
-         * - Trigger the swim game event
-         * - Allows various mobs to move, breath, or perform other water-based behavior properly
-         * - makes wolves/dogs shake when exiting fluid
-         * - Damages entities that are sensitive to water
-         * - Prevents sun-burning mobs from being set on fire in sunlight *(Note: {@link #canExtinguish} must be false as well for fire to persist)*
-         * - Allows fire arrows to be extinguished. *(Note: {@link #canExtinguish} also can extinguish the fire independently)*
-         * - Allows Riptide Tridents to activate
-         * - Allows Conduit block to function
-         * - Underwater music can play when player is submerged in the fluid
-         * - Muffles Minecart moving sounds and reduces their speed
-         * </pre>
-         * 
-         * @param isWaterLike whether the fluid is water-like
-         * @return the property holder instance
-         */
-        public Properties isWaterLike(boolean isWaterLike) {
-            this.isWaterLike = isWaterLike;
             return this;
         }
     }

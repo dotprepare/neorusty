@@ -6,33 +6,39 @@
 package net.neoforged.neoforge.event.level;
 
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.bus.api.ICancellableEvent;
-import net.neoforged.neoforge.common.util.ClockAdjustment;
 
 /**
- * This event is fired to adjust the clock of a level after sleep.
+ * This event is fired when all players are asleep and the time should be set to day.<br>
+ *
+ * setWakeUpTime(wakeUpTime) sets a new time that will be added to the dayTime.<br>
  */
-public class SleepFinishedTimeEvent extends LevelEvent implements ICancellableEvent {
-    private ClockAdjustment adjustment;
+public class SleepFinishedTimeEvent extends LevelEvent {
+    private long newTime;
+    private final long minTime;
 
-    public SleepFinishedTimeEvent(ServerLevel level, ClockAdjustment defaultAdjustment) {
+    public SleepFinishedTimeEvent(ServerLevel level, long newTime, long minTime) {
         super(level);
-        this.adjustment = defaultAdjustment;
+        this.newTime = newTime;
+        this.minTime = minTime;
     }
 
     /**
-     * {@return the adjustment that will be made to the clock when the event is not canceled}
+     * @return the new time
      */
-    public ClockAdjustment getAdjustment() {
-        return adjustment;
+    public long getNewTime() {
+        return newTime;
     }
 
     /**
      * Sets the new time which should be set when all players wake up
-     *
-     * @param adjustment The adjustment that should be made to the levels clock when this event isn't canceled.
+     * 
+     * @param newTimeIn The new time at wakeup
+     * @return {@code false} if newTimeIn was lower than current time
      */
-    public void setAdjustment(ClockAdjustment adjustment) {
-        this.adjustment = adjustment;
+    public boolean setTimeAddition(long newTimeIn) {
+        if (minTime > newTimeIn)
+            return false;
+        this.newTime = newTimeIn;
+        return true;
     }
 }

@@ -7,7 +7,9 @@ package net.neoforged.testframework;
 
 import java.util.Collection;
 import java.util.Optional;
-import net.minecraft.resources.Identifier;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -15,9 +17,8 @@ import net.neoforged.testframework.conf.FrameworkConfiguration;
 import net.neoforged.testframework.gametest.DynamicStructureTemplates;
 import net.neoforged.testframework.group.Group;
 import net.neoforged.testframework.impl.MutableTestFramework;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
-import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -26,11 +27,13 @@ import org.slf4j.Logger;
  * @see FrameworkConfiguration#create()
  * @see MutableTestFramework
  */
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public interface TestFramework {
     /**
      * {@return the ID of this framework instance}
      */
-    Identifier id();
+    ResourceLocation id();
 
     /**
      * {@return this framework's logger}
@@ -84,7 +87,8 @@ public interface TestFramework {
     /**
      * Interface used for accessing a framework's tests.
      */
-    @NullMarked
+    @ParametersAreNonnullByDefault
+    @MethodsReturnNonnullByDefault
     interface Tests {
         /**
          * Queries a test by its {@linkplain Test#id() ID}.

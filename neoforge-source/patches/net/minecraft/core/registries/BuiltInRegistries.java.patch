@@ -1,13 +1,13 @@
 --- a/net/minecraft/core/registries/BuiltInRegistries.java
 +++ b/net/minecraft/core/registries/BuiltInRegistries.java
-@@ -440,6 +_,10 @@
-         ((MappedRegistry)registry).bindAllTagsToEmpty();
+@@ -356,6 +_,10 @@
+         });
      }
  
-+    public static java.util.Set<Identifier> getVanillaRegistrationOrder() {
++    public static java.util.Set<ResourceLocation> getVanillaRegistrationOrder() {
 +        return java.util.Collections.unmodifiableSet(LOADERS.keySet());
 +    }
 +
      @FunctionalInterface
-     private interface RegistryBootstrap<T> {
-         Object run(Registry<T> registry);
+     interface RegistryBootstrap<T> {
+         Object run(Registry<T> p_260128_);

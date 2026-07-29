@@ -7,41 +7,26 @@ package net.neoforged.neoforge.oldtest.client.model;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import java.util.Arrays;
-import java.util.stream.Stream;
-import net.minecraft.client.data.models.BlockModelGenerators;
-import net.minecraft.client.data.models.ItemModelGenerators;
-import net.minecraft.client.data.models.ModelProvider;
-import net.minecraft.client.data.models.model.TextureMapping;
-import net.minecraft.client.data.models.model.TextureSlot;
-import net.minecraft.client.data.models.model.TexturedModel;
-import net.minecraft.client.renderer.block.dispatch.ModelState;
+import java.util.function.Function;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelDebugName;
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.client.resources.model.cuboid.CuboidModel;
-import net.minecraft.client.resources.model.geometry.QuadCollection;
-import net.minecraft.client.resources.model.sprite.Material;
-import net.minecraft.client.resources.model.sprite.TextureSlots;
+import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.context.ContextMap;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -51,17 +36,25 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.model.DelegateUnbakedModel;
-import net.neoforged.neoforge.client.model.ExtendedUnbakedGeometry;
-import net.neoforged.neoforge.client.model.UnbakedModelLoader;
+import net.neoforged.neoforge.client.model.IModelBuilder;
+import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
+import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
+import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
+import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
+import net.neoforged.neoforge.client.model.generators.loaders.ItemLayerModelBuilder;
 import net.neoforged.neoforge.client.model.generators.loaders.ObjModelBuilder;
+import net.neoforged.neoforge.client.model.generators.loaders.SeparateTransformsModelBuilder;
+import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
+import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
+import net.neoforged.neoforge.client.model.geometry.SimpleUnbakedGeometry;
 import net.neoforged.neoforge.client.model.pipeline.QuadBakingVertexConsumer;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 @Mod(NewModelLoaderTest.MODID)
 public class NewModelLoaderTest {
@@ -69,13 +62,13 @@ public class NewModelLoaderTest {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
 
-    public static DeferredBlock<Block> obj_block = BLOCKS.registerBlock("obj_block", TestBlock::new, props -> props.mapColor(MapColor.WOOD).strength(10));
+    public static DeferredBlock<Block> obj_block = BLOCKS.registerBlock("obj_block", TestBlock::new, Block.Properties.of().mapColor(MapColor.WOOD).strength(10));
 
     // Same at obj_block except all the parts in the obj model have the same name,
-    // this is a test for neoforged/NeoForge#1755 that was fixed by neoforged/NeoForge#1759
-    public static DeferredBlock<Block> obj_block_same_part_names = BLOCKS.registerBlock("obj_block_same_part_names", TestBlock::new, props -> props.mapColor(MapColor.WOOD).strength(10));
+    // this is a test for neoforged/NeoForge#1755 that was fixed by neoforged/NeoForge#1760
+    public static DeferredBlock<Block> obj_block_same_part_names = BLOCKS.registerBlock("obj_block_same_part_names", TestBlock::new, Block.Properties.of().mapColor(MapColor.WOOD).strength(10));
 
-    public static DeferredItem<Item> obj_item = ITEMS.registerItem("obj_block", props -> new BlockItem(obj_block.get(), props.useBlockDescriptionPrefix()) {
+    public static DeferredItem<Item> obj_item = ITEMS.register("obj_block", () -> new BlockItem(obj_block.get(), new Item.Properties()) {
         @Override
         public boolean canEquip(ItemStack stack, EquipmentSlot armorType, LivingEntity entity) {
             return armorType == EquipmentSlot.HEAD;
@@ -89,6 +82,10 @@ public class NewModelLoaderTest {
     public static DeferredItem<Item> custom_vanilla_loader = ITEMS.registerSimpleItem("custom_vanilla_loader");
 
     public static DeferredItem<Item> custom_loader = ITEMS.registerSimpleItem("custom_loader");
+
+    public static DeferredItem<Item> item_layers = ITEMS.registerSimpleItem("item_layers");
+
+    public static DeferredItem<Item> separate_perspective = ITEMS.registerSimpleItem("separate_perspective");
 
     public NewModelLoaderTest(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
@@ -106,12 +103,14 @@ public class NewModelLoaderTest {
                     obj_item_same_part_names,
                     custom_transforms,
                     custom_vanilla_loader,
-                    custom_loader).forEach(event::accept);
+                    custom_loader,
+                    item_layers,
+                    separate_perspective).forEach(event::accept);
         }
     }
 
-    public void modelRegistry(ModelEvent.RegisterLoaders event) {
-        event.register(Identifier.fromNamespaceAndPath(MODID, "custom_loader"), new TestLoader());
+    public void modelRegistry(ModelEvent.RegisterGeometryLoaders event) {
+        event.register(ResourceLocation.fromNamespaceAndPath(MODID, "custom_loader"), new TestLoader());
     }
 
     static class TestBlock extends Block {
@@ -137,83 +136,99 @@ public class NewModelLoaderTest {
         }
     }
 
-    static class TestLoader implements UnbakedModelLoader<TestModel> {
+    static class TestLoader implements IGeometryLoader<TestModel> {
         @Override
-        public TestModel read(JsonObject jsonObject, JsonDeserializationContext ctx) throws JsonParseException {
-            return new TestModel(ctx.deserialize(jsonObject, CuboidModel.class));
+        public TestModel read(JsonObject jsonObject, JsonDeserializationContext deserializationContext) {
+            return new TestModel();
         }
     }
 
-    static class TestModel extends DelegateUnbakedModel {
-        private TestModel(UnbakedModel parent) {
-            super(parent);
-        }
-
-        @Nullable
+    static class TestModel extends SimpleUnbakedGeometry<TestModel> {
         @Override
-        public ExtendedUnbakedGeometry geometry() {
-            return TestModel::bake;
-        }
-
-        private static QuadCollection bake(TextureSlots textures, ModelBaker baker, ModelState state, ModelDebugName debugName, ContextMap additionalProperties) {
-            Material.Baked material = baker.materials().resolveSlot(textures, TextureSlot.PARTICLE.getId(), debugName);
-            TextureAtlasSprite texture = material.sprite();
+        protected void addQuads(IGeometryBakingContext owner, IModelBuilder<?> modelBuilder, ModelBaker baker, Function<net.minecraft.client.resources.model.Material, TextureAtlasSprite> spriteGetter, ModelState modelTransform) {
+            TextureAtlasSprite texture = spriteGetter.apply(owner.getMaterial("particle"));
 
             var quadBaker = new QuadBakingVertexConsumer();
 
             quadBaker.setDirection(Direction.UP);
-            quadBaker.setSprite(material, texture.transparency());
+            quadBaker.setSprite(texture);
 
             quadBaker.addVertex(0, 1, 0.5f).setColor(255, 255, 255, 255).setUv(texture.getU(0), texture.getV(0)).setOverlay(0).setNormal(0, 0, 0);
             quadBaker.addVertex(0, 0, 0.5f).setColor(255, 255, 255, 255).setUv(texture.getU(0), texture.getV(16)).setOverlay(0).setNormal(0, 0, 0);
             quadBaker.addVertex(1, 0, 0.5f).setColor(255, 255, 255, 255).setUv(texture.getU(16), texture.getV(16)).setOverlay(0).setNormal(0, 0, 0);
             quadBaker.addVertex(1, 1, 0.5f).setColor(255, 255, 255, 255).setUv(texture.getU(16), texture.getV(0)).setOverlay(0).setNormal(0, 0, 0);
 
-            return new QuadCollection.Builder().addUnculledFace(quadBaker.bakeQuad()).build();
+            modelBuilder.addUnculledFace(quadBaker.bakeQuad());
         }
     }
 
-    private void datagen(GatherDataEvent.Client event) {
+    private void datagen(GatherDataEvent event) {
         DataGenerator gen = event.getGenerator();
         final PackOutput output = gen.getPackOutput();
 
         // Let blockstate provider see generated item models by passing its existing file helper
-        gen.addProvider(true, new ModelGen(output));
+        ItemModelProvider itemModels = new ItemModels(output, event.getExistingFileHelper());
+        gen.addProvider(event.includeClient(), itemModels);
+        gen.addProvider(event.includeClient(), new BlockStates(output, itemModels.existingFileHelper));
     }
 
-    private static class ModelGen extends ModelProvider {
-        public ModelGen(PackOutput output) {
-            super(output, MODID);
+    public static class ItemModels extends ItemModelProvider {
+        public ItemModels(PackOutput output, ExistingFileHelper existingFileHelper) {
+            super(output, MODID, existingFileHelper);
         }
 
         @Override
-        protected void registerModels(BlockModelGenerators blockModels, ItemModelGenerators itemModels) {
-            createModelAndBlockState(obj_block, "sugar_glider", blockModels);
-            createModelAndBlockState(obj_block_same_part_names, "sugar_glider_same_part_names", blockModels);
+        protected void registerModels() {
+            withExistingParent(NewModelLoaderTest.item_layers.getId().getPath(), "neoforge:item/default")
+                    .texture("particle", "minecraft:block/red_stained_glass")
+                    .texture("layer0", "minecraft:item/coal")
+                    .texture("layer1", "minecraft:item/stick")
+                    .customLoader(ItemLayerModelBuilder::begin)
+                    .emissive(15, 15, 1)
+                    .end();
+            withExistingParent(NewModelLoaderTest.separate_perspective.getId().getPath(), "neoforge:item/default")
+                    .customLoader(SeparateTransformsModelBuilder::begin)
+                    .base(nested().parent(getExistingFile(mcLoc("minecraft:item/coal"))))
+                    .perspective(ItemDisplayContext.GUI, nested().parent(getExistingFile(mcLoc("minecraft:item/snowball"))))
+                    .perspective(ItemDisplayContext.FIRST_PERSON_LEFT_HAND, nested().parent(getExistingFile(mcLoc("minecraft:item/bone"))))
+                    .end();
         }
+    }
 
-        private void createModelAndBlockState(DeferredBlock<Block> block, String objModel, BlockModelGenerators blockModels) {
-            var qrTexture = TextureSlot.create("qr");
-
-            blockModels.createHorizontallyRotatedBlock(block.value(), TexturedModel.ORIENTABLE.updateTemplate(template -> template.extend()
-                    .customLoader(ObjModelBuilder::new, loader -> loader
-                            .modelLocation(Identifier.fromNamespaceAndPath("new_model_loader_test", "models/item/" + objModel + ".obj"))
-                            .flipV(true))
-                    .requiredTextureSlot(qrTexture)
-                    .build())
-                    .updateTexture(textures -> textures
-                            .put(qrTexture, TextureMapping.getBlockTexture(Blocks.OAK_PLANKS))
-                            .copySlot(qrTexture, TextureSlot.PARTICLE)));
+    public static class BlockStates extends BlockStateProvider {
+        public BlockStates(PackOutput output, ExistingFileHelper exFileHelper) {
+            super(output, MODID, exFileHelper);
         }
 
         @Override
-        protected Stream<? extends Holder<Block>> getKnownBlocks() {
-            return Stream.of(obj_block, obj_block_same_part_names);
+        protected void registerStatesAndModels() {
+            createModelAndBlockState(obj_block, "sugar_glider");
+            createModelAndBlockState(obj_block_same_part_names, "sugar_glider_same_part_names");
         }
 
-        @Override
-        protected Stream<? extends Holder<Item>> getKnownItems() {
-            return Stream.of(obj_item, obj_item_same_part_names);
+        private void createModelAndBlockState(DeferredBlock<Block> block, String objModel) {
+            BlockModelBuilder model = models()
+                    .getBuilder(block.getId().getPath())
+                    .customLoader(ObjModelBuilder::begin)
+                    .modelLocation(ResourceLocation.fromNamespaceAndPath("new_model_loader_test", "models/item/" + objModel + ".obj"))
+                    .flipV(true)
+                    .end()
+                    .texture("qr", "minecraft:block/oak_planks")
+                    .texture("particle", "#qr");
+            getVariantBuilder(block.get())
+                    .partialState()
+                    .with(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                    .addModels(new ConfiguredModel(model, 0, 90, false))
+                    .partialState()
+                    .with(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST)
+                    .addModels(new ConfiguredModel(model, 0, 270, false))
+                    .partialState()
+                    .with(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
+                    .addModels(new ConfiguredModel(model))
+                    .partialState()
+                    .with(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH)
+                    .addModels(new ConfiguredModel(model, 0, 180, false))
+                    .partialState();
         }
     }
 }

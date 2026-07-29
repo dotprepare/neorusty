@@ -1,17 +1,8 @@
 {
     "parent": "minecraft:block/slab",
     "textures": {
-        "bottom": {
-            "sprite": "minecraft:block/glass",
-            "force_translucent": true
-        },
-        "top": {
-            "sprite": "minecraft:block/glass",
-            "force_translucent": true
-        },
-        "side": {
-            "sprite": "minecraft:block/glass",
-            "force_translucent": true
-        }
+        "bottom": "minecraft:block/glass",
+        "top": "minecraft:block/glass",
+        "side": "minecraft:block/glass"
     }
 }

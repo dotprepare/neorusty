@@ -4,8 +4,6 @@ import io.codechicken.diffpatch.cli.PatchOperation;
 import io.codechicken.diffpatch.util.Input.MultiInput;
 import io.codechicken.diffpatch.util.Output.MultiOutput;
 import io.codechicken.diffpatch.util.PatchMode;
-import java.io.IOException;
-import javax.inject.Inject;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
@@ -20,6 +18,9 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
+
+import javax.inject.Inject;
+import java.io.IOException;
 
 /**
  * Applies Java source patches to a source jar and produces a patched source jar as an output.
@@ -62,7 +63,6 @@ abstract class ApplyPatches extends DefaultTask {
                 .mode(isUpdating ? PatchMode.FUZZY : PatchMode.ACCESS)
                 .aPrefix("a/")
                 .bPrefix("b/")
-                .rejectsAsPatches(true)
                 .level(isUpdating ? io.codechicken.diffpatch.util.LogLevel.ALL : io.codechicken.diffpatch.util.LogLevel.WARN)
                 .minFuzz(0.9f); // The 0.5 default in DiffPatch is too low.
 

@@ -8,7 +8,7 @@ package net.neoforged.neoforge.event.entity.living;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.ICancellableEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Event for when an entity drops experience on its death, can be used to change

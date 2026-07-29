@@ -7,7 +7,7 @@ package net.neoforged.neoforge.unittest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.flag.FeatureFlag;
 import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.flag.FeatureFlags;
@@ -24,7 +24,7 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(1)
     void testFlagLoaded() {
-        Identifier name = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "test_flag");
+        ResourceLocation name = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "test_flag");
         FeatureFlag flag = FeatureFlags.REGISTRY.getFlag(name);
         assertThat(flag).isNotNull();
     }
@@ -32,7 +32,7 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(2)
     void testFlagSetContains() {
-        Identifier name = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation name = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
 
         FeatureFlag flag = FeatureFlags.REGISTRY.getFlag(name);
         assertThat(flag).isNotNull();
@@ -51,10 +51,10 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(4)
     void testFlagSetEquals() {
-        Identifier nameOne = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
-        Identifier nameTwo = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
+        ResourceLocation nameOne = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation nameTwo = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
         // Same mask as nameOne, but at a different offset
-        Identifier nameThree = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_32");
+        ResourceLocation nameThree = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_32");
 
         FeatureFlag flagOne = FeatureFlags.REGISTRY.getFlag(nameOne);
         FeatureFlag flagTwo = FeatureFlags.REGISTRY.getFlag(nameTwo);
@@ -80,8 +80,8 @@ public class CustomFeatureFlagsTest {
     @Order(5)
     void testFlagSetEqualsVanilla() {
         FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA);
-        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS);
-        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.BUNDLE);
+        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE);
         FeatureFlagSet flagSetFour = FeatureFlagSet.of(FeatureFlags.VANILLA);
 
         assertThat(flagSetOne).isNotEqualTo(flagSetTwo);
@@ -93,9 +93,9 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(6)
     void testFlagSetIsSubsetOf() {
-        Identifier nameOne = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
-        Identifier nameTwo = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
-        Identifier nameThree = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_98");
+        ResourceLocation nameOne = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation nameTwo = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
+        ResourceLocation nameThree = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_98");
 
         FeatureFlag flagOne = FeatureFlags.REGISTRY.getFlag(nameOne);
         FeatureFlag flagTwo = FeatureFlags.REGISTRY.getFlag(nameTwo);
@@ -113,8 +113,8 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(7)
     void testFlagSetIsSubsetOfVanilla() {
-        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS, FeatureFlags.TRADE_REBALANCE);
-        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE, FeatureFlags.TRADE_REBALANCE);
+        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE);
         assertThat(flagSetTwo.isSubsetOf(flagSetOne)).isTrue();
         assertThat(flagSetOne.isSubsetOf(flagSetTwo)).isFalse();
     }
@@ -122,8 +122,8 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(8)
     void testFlagSetIntersects() {
-        Identifier nameOne = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
-        Identifier nameTwo = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
+        ResourceLocation nameOne = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation nameTwo = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
 
         FeatureFlag flagOne = FeatureFlags.REGISTRY.getFlag(nameOne);
         FeatureFlag flagTwo = FeatureFlags.REGISTRY.getFlag(nameTwo);
@@ -141,9 +141,9 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(9)
     void testFlagSetIntersectsVanilla() {
-        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE);
         FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.VANILLA);
-        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.BUNDLE);
         assertThat(flagSetOne.intersects(flagSetTwo)).isTrue();
         assertThat(flagSetOne.intersects(flagSetThree)).isTrue();
         assertThat(flagSetTwo.intersects(flagSetThree)).isFalse();
@@ -152,8 +152,8 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(10)
     void testFlagSetJoin() {
-        Identifier nameOne = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
-        Identifier nameTwo = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
+        ResourceLocation nameOne = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation nameTwo = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
 
         FeatureFlag flagOne = FeatureFlags.REGISTRY.getFlag(nameOne);
         FeatureFlag flagTwo = FeatureFlags.REGISTRY.getFlag(nameTwo);
@@ -171,8 +171,8 @@ public class CustomFeatureFlagsTest {
     @Order(11)
     void testFlagSetJoinVanilla() {
         FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA);
-        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS);
-        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.BUNDLE);
+        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE);
 
         assertThat(flagSetOne.join(flagSetTwo)).isEqualTo(flagSetThree);
     }
@@ -180,8 +180,8 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(12)
     void testFlagSetSubtract() {
-        Identifier nameOne = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
-        Identifier nameTwo = Identifier.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
+        ResourceLocation nameOne = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_96");
+        ResourceLocation nameTwo = ResourceLocation.fromNamespaceAndPath("custom_feature_flags_test", "many_flags_97");
 
         FeatureFlag flagOne = FeatureFlags.REGISTRY.getFlag(nameOne);
         FeatureFlag flagTwo = FeatureFlags.REGISTRY.getFlag(nameTwo);
@@ -198,9 +198,9 @@ public class CustomFeatureFlagsTest {
     @Test
     @Order(13)
     void testFlagSetSubtractVanilla() {
-        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetOne = FeatureFlagSet.of(FeatureFlags.VANILLA, FeatureFlags.BUNDLE);
         FeatureFlagSet flagSetTwo = FeatureFlagSet.of(FeatureFlags.VANILLA);
-        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS);
+        FeatureFlagSet flagSetThree = FeatureFlagSet.of(FeatureFlags.BUNDLE);
 
         assertThat(flagSetOne.subtract(flagSetTwo)).isEqualTo(flagSetThree);
     }

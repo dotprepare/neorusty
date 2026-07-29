@@ -19,13 +19,12 @@ import java.util.Map;
 import java.util.Set;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringRepresentable;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
 import org.joml.Vector3f;
-import org.joml.Vector3fc;
 import org.joml.Vector4f;
-import org.jspecify.annotations.Nullable;
 
 public final class TransformationHelper {
     public static Quaternionf quatFromXYZ(Vector3f xyz, boolean degrees) {
@@ -45,7 +44,7 @@ public final class TransformationHelper {
         return new Quaternionf(values[0], values[1], values[2], values[3]);
     }
 
-    public static Vector3f lerp(Vector3fc from, Vector3fc to, float progress) {
+    public static Vector3f lerp(Vector3f from, Vector3f to, float progress) {
         Vector3f res = new Vector3f(from);
         res.lerp(to, progress);
         return res;
@@ -97,10 +96,10 @@ public final class TransformationHelper {
 
     public static Transformation slerp(Transformation one, Transformation that, float progress) {
         return new Transformation(
-                lerp(one.translation(), that.translation(), progress),
-                slerp(one.leftRotation(), that.leftRotation(), progress),
-                lerp(one.scale(), that.scale(), progress),
-                slerp(one.rightRotation(), that.rightRotation(), progress));
+                lerp(one.getTranslation(), that.getTranslation(), progress),
+                slerp(one.getLeftRotation(), that.getLeftRotation(), progress),
+                lerp(one.getScale(), that.getScale(), progress),
+                slerp(one.getRightRotation(), that.getRightRotation(), progress));
     }
 
     public static boolean epsilonEquals(Vector4f v1, Vector4f v2, float epsilon) {
@@ -116,7 +115,7 @@ public final class TransformationHelper {
             if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isString()) {
                 String transform = json.getAsString();
                 if (transform.equals("identity")) {
-                    return Transformation.IDENTITY;
+                    return Transformation.identity();
                 } else {
                     throw new JsonParseException("TRSR: unknown default string: " + transform);
                 }

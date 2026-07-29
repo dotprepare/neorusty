@@ -8,8 +8,7 @@ package net.neoforged.neoforge.debug.block;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.TriState;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -19,16 +18,15 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChorusPlantBlock;
 import net.minecraft.world.level.block.MangrovePropaguleBlock;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
-// TODO - check the light based tests
 @ForEachTest(groups = { "level.block.survivability" })
 public class CanSustainPlantTests {
     @GameTest
@@ -38,15 +36,15 @@ public class CanSustainPlantTests {
     })
     static void survivabilityLilyPadTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
 
         final BlockPos belowBlock = new BlockPos(1, 1, 1);
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
-                .thenExecute(player -> player.snapTo(Vec3.atCenterOf(helper.absolutePos(belowBlock).north())))
-                .thenExecute(player -> player.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(helper.absolutePos(belowBlock))))
+                .thenExecute(player -> player.moveTo(helper.absolutePos(belowBlock).above().north().getCenter()))
+                .thenExecute(player -> player.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absolutePos(belowBlock).getCenter()))
 
                 .thenExecute(() -> helper.setBlock(belowBlock, Blocks.WATER))
                 .thenExecute(player -> player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.LILY_PAD)))
@@ -71,8 +69,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> Items.LILY_PAD.use(helper.getLevel(), player, InteractionHand.MAIN_HAND))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.LILY_PAD, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -83,7 +79,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityRedMushroomTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -135,8 +131,6 @@ public class CanSustainPlantTests {
 //                .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.RED_MUSHROOM), Direction.UP))
 //                .thenExecute(() -> helper.assertBlockPresent(Blocks.RED_MUSHROOM, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -147,7 +141,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityWheatTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -179,8 +173,6 @@ public class CanSustainPlantTests {
 //                .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.WHEAT_SEEDS), Direction.UP))
 //                .thenExecute(() -> helper.assertBlockNotPresent(Blocks.WHEAT, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -191,7 +183,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityPitcherCropTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -223,8 +215,6 @@ public class CanSustainPlantTests {
 //                .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.PITCHER_POD), Direction.UP))
 //                .thenExecute(() -> helper.assertBlockNotPresent(Blocks.PITCHER_CROP, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -235,7 +225,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityBambooTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -271,8 +261,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.BAMBOO), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.BAMBOO_SAPLING, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -283,7 +271,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityCactusTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -313,20 +301,18 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.CACTUS), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.CACTUS, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
     @GameTest
     @EmptyTemplate(floor = true)
     @TestHolder(description = {
-            "Dead Bushes should be placeable on dirt, sand, terracotta and farmland, but not on glazed terracotta. And plantable on custom blocks that allow the plant.",
+            "Dead Bushes should be placeable on dirt, sand, and terracotta, but not on glazed terracotta nor farmland. And plantable on custom blocks that allow the plant.",
             "(neoforged/NeoForge#306)"
     })
     static void survivabilityDeadBushTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -338,7 +324,7 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.DEAD_BUSH, belowBlock.above()))
 
                 .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR))
-                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.DYED_TERRACOTTA.white()))
+                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.WHITE_TERRACOTTA))
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.DEAD_BUSH), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.DEAD_BUSH, belowBlock.above()))
 
@@ -353,12 +339,12 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.DEAD_BUSH, belowBlock.above()))
 
                 .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR))
-                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.FARMLAND))
+                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.WHITE_GLAZED_TERRACOTTA))
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.DEAD_BUSH), Direction.UP))
-                .thenExecute(() -> helper.assertBlockPresent(Blocks.DEAD_BUSH, belowBlock.above()))
+                .thenExecute(() -> helper.assertBlockNotPresent(Blocks.DEAD_BUSH, belowBlock.above()))
 
                 .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR))
-                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.GLAZED_TERRACOTTA.white()))
+                .thenExecute(() -> helper.setBlock(belowBlock, Blocks.FARMLAND))
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.DEAD_BUSH), Direction.UP))
                 .thenExecute(() -> helper.assertBlockNotPresent(Blocks.DEAD_BUSH, belowBlock.above()))
 
@@ -377,7 +363,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityOakSaplingTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -403,8 +389,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.OAK_SAPLING), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.OAK_SAPLING, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -415,7 +399,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityHangingMangrovePropaguleTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -437,8 +421,6 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.setBlock(aboveBlock.below().north(), Blocks.STONE)) // Trigger block update on neighbors
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.MANGROVE_PROPAGULE, aboveBlock.below()))
 
-                .thenExecute(() -> helper.setBlock(aboveBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -449,7 +431,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilitySugarCaneTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -495,8 +477,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.SUGAR_CANE), Direction.UP))
                 .thenExecute(() -> helper.assertBlockNotPresent(Blocks.SUGAR_CANE, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -507,7 +487,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilitySmallDripleafTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -553,8 +533,6 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.assertBlockNotPresent(Blocks.SMALL_DRIPLEAF, belowBlock))
                 .thenExecute(() -> helper.assertBlockNotPresent(Blocks.SMALL_DRIPLEAF, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -565,7 +543,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityBigDripleafTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -607,8 +585,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock.above(), player, new ItemStack(Items.BIG_DRIPLEAF), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.BIG_DRIPLEAF, belowBlock.above(2)))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -619,7 +595,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityChorusPlantTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -628,10 +604,10 @@ public class CanSustainPlantTests {
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
                 .thenExecute(() -> helper.setBlock(belowBlock, Blocks.END_STONE))
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.CHORUS_PLANT), Direction.UP))
-                .thenExecute(() -> helper.assertBlockState(belowBlock.above(), (state) -> state.getValue(ChorusPlantBlock.DOWN), $ -> Component.literal("Chorus Plant not found with down property")))
+                .thenExecute(() -> helper.assertBlockState(belowBlock.above(), (state) -> state.getValue(ChorusPlantBlock.DOWN), () -> "Chorus Plant not found with down property"))
 
                 .thenExecute(player -> helper.useBlock(belowBlock.above(), player, new ItemStack(Items.CHORUS_PLANT), Direction.UP))
-                .thenExecute(() -> helper.assertBlockState(belowBlock.above(2), (state) -> state.getValue(ChorusPlantBlock.DOWN), $ -> Component.literal("Chorus Plant not found with down property")))
+                .thenExecute(() -> helper.assertBlockState(belowBlock.above(2), (state) -> state.getValue(ChorusPlantBlock.DOWN), () -> "Chorus Plant not found with down property"))
 
                 .thenExecute(() -> helper.setBlock(belowBlock.above(2), Blocks.AIR))
                 .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR))
@@ -647,9 +623,7 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR))
                 .thenExecute(() -> helper.setBlock(belowBlock, sustainingBlock.get()))
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.CHORUS_PLANT), Direction.UP))
-                .thenExecute(() -> helper.assertBlockState(belowBlock.above(), (state) -> state.getValue(ChorusPlantBlock.DOWN), $ -> Component.literal("Chorus Plant not found with down property")))
-
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
+                .thenExecute(() -> helper.assertBlockState(belowBlock.above(), (state) -> state.getValue(ChorusPlantBlock.DOWN), () -> "Chorus Plant not found with down property"))
 
                 .thenSucceed());
     }
@@ -661,7 +635,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityChorusFlowerTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -692,8 +666,6 @@ public class CanSustainPlantTests {
                 .thenExecute(player -> helper.useBlock(belowBlock, player, new ItemStack(Items.CHORUS_FLOWER), Direction.UP))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.CHORUS_FLOWER, belowBlock.above()))
 
-                .thenExecute(() -> helper.setBlock(belowBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
-
                 .thenSucceed());
     }
 
@@ -704,7 +676,7 @@ public class CanSustainPlantTests {
     })
     static void survivabilityCocoaTest(final DynamicTest test, final RegistrationHelper reg) {
         final var sustainingBlock = reg.blocks()
-                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new)
+                .registerBlock("super_sustaining_sustaining_block", CustomSuperSustainingBlock::new, BlockBehaviour.Properties.of())
                 .withLang("Super Sustaining block")
                 .withDefaultWhiteModel()
                 .withBlockItem();
@@ -724,8 +696,6 @@ public class CanSustainPlantTests {
                 .thenExecute(() -> helper.setBlock(centerBlock.north(), sustainingBlock.get()))
                 .thenExecute(player -> helper.useBlock(centerBlock.north(), player, new ItemStack(Items.COCOA_BEANS), Direction.SOUTH))
                 .thenExecute(() -> helper.assertBlockPresent(Blocks.COCOA, centerBlock))
-
-                .thenExecute(() -> helper.setBlock(centerBlock.above(), Blocks.AIR)) // Clear the plant so that it doesn't try to randomly tick to grow and crash because of the side check
 
                 .thenSucceed());
     }

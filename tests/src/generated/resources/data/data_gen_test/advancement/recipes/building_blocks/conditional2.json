@@ -13,11 +13,11 @@
             }
           },
           {
-            "type": "neoforge:registered",
-            "value": "minecraft:dirt"
+            "type": "neoforge:item_exists",
+            "item": "minecraft:dirt"
           },
           {
-            "type": "neoforge:never"
+            "type": "neoforge:false"
           }
         ]
       }

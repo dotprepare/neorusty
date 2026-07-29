@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import net.minecraft.advancements.predicates.ItemPredicate;
+import net.minecraft.advancements.critereon.ItemPredicate;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.WritableRegistry;
@@ -22,15 +22,15 @@ import net.minecraft.data.PackOutput;
 import net.minecraft.data.loot.LootTableProvider;
 import net.minecraft.data.loot.LootTableSubProvider;
 import net.minecraft.data.loot.packs.VanillaLootTableProvider;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
-import net.minecraft.world.level.storage.loot.ValidationContextSource;
+import net.minecraft.world.level.storage.loot.ValidationContext;
 import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
 import net.minecraft.world.level.storage.loot.entries.CompositeEntryBase;
 import net.minecraft.world.level.storage.loot.entries.DynamicLoot;
@@ -52,7 +52,7 @@ import net.minecraft.world.level.storage.loot.predicates.MatchTool;
 import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.common.ItemAbilities;
 import net.neoforged.neoforge.common.loot.CanItemPerformAbility;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Currently used only for replacing shears item to shears_dig item ability
@@ -65,7 +65,7 @@ public final class NeoForgeLootTableProvider extends LootTableProvider {
     }
 
     @Override
-    protected void validate(WritableRegistry<LootTable> tables, ValidationContextSource validationContext, ProblemReporter.Collector problems) {
+    protected void validate(WritableRegistry<LootTable> writableregistry, ValidationContext validationcontext, ProblemReporter.Collector problemreporter$collector) {
         // Do not validate against all registered loot tables
     }
 
@@ -96,10 +96,11 @@ public final class NeoForgeLootTableProvider extends LootTableProvider {
         conditionReplacers.add(replacer);
     }
 
-    private LootTable.@Nullable Builder findAndReplaceInLootTableBuilder(LootTable.Builder builder) {
+    @Nullable
+    private LootTable.Builder findAndReplaceInLootTableBuilder(LootTable.Builder builder) {
         LootTable lootTable = builder.build();
 
-        Optional<Identifier> randomSequence = getPrivateValue(LootTable.class, lootTable, "randomSequence");
+        Optional<ResourceLocation> randomSequence = getPrivateValue(LootTable.class, lootTable, "randomSequence");
         List<LootPool> lootPools = getPrivateValue(LootTable.class, lootTable, "pools");
         List<LootItemFunction> lootItemFunctions = getPrivateValue(LootTable.class, lootTable, "functions");
 
@@ -143,8 +144,6 @@ public final class NeoForgeLootTableProvider extends LootTableProvider {
                 } else {
                     found |= replaceCondition(invLootCondition, consumer);
                 }
-            } else if (lootCondition instanceof CompositeLootItemCondition composite) {
-                found |= findAndReplaceInComposite(composite, poolBuilder::when);
             } else {
                 found |= replaceCondition(lootCondition, poolBuilder::when);
             }
@@ -193,7 +192,7 @@ public final class NeoForgeLootTableProvider extends LootTableProvider {
             found |= findAndReplaceInParentedLootEntry(compositeEntryBase, consumer);
         } else if (entry instanceof LootPoolSingletonContainer singleton) {
             if (singleton instanceof DynamicLoot dynamicLoot) {
-                Identifier name = getPrivateValue(DynamicLoot.class, dynamicLoot, "name");
+                ResourceLocation name = getPrivateValue(DynamicLoot.class, dynamicLoot, "name");
                 builder = DynamicLoot.dynamicEntry(name);
             } else if (singleton instanceof EmptyLootItem) {
                 builder = EmptyLootItem.emptyItem();

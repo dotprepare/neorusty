@@ -25,8 +25,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.neoforged.neoforge.common.conditions.ConditionalOps;
 import net.neoforged.neoforge.common.conditions.ICondition;
@@ -66,8 +66,8 @@ public abstract class DataMapProvider implements DataProvider {
 
             return CompletableFuture.allOf(this.builders.entrySet().stream().map(entry -> {
                 DataMapType<?, ?> type = entry.getKey();
-                final Path path = this.pathProvider.json(type.id().withPrefix(DataMapLoader.getFolderLocation(type.registryKey().identifier()) + "/"));
-                return (CompletableFuture<Object>) generate(path, cache, entry.getValue(), dynamicOps);
+                final Path path = this.pathProvider.json(type.id().withPrefix(DataMapLoader.getFolderLocation(type.registryKey().location()) + "/"));
+                return generate(path, cache, entry.getValue(), dynamicOps);
             }).toArray(CompletableFuture[]::new));
         });
     }
@@ -81,8 +81,18 @@ public abstract class DataMapProvider implements DataProvider {
 
     /**
      * Generate data map entries.
+     *
+     * @deprecated Use {@link #gather(HolderLookup.Provider)} instead.
      */
-    protected abstract void gather(HolderLookup.Provider provider);
+    @Deprecated(forRemoval = true)
+    protected void gather() {}
+
+    /**
+     * Generate data map entries.
+     */
+    protected void gather(HolderLookup.Provider provider) {
+        gather();
+    }
 
     @SuppressWarnings("unchecked")
     public <T, R> Builder<T, R> builder(DataMapType<R, T> type) {
@@ -122,7 +132,7 @@ public abstract class DataMapProvider implements DataProvider {
             return this;
         }
 
-        public Builder<T, R> add(Identifier id, T value, boolean replace, ICondition... conditions) {
+        public Builder<T, R> add(ResourceLocation id, T value, boolean replace, ICondition... conditions) {
             return add(ResourceKey.create(registryKey, id), value, replace, conditions);
         }
 
@@ -135,7 +145,7 @@ public abstract class DataMapProvider implements DataProvider {
             return this;
         }
 
-        public Builder<T, R> remove(Identifier id) {
+        public Builder<T, R> remove(ResourceLocation id) {
             this.removals.add(new DataMapEntry.Removal<>(Either.right(ResourceKey.create(registryKey, id)), Optional.empty()));
             return this;
         }
@@ -180,7 +190,7 @@ public abstract class DataMapProvider implements DataProvider {
             return this;
         }
 
-        public AdvancedBuilder<T, R, VR> remove(Identifier id, VR remover) {
+        public AdvancedBuilder<T, R, VR> remove(ResourceLocation id, VR remover) {
             this.removals.add(new DataMapEntry.Removal<>(Either.right(ResourceKey.create(registryKey, id)), Optional.of(remover)));
             return this;
         }

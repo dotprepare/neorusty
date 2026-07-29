@@ -7,30 +7,27 @@ package net.neoforged.neoforge.attachment;
 
 import com.google.common.base.Predicates;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.DataResult;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.ProtoChunk;
-import net.minecraft.world.level.storage.TagValueInput;
-import net.minecraft.world.level.storage.TagValueOutput;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.common.util.ValueIOSerializable;
+import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a data attachment type: some data that can be added to any object implementing {@link IAttachmentHolder}.
@@ -52,14 +49,14 @@ import org.jspecify.annotations.Nullable;
  * </ul>
  * <h3>{@link ChunkAccess}-exclusive behavior:</h3>
  * <ul>
- * <li>Modifications to attachments should be followed by a call to {@link ChunkAccess#markUnsaved}.</li>
+ * <li>Modifications to attachments should be followed by a call to {@link ChunkAccess#setUnsaved(boolean)}.</li>
  * <li>Serializable attachments are copied from a {@link ProtoChunk} to a {@link LevelChunk} on promotion.</li>
  * </ul>
  */
 public final class AttachmentType<T> {
     final Function<IAttachmentHolder, T> defaultValueSupplier;
     @Nullable
-    final IAttachmentSerializer<T> serializer;
+    final IAttachmentSerializer<?, T> serializer;
     final boolean copyOnDeath;
     final IAttachmentCopyHandler<T> copyHandler;
     @Nullable
@@ -73,29 +70,18 @@ public final class AttachmentType<T> {
         this.syncHandler = builder.syncHandler;
     }
 
-    private static <T> IAttachmentCopyHandler<T> defaultCopyHandler(@Nullable IAttachmentSerializer<T> serializer) {
+    private static <T, H extends Tag> IAttachmentCopyHandler<T> defaultCopyHandler(@Nullable IAttachmentSerializer<H, T> serializer) {
         if (serializer == null) {
             return (attachment, holder, provider) -> {
                 throw new UnsupportedOperationException("Cannot copy non-serializable attachments");
             };
         }
         return (attachment, holder, provider) -> {
-            ProblemReporter.Collector reporter = new ProblemReporter.Collector();
-            var output = TagValueOutput.createWithContext(reporter, provider);
-            if (!serializer.write(attachment, output)) {
-                return null;
+            H serialized = serializer.write(attachment, provider);
+            if (serialized != null) {
+                return serializer.read(holder, serialized, provider);
             }
-            if (!reporter.isEmpty()) {
-                throw new IllegalArgumentException("Attachment failed to serialise during copy: " + reporter.getReport());
-            }
-
-            reporter = new ProblemReporter.Collector();
-            var input = TagValueInput.create(reporter, provider, output.buildResult());
-            var attach = serializer.read(holder, input);
-            if (!reporter.isEmpty()) {
-                throw new IllegalArgumentException("Attachment failed to deserialise during copy: " + reporter.getReport());
-            }
-            return attach;
+            return null;
         };
     }
 
@@ -125,17 +111,17 @@ public final class AttachmentType<T> {
     }
 
     /**
-     * Create a builder for an attachment type that uses {@link ValueIOSerializable} for serialization.
+     * Create a builder for an attachment type that uses {@link INBTSerializable} for serialization.
      * Other kinds of serialization can be implemented using {@link #builder(Supplier)} and {@link Builder#serialize(IAttachmentSerializer)}.
      *
      * <p>See {@link #serializable(Function)} for attachments that want to capture a reference to their holder.
      */
-    public static <T extends ValueIOSerializable> Builder<T> serializable(Supplier<T> defaultValueSupplier) {
+    public static <S extends Tag, T extends INBTSerializable<S>> Builder<T> serializable(Supplier<T> defaultValueSupplier) {
         return serializable(holder -> defaultValueSupplier.get());
     }
 
     /**
-     * Create a builder for an attachment type that uses {@link ValueIOSerializable} for serialization.
+     * Create a builder for an attachment type that uses {@link INBTSerializable} for serialization.
      * Other kinds of serialization can be implemented using {@link #builder(Supplier)} and {@link Builder#serialize(IAttachmentSerializer)}.
      *
      * <p>This overload allows capturing a reference to the {@link IAttachmentHolder} for the attachment.
@@ -143,19 +129,19 @@ public final class AttachmentType<T> {
      * If the holder is of the wrong type, the constructor should throw an exception.
      * See {@link #serializable(Supplier)} for an overload that does not capture the holder.
      */
-    public static <T extends ValueIOSerializable> Builder<T> serializable(Function<IAttachmentHolder, T> defaultValueConstructor) {
-        return builder(defaultValueConstructor).serialize(new IAttachmentSerializer<>() {
+    public static <S extends Tag, T extends INBTSerializable<S>> Builder<T> serializable(Function<IAttachmentHolder, T> defaultValueConstructor) {
+        return builder(defaultValueConstructor).serialize(new IAttachmentSerializer<S, T>() {
             @Override
-            public T read(IAttachmentHolder holder, ValueInput input) {
+            public T read(IAttachmentHolder holder, S tag, HolderLookup.Provider provider) {
                 var ret = defaultValueConstructor.apply(holder);
-                ret.deserialize(input);
+                ret.deserializeNBT(provider, tag);
                 return ret;
             }
 
+            @Nullable
             @Override
-            public boolean write(T attachment, ValueOutput output) {
-                attachment.serialize(output);
-                return true;
+            public S write(T attachment, HolderLookup.Provider provider) {
+                return attachment.serializeNBT(provider);
             }
         });
     }
@@ -163,7 +149,7 @@ public final class AttachmentType<T> {
     public static class Builder<T> {
         private final Function<IAttachmentHolder, T> defaultValueSupplier;
         @Nullable
-        private IAttachmentSerializer<T> serializer;
+        private IAttachmentSerializer<?, T> serializer;
         private boolean copyOnDeath;
         @Nullable
         private IAttachmentCopyHandler<T> copyHandler;
@@ -179,7 +165,7 @@ public final class AttachmentType<T> {
          *
          * @param serializer The serializer to use.
          */
-        public Builder<T> serialize(IAttachmentSerializer<T> serializer) {
+        public Builder<T> serialize(IAttachmentSerializer<?, T> serializer) {
             Objects.requireNonNull(serializer);
             if (this.serializer != null)
                 throw new IllegalStateException("Serializer already set");
@@ -195,7 +181,7 @@ public final class AttachmentType<T> {
          *
          * @param codec The codec to use.
          */
-        public Builder<T> serialize(MapCodec<T> codec) {
+        public Builder<T> serialize(Codec<T> codec) {
             return serialize(codec, Predicates.alwaysTrue());
         }
 
@@ -207,26 +193,27 @@ public final class AttachmentType<T> {
          * @param codec           The codec to use.
          * @param shouldSerialize A check that determines whether serialization of the attachment should occur.
          */
-        public Builder<T> serialize(MapCodec<T> codec, Predicate<? super T> shouldSerialize) {
+        public Builder<T> serialize(Codec<T> codec, Predicate<? super T> shouldSerialize) {
             Objects.requireNonNull(codec);
             return serialize(new IAttachmentSerializer<>() {
                 @Override
-                public T read(IAttachmentHolder holder, ValueInput input) {
-                    final Optional<T> parsingResult = input.read(codec);
-                    return parsingResult.orElseThrow(() -> buildException("read"));
+                public T read(IAttachmentHolder holder, Tag tag, HolderLookup.Provider provider) {
+                    final DataResult<T> parsingResult = codec.parse(provider.createSerializationContext(NbtOps.INSTANCE), tag);
+                    return parsingResult.getOrThrow(msg -> buildException("read", msg));
                 }
 
+                @Nullable
                 @Override
-                public boolean write(T attachment, ValueOutput output) {
+                public Tag write(T attachment, HolderLookup.Provider provider) {
                     if (!shouldSerialize.test(attachment)) {
-                        return false;
+                        return null;
                     }
-                    output.store(codec, attachment);
-                    return true;
+                    final DataResult<Tag> encodingResult = codec.encodeStart(provider.createSerializationContext(NbtOps.INSTANCE), attachment);
+                    return encodingResult.getOrThrow(msg -> buildException("write", msg));
                 }
 
-                private RuntimeException buildException(final String operation) {
-                    return new IllegalStateException("Unable to " + operation + " attachment due to an internal codec error.");
+                private RuntimeException buildException(final String operation, final String error) {
+                    return new IllegalStateException("Unable to " + operation + " attachment due to an internal codec error: " + error);
                 }
             });
         }

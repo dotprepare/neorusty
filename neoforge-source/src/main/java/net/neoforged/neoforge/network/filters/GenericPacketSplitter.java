@@ -24,7 +24,7 @@ import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.common.NeoForgeMod;
+import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.payload.SplitPacketPayload;
@@ -37,7 +37,7 @@ import org.jetbrains.annotations.ApiStatus;
  * A generic packet splitter that can be used to split packets that are too large to be sent in one go.
  */
 @ApiStatus.Internal
-@EventBusSubscriber(modid = NeoForgeMod.MOD_ID)
+@EventBusSubscriber(modid = NeoForgeVersion.MOD_ID)
 public class GenericPacketSplitter extends MessageToMessageEncoder<Packet<?>> implements DynamicChannelHandler {
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -61,7 +61,7 @@ public class GenericPacketSplitter extends MessageToMessageEncoder<Packet<?>> im
     private static void register(final RegisterPayloadHandlersEvent event) {
         event.registrar("1")
                 .optional()
-                .commonBidirectional(SplitPacketPayload.TYPE, SplitPacketPayload.STREAM_CODEC, GenericPacketSplitter::handle, GenericPacketSplitter::handle);
+                .commonBidirectional(SplitPacketPayload.TYPE, SplitPacketPayload.STREAM_CODEC, GenericPacketSplitter::handle);
     }
 
     private static void handle(SplitPacketPayload payload, IPayloadContext context) {
@@ -193,7 +193,7 @@ public class GenericPacketSplitter extends MessageToMessageEncoder<Packet<?>> im
         temporaryBuf.writeByte(0);
 
         //Then write the payload id, as does the custom payload packet, regardless of flow.
-        temporaryBuf.writeIdentifier(SplitPacketPayload.TYPE.id());
+        temporaryBuf.writeResourceLocation(SplitPacketPayload.TYPE.id());
 
         //Then write the byte prefix to indicate the state of the packet.
         temporaryBuf.writeByte(STATE_FIRST);

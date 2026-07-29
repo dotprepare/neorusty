@@ -7,11 +7,10 @@ package net.neoforged.testframework.impl.test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
+import net.minecraft.gametest.framework.GameTest;
 import net.neoforged.testframework.TestFramework;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.impl.ReflectionUtils;
-import org.jspecify.annotations.Nullable;
 
 public class MethodBasedTest extends AbstractTest.Dynamic {
     protected MethodHandle handle;
@@ -40,11 +39,5 @@ public class MethodBasedTest extends AbstractTest.Dynamic {
         } catch (Throwable e) {
             throw new RuntimeException("Encountered exception initiating method-based test: " + method, e);
         }
-    }
-
-    @Nullable
-    @Override
-    public Method getMethod() {
-        return method;
     }
 }

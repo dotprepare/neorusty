@@ -8,12 +8,13 @@ package net.neoforged.neoforge.debug.block;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DirectionalBlock;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.PistonType;
@@ -22,7 +23,6 @@ import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.StructureTemplateBuilder;
 import net.neoforged.testframework.registration.DeferredBlockBuilder;
 import net.neoforged.testframework.registration.RegistrationHelper;
@@ -34,7 +34,7 @@ public class OnDestroyedByPushReactionTests {
                 .registerBlock(
                         "destroy_on_piston_move",
                         properties -> new DestroyedByPushReactionListeningBlock(properties, callback),
-                        props -> props
+                        BlockBehaviour.Properties.of()
                                 .pushReaction(PushReaction.DESTROY))
                 .withDefaultWhiteModel()
                 .withBlockItem()
@@ -46,7 +46,7 @@ public class OnDestroyedByPushReactionTests {
                 .registerBlock(
                         "push_on_piston_move",
                         properties -> new DestroyedByPushReactionListeningBlock(properties, callback),
-                        props -> props
+                        BlockBehaviour.Properties.of()
                                 .pushReaction(PushReaction.PUSH_ONLY))
                 .withDefaultWhiteModel()
                 .withBlockItem()
@@ -73,16 +73,16 @@ public class OnDestroyedByPushReactionTests {
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
                         "onDestroyedByPushReaction was invoked before test sequence began. Was the AtomicBoolean correctly initialised?"))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should exist
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 1, 1, 0)) // Destroy block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 1, 2, 0)) // Destroy block should exist
 
-                .thenExecute(() -> helper.pullLever(1, 1, 1))
+                .thenExecute(() -> helper.pullLever(1, 2, 1))
                 .thenIdle(10)
 
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should still exist
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 0, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 1, 0)) // The piston's head should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 1, 2, 0)) // Destroy block should not have been pushed
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should still exist
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 2, 0)) // The piston's head should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 1, 3, 0)) // Destroy block should not have been pushed
 
                 .thenExecute(() -> helper.assertTrue(
                         blockMethodWasInvoked.get(),
@@ -113,18 +113,18 @@ public class OnDestroyedByPushReactionTests {
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
                         "onDestroyedByPushReaction was invoked before test sequence began. Was the AtomicBoolean correctly initialised?"))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should exist
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 1, 0)) // Slime block should exist
-                .thenWaitUntil(0, () -> helper.assertBlockState(new BlockPos(0, 1, 0), state -> state.canStickTo(Blocks.SLIME_BLOCK.defaultBlockState()), $ -> Component.literal("Block should exist & be able to stick to slime block")))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 2, 0)) // Destroy block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 2, 0)) // Slime block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockState(new BlockPos(0, 2, 0), state -> state.canStickTo(Blocks.SLIME_BLOCK.defaultBlockState()), () -> "Block should exist & be able to stick to slime block"))
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 3, 0)) // Destroy block should exist
 
-                .thenExecute(() -> helper.pullLever(1, 1, 1))
+                .thenExecute(() -> helper.pullLever(1, 2, 1))
                 .thenIdle(10)
 
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should still exist
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 0, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 1, 0)) // The piston's head should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 3, 0)) // Destroy block should not have been pushed
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should still exist
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 2, 0)) // The piston's head should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 4, 0)) // Destroy block should not have been pushed
 
                 .thenExecute(() -> helper.assertTrue(
                         blockMethodWasInvoked.get(),
@@ -160,21 +160,21 @@ public class OnDestroyedByPushReactionTests {
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
                         "onDestroyedByPushReaction was invoked before test sequence began. Was the AtomicBoolean correctly initialised?"))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.STICKY_PISTON, 1, 0, 0)) // The piston should exist
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 0, 0), PistonBaseBlock.EXTENDED, true)) // The piston should be extended
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 1, 0)) // The piston's head should be extended
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), BlockStateProperties.PISTON_TYPE, PistonType.STICKY)) // The piston's head should be sticky
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 2, 0)) // Slime block should exist
-                .thenWaitUntil(0, () -> helper.assertBlockState(new BlockPos(0, 2, 0), state -> state.canStickTo(Blocks.SLIME_BLOCK.defaultBlockState()), $ -> Component.literal("Block should exist & be able to stick to slime block")))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 1, 0)) // Destroy block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.STICKY_PISTON, 1, 1, 0)) // The piston should exist
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), PistonBaseBlock.EXTENDED, true)) // The piston should be extended
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 2, 0)) // The piston's head should be extended
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 2, 0), BlockStateProperties.PISTON_TYPE, PistonType.STICKY)) // The piston's head should be sticky
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 3, 0)) // Slime block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockState(new BlockPos(0, 3, 0), state -> state.canStickTo(Blocks.SLIME_BLOCK.defaultBlockState()), () -> "Block should exist & be able to stick to slime block"))
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 2, 0)) // Destroy block should exist
 
-                .thenExecute(() -> helper.pullLever(1, 1, 1))
+                .thenExecute(() -> helper.pullLever(1, 2, 1))
                 .thenIdle(10)
 
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.STICKY_PISTON, 1, 0, 0)) // The piston should still exist
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 0, 0), PistonBaseBlock.EXTENDED, false)) // The piston should've retracted
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 1, 0)) // The slime block should have been retracted
-                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 0, 0)) // Destroy block should not have been pushed
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.STICKY_PISTON, 1, 1, 0)) // The piston should still exist
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), PistonBaseBlock.EXTENDED, false)) // The piston should've retracted
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.SLIME_BLOCK, 1, 2, 0)) // The slime block should have been retracted
+                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 1, 0)) // Destroy block should not have been pushed
 
                 .thenExecute(() -> helper.assertTrue(
                         blockMethodWasInvoked.get(),
@@ -203,16 +203,16 @@ public class OnDestroyedByPushReactionTests {
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
                         "onDestroyedByPushReaction was invoked before test sequence began. Was the AtomicBoolean correctly initialised?"))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should exist
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(pushOnPistonMove.get(), 1, 1, 0)) // Push block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(pushOnPistonMove.get(), 1, 2, 0)) // Push block should exist
 
-                .thenExecute(() -> helper.pullLever(1, 1, 1))
+                .thenExecute(() -> helper.pullLever(1, 2, 1))
                 .thenIdle(10)
 
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 0, 0)) // The piston should still exist
-                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 0, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 1, 0)) // The piston's head should've extended
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(pushOnPistonMove.get(), 1, 2, 0)) // Push block should have been pushed
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON, 1, 1, 0)) // The piston should still exist
+                .thenWaitUntil(0, () -> helper.assertBlockProperty(new BlockPos(1, 1, 0), PistonBaseBlock.EXTENDED, true)) // The piston should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(Blocks.PISTON_HEAD, 1, 2, 0)) // The piston's head should've extended
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(pushOnPistonMove.get(), 1, 3, 0)) // Push block should have been pushed
 
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
@@ -238,12 +238,12 @@ public class OnDestroyedByPushReactionTests {
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
                         "onDestroyedByPushReaction was invoked before test sequence began. Was the AtomicBoolean correctly initialised?"))
-                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 0, 0)) // Destroy block should exist
+                .thenWaitUntil(0, () -> helper.assertBlockPresent(destroyOnPistonMove.get(), 0, 1, 0)) // Destroy block should exist
 
-                .thenExecute(() -> helper.destroyBlock(new BlockPos(0, 0, 0)))
+                .thenExecute(() -> helper.destroyBlock(new BlockPos(0, 1, 0)))
                 .thenIdle(10)
 
-                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 0, 0)) // Push block should have been destroyed
+                .thenWaitUntil(0, () -> helper.assertBlockNotPresent(destroyOnPistonMove.get(), 0, 1, 0)) // Push block should have been destroyed
 
                 .thenExecute(() -> helper.assertFalse(
                         blockMethodWasInvoked.get(),
@@ -255,8 +255,8 @@ public class OnDestroyedByPushReactionTests {
     private static class DestroyedByPushReactionListeningBlock extends Block {
         private final Runnable onDestroyedByPushReactionCallback;
 
-        public DestroyedByPushReactionListeningBlock(Properties properties, Runnable onDestroyedByPushReactionCallback) {
-            super(properties);
+        public DestroyedByPushReactionListeningBlock(Properties p_49795_, Runnable onDestroyedByPushReactionCallback) {
+            super(p_49795_);
             this.onDestroyedByPushReactionCallback = onDestroyedByPushReactionCallback;
         }
 

@@ -1,60 +1,83 @@
 --- a/net/minecraft/world/item/ItemStack.java
 +++ b/net/minecraft/world/item/ItemStack.java
-@@ -239,6 +_,10 @@
-         return !this.isEmpty() && this.components.hasNonDefault(type);
+@@ -234,6 +_,10 @@
+         return !this.isEmpty() ? this.components.asPatch() : DataComponentPatch.EMPTY;
      }
  
 +    public boolean isComponentsPatchEmpty() {
-+        return this.isEmpty() || this.components.isPatchEmpty();
++        return !this.isEmpty() ? this.components.isPatchEmpty() : true;
 +    }
 +
-     public ItemStack(ItemLike item, int count) {
-         this(item.asItem().builtInRegistryHolder(), count);
+     public ItemStack(ItemLike p_41599_) {
+         this(p_41599_, 1);
      }
-@@ -358,6 +_,20 @@
+@@ -339,7 +_,7 @@
      }
  
-     public InteractionResult useOn(UseOnContext context) {
-+        var e = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent(context, net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent.UsePhase.ITEM_AFTER_BLOCK));
-+        if (e.isCanceled()) return e.getCancellationResult();
-+        if (!context.getLevel().isClientSide()) return net.neoforged.neoforge.common.CommonHooks.onPlaceItemIntoWorld(context);
-+        return onItemUse(context, (c) -> getItem().useOn(context));
+     public boolean is(Holder<Item> p_220166_) {
+-        return this.getItem().builtInRegistryHolder() == p_220166_;
++        return is(p_220166_.value()); // Neo: Fix comparing for custom holders such as DeferredHolders
+     }
+ 
+     public boolean is(HolderSet<Item> p_298683_) {
+@@ -351,13 +_,26 @@
+     }
+ 
+     public InteractionResult useOn(UseOnContext p_41662_) {
++        var e = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent(p_41662_, net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent.UsePhase.ITEM_AFTER_BLOCK));
++        if (e.isCanceled()) return e.getCancellationResult().result();
++        if (!p_41662_.getLevel().isClientSide) return net.neoforged.neoforge.common.CommonHooks.onPlaceItemIntoWorld(p_41662_);
++        return onItemUse(p_41662_, (c) -> getItem().useOn(p_41662_));
 +    }
 +
-+    @Override
-+    public InteractionResult onItemUseFirst(UseOnContext context) {
-+        var e = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent(context, net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent.UsePhase.ITEM_BEFORE_BLOCK));
-+        if (e.isCanceled()) return e.getCancellationResult();
-+        return onItemUse(context, (c) -> getItem().onItemUseFirst(this, context));
++    public InteractionResult onItemUseFirst(UseOnContext p_41662_) {
++        var e = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent(p_41662_, net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent.UsePhase.ITEM_BEFORE_BLOCK));
++        if (e.isCanceled()) return e.getCancellationResult().result();
++        return onItemUse(p_41662_, (c) -> getItem().onItemUseFirst(this, p_41662_));
 +    }
 +
-+    private InteractionResult onItemUse(UseOnContext context, java.util.function.Function<UseOnContext, InteractionResult> callback) {
-         Player player = context.getPlayer();
-         BlockPos pos = context.getClickedPos();
-         if (player != null && !player.getAbilities().mayBuild && !this.canPlaceOnBlockInAdventureMode(new BlockInWorld(context.getLevel(), pos, false))) {
-@@ -365,7 +_,7 @@
++    private InteractionResult onItemUse(UseOnContext p_41662_, java.util.function.Function<UseOnContext, InteractionResult> callback) {
+         Player player = p_41662_.getPlayer();
+         BlockPos blockpos = p_41662_.getClickedPos();
+         if (player != null && !player.getAbilities().mayBuild && !this.canPlaceOnBlockInAdventureMode(new BlockInWorld(p_41662_.getLevel(), blockpos, false))) {
+             return InteractionResult.PASS;
+         } else {
+             Item item = this.getItem();
+-            InteractionResult interactionresult = item.useOn(p_41662_);
++            InteractionResult interactionresult = callback.apply(p_41662_);
+             if (player != null && interactionresult.indicateItemUse()) {
+                 player.awardStat(Stats.ITEM_USED.get(item));
+             }
+@@ -382,7 +_,8 @@
+         if (this.isEmpty()) {
+             throw new IllegalStateException("Cannot encode empty ItemStack");
+         } else {
+-            return CODEC.encode(this, p_331900_.createSerializationContext(NbtOps.INSTANCE), p_330830_).getOrThrow();
++            // Neo: Logs extra information about this ItemStack on error
++            return net.neoforged.neoforge.common.util.DataComponentUtil.wrapEncodingExceptions(this, CODEC, p_331900_, p_330830_);
          }
- 
-         Item usedItem = this.getItem();
--        InteractionResult result = usedItem.useOn(context);
-+        InteractionResult result = callback.apply(context);
-         if (player != null && result instanceof InteractionResult.Success success && success.wasItemInteraction()) {
-             player.awardStat(Stats.ITEM_USED.get(usedItem));
-         }
-@@ -412,6 +_,12 @@
-         return result;
      }
  
-+    // Neo: Delegate max stack size logic to the item to allow it to be stack-sensitive
-+    @Override
-+    public int getMaxStackSize() {
+@@ -390,7 +_,8 @@
+         if (this.isEmpty()) {
+             throw new IllegalStateException("Cannot encode empty ItemStack");
+         } else {
+-            return CODEC.encodeStart(p_332160_.createSerializationContext(NbtOps.INSTANCE), this).getOrThrow();
++            // Neo: Logs extra information about this ItemStack on error
++            return net.neoforged.neoforge.common.util.DataComponentUtil.wrapEncodingExceptions(this, CODEC, p_332160_);
+         }
+     }
+ 
+@@ -399,7 +_,7 @@
+     }
+ 
+     public int getMaxStackSize() {
+-        return this.getOrDefault(DataComponents.MAX_STACK_SIZE, Integer.valueOf(1));
 +        return this.getItem().getMaxStackSize(this);
-+    }
-+
-     public boolean isStackable() {
-         return this.getMaxStackSize() > 1 && (!this.isDamageableItem() || !this.isDamaged());
      }
-@@ -421,19 +_,19 @@
+ 
+     public boolean isStackable() {
+@@ -411,23 +_,28 @@
      }
  
      public boolean isDamaged() {
@@ -63,187 +86,93 @@
      }
  
      public int getDamageValue() {
--        return Mth.clamp(this.getOrDefault(DataComponents.DAMAGE, 0), 0, this.getMaxDamage());
+-        return Mth.clamp(this.getOrDefault(DataComponents.DAMAGE, Integer.valueOf(0)), 0, this.getMaxDamage());
 +        return this.getItem().getDamage(this);
      }
  
-     public void setDamageValue(int value) {
--        this.set(DataComponents.DAMAGE, Mth.clamp(value, 0, this.getMaxDamage()));
-+        this.getItem().setDamage(this, value);
+     public void setDamageValue(int p_41722_) {
+-        this.set(DataComponents.DAMAGE, Mth.clamp(p_41722_, 0, this.getMaxDamage()));
++        this.getItem().setDamage(this, p_41722_);
      }
  
      public int getMaxDamage() {
--        return this.getOrDefault(DataComponents.MAX_DAMAGE, 0);
+-        return this.getOrDefault(DataComponents.MAX_DAMAGE, Integer.valueOf(0));
 +        return this.getItem().getMaxDamage(this);
      }
  
-     public boolean isBroken() {
-@@ -445,6 +_,11 @@
-     }
- 
-     public void hurtAndBreak(int amount, ServerLevel level, @Nullable ServerPlayer player, Consumer<Item> onBreak) {
-+        this.hurtAndBreak(amount, level, (LivingEntity) player, onBreak);
+     public void hurtAndBreak(int p_220158_, ServerLevel p_346256_, @Nullable ServerPlayer p_220160_, Consumer<Item> p_348596_) {
++        this.hurtAndBreak(p_220158_, p_346256_, (LivingEntity) p_220160_, p_348596_);
 +    }
 +
-+    public void hurtAndBreak(int amount, ServerLevel level, @Nullable LivingEntity player, Consumer<Item> onBreak) {
-+        amount = getItem().damageItem(this, amount, player, onBreak);
-         int newAmount = this.processDurabilityChange(amount, level, player);
-         if (newAmount != 0) {
-             this.applyDamage(this.getDamageValue() + newAmount, player, onBreak);
-@@ -452,6 +_,10 @@
-     }
++    public void hurtAndBreak(int p_220158_, ServerLevel p_346256_, @Nullable LivingEntity p_220160_, Consumer<Item> p_348596_) {
+         if (this.isDamageableItem()) {
++            p_220158_ = getItem().damageItem(this, p_220158_, p_220160_, p_348596_);
+             if (p_220160_ == null || !p_220160_.hasInfiniteMaterials()) {
+                 if (p_220158_ > 0) {
+                     p_220158_ = EnchantmentHelper.processDurabilityChange(p_346256_, this, p_220158_);
+@@ -436,8 +_,8 @@
+                     }
+                 }
  
-     private int processDurabilityChange(int amount, ServerLevel level, @Nullable ServerPlayer player) {
-+        return processDurabilityChange(amount, level, (LivingEntity) player);
-+    }
-+
-+    private int processDurabilityChange(int amount, ServerLevel level, @Nullable LivingEntity player) {
-         if (!this.isDamageableItem()) {
-             return 0;
-         } else if (player != null && player.hasInfiniteMaterials()) {
-@@ -462,8 +_,12 @@
-     }
+-                if (p_220160_ != null && p_220158_ != 0) {
+-                    CriteriaTriggers.ITEM_DURABILITY_CHANGED.trigger(p_220160_, this, this.getDamageValue() + p_220158_);
++                if (p_220160_ instanceof ServerPlayer sp && p_220158_ != 0) {
++                    CriteriaTriggers.ITEM_DURABILITY_CHANGED.trigger(sp, this, this.getDamageValue() + p_220158_);
+                 }
  
-     private void applyDamage(int newDamage, @Nullable ServerPlayer player, Consumer<Item> onBreak) {
--        if (player != null) {
--            CriteriaTriggers.ITEM_DURABILITY_CHANGED.trigger(player, this, newDamage);
-+        applyDamage(newDamage, (LivingEntity) player, onBreak);
-+    }
-+
-+    private void applyDamage(int newDamage, @Nullable LivingEntity player, Consumer<Item> onBreak) {
-+        if (player instanceof ServerPlayer serverPlayer) {
-+            CriteriaTriggers.ITEM_DURABILITY_CHANGED.trigger(serverPlayer, this, newDamage);
-         }
- 
-         this.setDamageValue(newDamage);
-@@ -493,7 +_,7 @@
-     public void hurtAndBreak(int amount, LivingEntity owner, EquipmentSlot slot) {
-         if (owner.level() instanceof ServerLevel serverLevel) {
+                 int i = this.getDamageValue() + p_220158_;
+@@ -456,7 +_,7 @@
              this.hurtAndBreak(
--                amount, serverLevel, owner instanceof ServerPlayer player ? player : null, brokenItem -> owner.onEquippedItemBroken(brokenItem, slot)
-+                amount, serverLevel, owner, brokenItem -> owner.onEquippedItemBroken(brokenItem, slot)
+                 p_41623_,
+                 serverlevel,
+-                p_41624_ instanceof ServerPlayer serverplayer ? serverplayer : null,
++                p_41624_,
+                 p_348383_ -> p_41624_.onEquippedItemBroken(p_348383_, p_319898_)
              );
          }
-     }
-@@ -617,6 +_,16 @@
-         }
-     }
- 
-+    /**
-+     * Compares an itemstack with an {@link ItemStackTemplate} as per {@link #matches(ItemStack, ItemStack)}.
-+     */
-+    public static boolean matches(ItemStack a, @Nullable ItemStackTemplate b) {
-+        if (b == null) {
-+            return a.isEmpty();
-+        }
-+        return a.getCount() == b.count() && isSameItemSameComponents(a, b);
-+    }
-+
-     @Deprecated
-     public static boolean listMatches(List<ItemStack> left, List<ItemStack> right) {
-         if (left.size() != right.size()) {
-@@ -644,6 +_,27 @@
-         }
-     }
- 
-+
-+    /**
-+     * {@return true if a and b refer to the same item, or if a is empty and b is null}
-+     */
-+    public static boolean isSameItem(ItemStack a, @Nullable ItemStackTemplate b) {
-+        return b == null ? a.isEmpty() : a.is(b.item());
-+    }
-+
-+    /**
-+     * Compares the item and components of this stack against an {@link ItemStackTemplate}.
-+     *
-+     * @return True if either this stack is empty and the template is null, or they reference the same item and have equivalent component patches.
-+     */
-+    public static boolean isSameItemSameComponents(ItemStack a, @Nullable ItemStackTemplate b) {
-+        if (a.isEmpty() || b == null) {
-+            return a.isEmpty() == (b == null);
-+        } else {
-+            return a.is(b.item()) && a.components.patchEquals(b.components());
-+        }
-+    }
-+
-     public static boolean matchesIgnoringComponents(ItemStack a, ItemStack b, Predicate<DataComponentType<?>> ignoredPredicate) {
-         if (a == b) {
-             return true;
-@@ -828,7 +_,7 @@
-     }
- 
-     public Component getStyledHoverName() {
--        MutableComponent hoverName = Component.empty().append(this.getHoverName()).withStyle(this.getRarity().color());
-+        MutableComponent hoverName = Component.empty().append(this.getHoverName()).withStyle(this.getRarity().getStyleModifier());
-         if (this.has(DataComponents.CUSTOM_NAME)) {
-             hoverName.withStyle(ChatFormatting.ITALIC);
-         }
-@@ -836,6 +_,7 @@
-         return hoverName;
-     }
- 
-+    @Override // Neo: Add override annotation to ensure our extension method signature always matches vanilla
-     public <T extends TooltipProvider> void addToTooltip(
-         DataComponentType<T> type, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> consumer, TooltipFlag flag
-     ) {
-@@ -854,6 +_,7 @@
-             List<Component> lines = Lists.newArrayList();
-             lines.add(this.getStyledHoverName());
-             this.addDetailsToTooltip(context, display, player, tooltipFlag, lines::add);
-+            net.neoforged.neoforge.event.EventHooks.onItemTooltip(this, player, lines, tooltipFlag, context, display);
-             return lines;
-         }
-     }
-@@ -861,7 +_,16 @@
-     public void addDetailsToTooltip(
-         Item.TooltipContext context, TooltipDisplay display, @Nullable Player player, TooltipFlag tooltipFlag, Consumer<Component> builder
-     ) {
-+        net.neoforged.neoforge.common.tooltip.ItemTooltipHandler.addDetailsToTooltipHead(this, context, display, player, tooltipFlag, builder);
-         this.getItem().appendHoverText(this, context, display, builder, tooltipFlag);
-+        net.neoforged.neoforge.common.tooltip.ItemTooltipHandler.addDetailsToTooltipMiddle(this, context, display, player, tooltipFlag, builder);
-+        this.addDetailsToTooltipTail(context, display, player, tooltipFlag, builder);
-+        net.neoforged.neoforge.common.tooltip.ItemTooltipHandler.addDetailsToTooltipTail(this, context, display, player, tooltipFlag, builder);
-+    }
-+
-+    private void addDetailsToTooltipComponents(
-+            Item.TooltipContext context, TooltipDisplay display, @Nullable Player player, TooltipFlag tooltipFlag, Consumer<Component> builder
-+    ) {
-         this.addToTooltip(DataComponents.TROPICAL_FISH_PATTERN, context, display, builder, tooltipFlag);
-         this.addToTooltip(DataComponents.INSTRUMENT, context, display, builder, tooltipFlag);
-         this.addToTooltip(DataComponents.MAP_ID, context, display, builder, tooltipFlag);
-@@ -913,7 +_,11 @@
-             if (this.isDamaged() && display.shows(DataComponents.DAMAGE)) {
-                 builder.accept(Component.translatable("item.durability", this.getMaxDamage() - this.getDamageValue(), this.getMaxDamage()));
+@@ -728,7 +_,7 @@
+             return List.of();
+         } else {
+             List<Component> list = Lists.newArrayList();
+-            MutableComponent mutablecomponent = Component.empty().append(this.getHoverName()).withStyle(this.getRarity().color());
++            MutableComponent mutablecomponent = Component.empty().append(this.getHoverName()).withStyle(this.getRarity().getStyleModifier());
+             if (this.has(DataComponents.CUSTOM_NAME)) {
+                 mutablecomponent.withStyle(ChatFormatting.ITALIC);
              }
-+        }
-+    }
+@@ -752,7 +_,9 @@
+             this.addToTooltip(DataComponents.ENCHANTMENTS, p_339637_, consumer, p_41653_);
+             this.addToTooltip(DataComponents.DYED_COLOR, p_339637_, consumer, p_41653_);
+             this.addToTooltip(DataComponents.LORE, p_339637_, consumer, p_41653_);
+-            this.addAttributeTooltips(consumer, p_41652_);
++            // Neo: Replace attribute tooltips with custom handling
++            net.neoforged.neoforge.common.util.AttributeUtil.addAttributeTooltips(this, consumer,
++                    net.neoforged.neoforge.common.util.AttributeTooltipContext.of(p_41652_, p_339637_, p_41653_));
+             this.addToTooltip(DataComponents.UNBREAKABLE, p_339637_, consumer, p_41653_);
+             AdventureModePredicate adventuremodepredicate = this.get(DataComponents.CAN_BREAK);
+             if (adventuremodepredicate != null && adventuremodepredicate.showInTooltip()) {
+@@ -784,10 +_,15 @@
+                 list.add(DISABLED_ITEM_TOOLTIP);
+             }
  
-+    private void addDetailsToTooltipTail(Item.TooltipContext context, TooltipDisplay display, @Nullable Player player, TooltipFlag tooltipFlag, Consumer<Component> builder) {
-+        if (tooltipFlag.isAdvanced()) {
-             builder.accept(Component.literal(BuiltInRegistries.ITEM.getKey(this.getItem()).toString()).withStyle(ChatFormatting.DARK_GRAY));
-             int count = this.components.size();
-             if (count > 0) {
-@@ -936,7 +_,10 @@
-             builder.accept(component);
++            net.neoforged.neoforge.event.EventHooks.onItemTooltip(this, p_41652_, list, p_41653_, p_339637_);
+             return list;
          }
      }
--
+ 
 +    /**
-+     * @deprecated Neo: Use {@link net.neoforged.neoforge.common.util.AttributeUtil#addAttributeTooltips}
++     * @deprecated Neo: Use {@link net.neoforged.neoforge.client.util.TooltipUtil#addAttributeTooltips}
 +     */
 +    @Deprecated
-     private void addAttributeTooltips(Consumer<Component> consumer, TooltipDisplay display, @Nullable Player player) {
-         if (display.shows(DataComponents.ATTRIBUTE_MODIFIERS)) {
-             for (EquipmentSlotGroup slot : EquipmentSlotGroup.values()) {
-@@ -991,19 +_,43 @@
+     private void addAttributeTooltips(Consumer<Component> p_330796_, @Nullable Player p_330530_) {
+         ItemAttributeModifiers itemattributemodifiers = this.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+         if (itemattributemodifiers.showInTooltip()) {
+@@ -897,6 +_,17 @@
          return !this.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY).isEmpty();
      }
  
 +    /**
 +     * Gets all enchantments from NBT. Use {@link ItemStack#getAllEnchantments} for gameplay logic.
 +     */
-+    @Override
 +    public ItemEnchantments getTagEnchantments() {
 +        return getEnchantments();
 +    }
@@ -255,52 +184,72 @@
      public ItemEnchantments getEnchantments() {
          return this.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
      }
- 
-     public void forEachModifier(EquipmentSlotGroup slot, TriConsumer<Holder<Attribute>, AttributeModifier, ItemAttributeModifiers.Display> consumer) {
-+        // Neo: Reflect real attribute modifiers when doing iteration
-+        this.getAttributeModifiers().forEach(slot, consumer);
-+        if (false) {
-+        // Start disabled vanilla code
-         ItemAttributeModifiers modifiers = this.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
-         modifiers.forEach(slot, consumer);
-+        // end disabled vanilla code
-+        }
-         EnchantmentHelper.forEachModifier(this, slot, (a, b) -> consumer.accept(a, b, ItemAttributeModifiers.Display.attributeModifiers()));
+@@ -922,6 +_,12 @@
      }
  
-     public void forEachModifier(EquipmentSlot slot, BiConsumer<Holder<Attribute>, AttributeModifier> consumer) {
+     public void forEachModifier(EquipmentSlotGroup p_348610_, BiConsumer<Holder<Attribute>, AttributeModifier> p_348516_) {
 +        // Neo: Reflect real attribute modifiers when doing iteration
-+        this.getAttributeModifiers().forEach(slot, consumer);
++        this.getAttributeModifiers().forEach(p_348610_, p_348516_);
++
 +        if (false) {
 +        // Start disabled vanilla code
-         ItemAttributeModifiers modifiers = this.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
-         modifiers.forEach(slot, consumer);
++
+         ItemAttributeModifiers itemattributemodifiers = this.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+         if (!itemattributemodifiers.modifiers().isEmpty()) {
+             itemattributemodifiers.forEach(p_348610_, p_348516_);
+@@ -929,10 +_,19 @@
+             this.getItem().getDefaultAttributeModifiers().forEach(p_348610_, p_348516_);
+         }
+ 
 +        // end disabled vanilla code
 +        }
-         EnchantmentHelper.forEachModifier(this, slot, consumer);
++
+         EnchantmentHelper.forEachModifier(this, p_348610_, p_348516_);
      }
  
-@@ -1015,7 +_,7 @@
+     public void forEachModifier(EquipmentSlot p_332001_, BiConsumer<Holder<Attribute>, AttributeModifier> p_330882_) {
++        // Neo: Reflect real attribute modifiers when doing iteration
++        this.getAttributeModifiers().forEach(p_332001_, p_330882_);
++
++        if (false) {
++        // Start disabled vanilla code
++
+         ItemAttributeModifiers itemattributemodifiers = this.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+         if (!itemattributemodifiers.modifiers().isEmpty()) {
+             itemattributemodifiers.forEach(p_332001_, p_330882_);
+@@ -940,6 +_,9 @@
+             this.getItem().getDefaultAttributeModifiers().forEach(p_332001_, p_330882_);
+         }
  
-         MutableComponent result = ComponentUtils.wrapInSquareBrackets(hoverName);
++        // end disabled vanilla code
++        }
++
+         EnchantmentHelper.forEachModifier(this, p_332001_, p_330882_);
+     }
+ 
+@@ -951,7 +_,7 @@
+ 
+         MutableComponent mutablecomponent1 = ComponentUtils.wrapInSquareBrackets(mutablecomponent);
          if (!this.isEmpty()) {
--            result.withStyle(this.getRarity().color()).withStyle(s -> s.withHoverEvent(new HoverEvent.ShowItem(ItemStackTemplate.fromNonEmptyStack(this))));
-+            result.withStyle(this.getRarity().getStyleModifier()).withStyle(s -> s.withHoverEvent(new HoverEvent.ShowItem(ItemStackTemplate.fromNonEmptyStack(this))));
+-            mutablecomponent1.withStyle(this.getRarity().color())
++            mutablecomponent1.withStyle(this.getRarity().getStyleModifier())
+                 .withStyle(p_220170_ -> p_220170_.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverEvent.ItemStackInfo(this))));
          }
  
-         return result;
-@@ -1096,11 +_,14 @@
-         }
+@@ -1014,6 +_,8 @@
+         this.getItem().onUseTick(p_41732_, p_41733_, this, p_41734_);
      }
  
 +    /** @deprecated Forge: Use {@linkplain net.neoforged.neoforge.common.extensions.IItemStackExtension#onDestroyed(ItemEntity, net.minecraft.world.damagesource.DamageSource) damage source sensitive version} */
 +    @Deprecated
-     public void onDestroyed(ItemEntity itemEntity) {
-         this.getItem().onDestroyed(itemEntity);
+     public void onDestroyed(ItemEntity p_150925_) {
+         this.getItem().onDestroyed(p_150925_);
+     }
+@@ -1031,6 +_,7 @@
      }
  
-     public boolean canBeHurtBy(DamageSource source) {
-+        if (!getItem().canBeHurtBy(this, source)) return false;
-         DamageResistant damageResistant = this.get(DataComponents.DAMAGE_RESISTANT);
-         return damageResistant == null || !damageResistant.isResistantTo(source);
+     public boolean canBeHurtBy(DamageSource p_335431_) {
++        if (!getItem().canBeHurtBy(this, p_335431_)) return false;
+         return !this.has(DataComponents.FIRE_RESISTANT) || !p_335431_.is(DamageTypeTags.IS_FIRE);
      }
+ }

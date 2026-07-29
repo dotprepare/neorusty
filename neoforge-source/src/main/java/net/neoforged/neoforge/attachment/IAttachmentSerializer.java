@@ -5,27 +5,30 @@
 
 package net.neoforged.neoforge.attachment;
 
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.Tag;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializer for data attachments.
  *
+ * <p><b>The {@link #read(IAttachmentHolder, Tag, HolderLookup.Provider)} method must be implemented by subclasses!</b>
+ *
+ * @param <S> A {@link Tag} subclass: the serialized representation.
  * @param <T> The type of the data attachment.
  */
-public interface IAttachmentSerializer<T> {
+public interface IAttachmentSerializer<S extends Tag, T> {
     /**
      * Reads the attachment from NBT.
      *
      * @param holder the holder for the attachment, can be cast if the subtype is known
-     * @param input  the input to read from
+     * @param tag    the serialized attachment
      */
-    T read(IAttachmentHolder holder, ValueInput input);
+    T read(IAttachmentHolder holder, S tag, HolderLookup.Provider provider);
 
     /**
-     * Writes the attachment to the value output, or returns {@code false} if it is should not be serialized.
-     *
-     * <p>If {@code false} is returned, any data written to the value output by this method will be discarded.
+     * Writes the attachment to NBT, or returns null if it is should not be serialized.
      */
-    boolean write(T attachment, ValueOutput output);
+    @Nullable
+    S write(T attachment, HolderLookup.Provider provider);
 }

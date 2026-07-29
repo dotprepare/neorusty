@@ -7,7 +7,7 @@ package net.neoforged.neoforge.server.console;
 
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecrell.terminalconsole.TerminalConsoleAppender;
-import net.neoforged.neoforge.internal.BrandingControl;
+import net.neoforged.neoforge.forge.snapshots.ForgeSnapshotsMod;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -23,7 +23,7 @@ public final class TerminalHandler {
             return false;
 
         LineReader reader = LineReaderBuilder.builder()
-                .appName(BrandingControl.BRANDING_NAME)
+                .appName(ForgeSnapshotsMod.BRANDING_NAME)
                 .terminal(terminal)
                 .completer(new ConsoleCommandCompleter(server))
                 .build();

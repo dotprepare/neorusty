@@ -1,5 +1,9 @@
 {
   "values": [
-    "minecraft:bookshelf"
+    "minecraft:bookshelf",
+    {
+      "id": "#forge:bookshelves",
+      "required": false
+    }
   ]
 }

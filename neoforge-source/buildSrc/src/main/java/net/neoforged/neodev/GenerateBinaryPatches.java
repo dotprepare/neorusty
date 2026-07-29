@@ -1,95 +1,61 @@
 package net.neoforged.neodev;
 
+import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.JavaExec;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputFile;
+
+import javax.inject.Inject;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import javax.inject.Inject;
-import org.gradle.api.GradleException;
-import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.ListProperty;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.JavaExec;
-import org.gradle.api.tasks.OutputFile;
 
 abstract class GenerateBinaryPatches extends JavaExec {
     @Inject
     public GenerateBinaryPatches() {}
 
     /**
-     * The base against which the patches should be created for the client distribution.
+     * The jar file containing classes in the base state.
      */
     @InputFile
-    abstract RegularFileProperty getBaseClientJar();
+    abstract RegularFileProperty getCleanJar();
 
     /**
-     * The target jar that will be diffed against {@link #getBaseClientJar()} to create the patches for the
-     * client distribution.
+     * The jar file containing classes in the desired target state.
      */
     @InputFile
-    abstract RegularFileProperty getModifiedClientJar();
+    abstract RegularFileProperty getPatchedJar();
 
-    /**
-     * The base against which the patches should be created for the server distribution.
-     */
     @InputFile
-    abstract RegularFileProperty getBaseServerJar();
+    abstract RegularFileProperty getMappings();
 
     /**
-     * The target jar that will be diffed against {@link #getBaseServerJar()} to create the patches for the
-     * server distribution.
+     * This directory of patch files for the Java sources is used as a hint to only diff class files that
+     * supposedly have changed. If it is not set, the tool will diff every .class file instead.
      */
-    @InputFile
-    abstract RegularFileProperty getModifiedServerJar();
+    @InputDirectory
+    @Optional
+    abstract DirectoryProperty getSourcePatchesFolder();
 
     /**
-     * The base against which the patches should be created for the combined client+server distribution.
-     */
-    @InputFile
-    abstract RegularFileProperty getBaseJoinedJar();
-
-    /**
-     * The target jar that will be diffed against {@link #getBaseServerJar()} to create the patches for the
-     * combined client+server distribution.
-     */
-    @InputFile
-    abstract RegularFileProperty getModifiedJoinedJar();
-
-    /**
-     * Ant-Style path patterns for paths to include in diffing.
-     */
-    @Input
-    abstract ListProperty<String> getInclude();
-
-    /**
-     * Ant-Style path patterns for paths to exclude from diffing.
-     */
-    @Input
-    abstract ListProperty<String> getExclude();
-
-    /**
-     * Where the created patch bundle should be written to.
+     * The location where the LZMA compressed binary patches are written to.
      */
     @OutputFile
     abstract RegularFileProperty getOutputFile();
 
     @Override
     public void exec() {
-        args("--diff");
-        args("--base-client", getBaseClientJar().get().getAsFile().getAbsolutePath());
-        args("--base-server", getBaseServerJar().get().getAsFile().getAbsolutePath());
-        args("--base-joined", getBaseJoinedJar().get().getAsFile().getAbsolutePath());
-        args("--modified-client", getModifiedClientJar().get().getAsFile().getAbsolutePath());
-        args("--modified-server", getModifiedServerJar().get().getAsFile().getAbsolutePath());
-        args("--modified-joined", getModifiedJoinedJar().get().getAsFile().getAbsolutePath());
-        for (String pattern : getInclude().get()) {
-            args("--include", pattern);
+        args("--clean", getCleanJar().get().getAsFile().getAbsolutePath());
+        args("--dirty", getPatchedJar().get().getAsFile().getAbsolutePath());
+        args("--srg", getMappings().get().getAsFile().getAbsolutePath());
+        if (getSourcePatchesFolder().isPresent()) {
+            args("--patches", getSourcePatchesFolder().get().getAsFile().getAbsolutePath());
         }
-        for (String pattern : getExclude().get()) {
-            args("--exclude", pattern);
-        }
-        args("--optimize-constantpool");
         args("--output", getOutputFile().get().getAsFile().getAbsolutePath());
 
         var logFile = new File(getTemporaryDir(), "console.log");

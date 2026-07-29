@@ -8,12 +8,9 @@ package net.neoforged.neoforge.event.entity.player;
 import java.io.File;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -22,32 +19,19 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.portal.TeleportTransition;
+import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Base class of the events specific to Players.
- * 
- * @see PlayerEvent.HarvestCheck
- * @see PlayerEvent.BreakSpeed
- * @see PlayerEvent.NameFormat
- * @see PlayerEvent.TabListNameFormat
- * @see PlayerEvent.Clone
- * @see PlayerEvent.StartTracking
- * @see PlayerEvent.StopTracking
- * @see PlayerEvent.LoadFromFile
- * @see PlayerEvent.SaveToFile
- * @see PlayerEvent.ItemCraftedEvent
- * @see PlayerEvent.ItemSmeltedEvent
- * @see PlayerEvent.PlayerLoggedInEvent
- * @see PlayerEvent.PlayerLoggedOutEvent
- * @see PlayerEvent.PlayerRespawnEvent
- * @see PlayerEvent.PlayerChangedDimensionEvent
- * @see PlayerEvent.PlayerChangeGameModeEvent
+ * PlayerEvent is fired whenever an event involving a {@link Player} occurs. <br>
+ * If a method utilizes this {@link net.neoforged.bus.api.Event} as its parameter, the method will
+ * receive every child event of this class.<br>
+ * <br>
+ * All children of this event are fired on the {@link NeoForge#EVENT_BUS}.
  **/
 public abstract class PlayerEvent extends LivingEvent {
     private final Player player;
@@ -63,19 +47,20 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * HarvestCheck is fired when a player attempts to harvest a block.
-     * <p>
+     * HarvestCheck is fired when a player attempts to harvest a block.<br>
      * This event is fired whenever a player attempts to harvest a block in
-     * {@link Player#hasCorrectToolForDrops(BlockState)}.
-     * <p>
-     * This event is fired via the {@link EventHooks#doPlayerHarvestCheck(Player, BlockState, BlockGetter, BlockPos)}.
-     * <ul>
-     * <li>{@link #state} contains the {@link BlockState} that is being checked for harvesting.</li>
-     * <li>{@link #success} contains the boolean value for whether the Block will be successfully harvested.</li>
-     * <li>{@link #getEntity} contains the player that caused this event to occur.</li>
-     * </ul>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
+     * {@link Player#hasCorrectToolForDrops(BlockState)}.<br>
+     * <br>
+     * This event is fired via the {@link EventHooks#doPlayerHarvestCheck(Player, BlockState, BlockGetter, BlockPos)}.<br>
+     * <br>
+     * {@link #state} contains the {@link BlockState} that is being checked for harvesting. <br>
+     * {@link #success} contains the boolean value for whether the Block will be successfully harvested. <br>
+     * <br>
+     * This event is not {@link net.neoforged.bus.api.ICancellableEvent}.<br>
+     * <br>
+     * This event does not have a result. {@link Event.HasResult}<br>
+     * <br>
+     * This event is fired on the {@link NeoForge#EVENT_BUS}.
      **/
     public static class HarvestCheck extends PlayerEvent {
         private final BlockState state;
@@ -113,22 +98,22 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * BreakSpeed is fired when a player attempts to harvest a block.
-     * <p>
+     * BreakSpeed is fired when a player attempts to harvest a block.<br>
      * This event is fired whenever a player attempts to harvest a block in
-     * {@link Player#getDigSpeed(BlockState, BlockPos)}.
-     * <p>
-     * This event is fired via the {@link EventHooks#getBreakSpeed(Player, BlockState, float, BlockPos)}.
-     * <ul>
-     * <li>{@link #state} contains the block being broken.</li>
-     * <li>{@link #originalSpeed} contains the original speed at which the player broke the block.</li>
-     * <li>{@link #newSpeed} contains the newSpeed at which the player will break the block.</li>
-     * <li>{@link #pos} contains the coordinates at which this event is occurring. Optional value.</li>
-     * <li>{@link #getEntity} contains the player that caused this event to occur.</li>
-     * </ul>
-     * This event is {@link net.neoforged.bus.api.ICancellableEvent}.
-     * If it is canceled, the player is unable to break the block.
-     * <p>
+     * {@link Player#getDigSpeed(BlockState, BlockPos)}.<br>
+     * <br>
+     * This event is fired via the {@link EventHooks#getBreakSpeed(Player, BlockState, float, BlockPos)}.<br>
+     * <br>
+     * {@link #state} contains the block being broken. <br>
+     * {@link #originalSpeed} contains the original speed at which the player broke the block. <br>
+     * {@link #newSpeed} contains the newSpeed at which the player will break the block. <br>
+     * {@link #pos} contains the coordinates at which this event is occurring. Optional value.<br>
+     * <br>
+     * This event is {@link net.neoforged.bus.api.ICancellableEvent}.<br>
+     * If it is canceled, the player is unable to break the block.<br>
+     * <br>
+     * This event does not have a result. {@link Event.HasResult}<br>
+     * <br>
      * This event is fired on the {@link NeoForge#EVENT_BUS}.
      **/
     public static class BreakSpeed extends PlayerEvent implements ICancellableEvent {
@@ -168,18 +153,20 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * NameFormat is fired when a player's display name is retrieved.
-     * <p>
+     * NameFormat is fired when a player's display name is retrieved.<br>
      * This event is fired whenever a player's name is retrieved in
-     * {@link Player#getDisplayName()} or {@link Player#refreshDisplayName()}.
-     * <p>
-     * This event is fired via the {@link EventHooks#getPlayerDisplayName(Player, Component)}.
-     * <ul>
-     * <li>{@link #username} contains the username of the player.</li>
-     * <li>{@link #displayname} contains the display name of the player.</li>
-     * </ul>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
+     * {@link Player#getDisplayName()} or {@link Player#refreshDisplayName()}.<br>
+     * <br>
+     * This event is fired via the {@link EventHooks#getPlayerDisplayName(Player, Component)}.<br>
+     * <br>
+     * {@link #username} contains the username of the player.
+     * {@link #displayname} contains the display name of the player.
+     * <br>
+     * This event is not {@link net.neoforged.bus.api.ICancellableEvent}.
+     * <br>
+     * This event does not have a result. {@link Event.HasResult}
+     * <br>
+     * This event is fired on the {@link NeoForge#EVENT_BUS}.
      **/
     public static class NameFormat extends PlayerEvent {
         private final Component username;
@@ -205,17 +192,19 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * TabListNameFormat is fired when a player's display name for the tablist is retrieved.
-     * <p>
+     * TabListNameFormat is fired when a player's display name for the tablist is retrieved.<br>
      * This event is fired whenever a player's display name for the tablist is retrieved in
-     * {@link ServerPlayer#getTabListDisplayName()} or {@link ServerPlayer#refreshTabListName()}.
-     * <p>
-     * This event is fired via the {@link EventHooks#getPlayerTabListDisplayName(Player)}.
-     * <p>
+     * {@link ServerPlayer#getTabListDisplayName()} or {@link ServerPlayer#refreshTabListName()}.<br>
+     * <br>
+     * This event is fired via the {@link EventHooks#getPlayerTabListDisplayName(Player)}.<br>
+     * <br>
      * {@link #getDisplayName()} contains the display name of the player or null if the client should determine the display name itself.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
+     * <br>
+     * This event is not {@link net.neoforged.bus.api.ICancellableEvent}.
+     * <br>
+     * This event does not have a result. {@link Event.HasResult}
+     * <br>
+     * This event is fired on the {@link NeoForge#EVENT_BUS}.
      **/
     public static class TabListNameFormat extends PlayerEvent {
         @Nullable
@@ -236,11 +225,8 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * Fired when the player is cloned, typically caused by the impl sending a RESPAWN_PLAYER event.
+     * Fired when the EntityPlayer is cloned, typically caused by the impl sending a RESPAWN_PLAYER event.
      * Either caused by death, or by traveling from the End to the overworld.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
      */
     public static class Clone extends PlayerEvent {
         private final Player original;
@@ -253,7 +239,7 @@ public abstract class PlayerEvent extends LivingEvent {
         }
 
         /**
-         * The old Player that this new entity is a clone of.
+         * The old EntityPlayer that this new entity is a clone of.
          */
         public Player getOriginal() {
             return original;
@@ -270,9 +256,7 @@ public abstract class PlayerEvent extends LivingEvent {
 
     /**
      * Fired when an Entity is started to be "tracked" by this player (the player receives updates about this entity, e.g. motion).
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
+     *
      */
     public static class StartTracking extends PlayerEvent {
         private final Entity target;
@@ -292,9 +276,7 @@ public abstract class PlayerEvent extends LivingEvent {
 
     /**
      * Fired when an Entity is stopped to be "tracked" by this player (the player no longer receives updates about this entity, e.g. motion).
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
+     *
      */
     public static class StopTracking extends PlayerEvent {
         private final Entity target;
@@ -313,14 +295,10 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * The player is being loaded from the world save.
-     * <p>
-     * Note: The player won't have been added to the world yet. Intended to
+     * The player is being loaded from the world save. Note that the
+     * player won't have been added to the world yet. Intended to
      * allow mods to load an additional file from the players directory
      * containing additional mod related player data.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
      */
     public static class LoadFromFile extends PlayerEvent {
         private final File playerDirectory;
@@ -334,7 +312,7 @@ public abstract class PlayerEvent extends LivingEvent {
 
         /**
          * Construct and return a recommended file for the supplied suffix
-         *
+         * 
          * @param suffix The suffix to use.
          */
         public File getPlayerFile(String suffix) {
@@ -360,21 +338,17 @@ public abstract class PlayerEvent extends LivingEvent {
     }
 
     /**
-     * The player is being saved to the world store.
-     * <p>
-     * Note: The player may be in the process of logging out or otherwise
-     * departing from the world. Don't assume its association with the world.
-     * <p>
+     * The player is being saved to the world store. Note that the
+     * player may be in the process of logging out or otherwise departing
+     * from the world. Don't assume it's association with the world.
      * This allows mods to load an additional file from the players directory
      * containing additional mod related player data.
-     * <p>
+     * <br>
      * Use this event to save the additional mod related player data to the world.
-     * <p>
+     *
+     * <br>
      * <em>WARNING</em>: Do not overwrite the player's .dat file here. You will
      * corrupt the world state.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
      */
     public static class SaveToFile extends PlayerEvent {
         private final File playerDirectory;
@@ -432,64 +406,31 @@ public abstract class PlayerEvent extends LivingEvent {
         }
     }
 
-    /**
-     * Fired when a player takes the resultant ItemStack from a furnace-like block.
-     * <p>
-     * This event is fired via the {@link EventHooks#firePlayerSmeltedEvent(Player, ItemStack, int)}.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
-     */
     public static class ItemSmeltedEvent extends PlayerEvent {
         private final ItemStack smelting;
-        private final int amountRemoved;
 
-        public ItemSmeltedEvent(Player player, ItemStack crafting, int amountRemoved) {
+        public ItemSmeltedEvent(Player player, ItemStack crafting) {
             super(player);
             this.smelting = crafting;
-            this.amountRemoved = amountRemoved;
         }
 
         public ItemStack getSmelting() {
             return this.smelting;
         }
-
-        public int getAmountRemoved() {
-            return this.amountRemoved;
-        }
     }
 
-    /**
-     * Fired when the player is placed into the server via {@link PlayerList#placeNewPlayer(Connection, ServerPlayer, CommonListenerCookie)}
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
-     */
     public static class PlayerLoggedInEvent extends PlayerEvent {
         public PlayerLoggedInEvent(Player player) {
             super(player);
         }
     }
 
-    /**
-     * Fired when the player is removed from the server via {@link PlayerList#remove(ServerPlayer)}
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
-     */
     public static class PlayerLoggedOutEvent extends PlayerEvent {
         public PlayerLoggedOutEvent(Player player) {
             super(player);
         }
     }
 
-    /**
-     * Fired when the player is respawned via {@link PlayerList#respawn(ServerPlayer, boolean)}
-     * after creating and initializing the new {@link ServerPlayer}.
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
-     */
     public static class PlayerRespawnEvent extends PlayerEvent {
         private final boolean endConquered;
 
@@ -508,12 +449,6 @@ public abstract class PlayerEvent extends LivingEvent {
         }
     }
 
-    /**
-     * Fired when the player is teleported to a new dimension via {@link ServerPlayer#teleport(TeleportTransition)}
-     * <p>
-     * This event is not {@linkplain net.neoforged.bus.api.ICancellableEvent cancellable}, and is fired on the
-     * {@linkplain NeoForge#EVENT_BUS game event bus}.
-     */
     public static class PlayerChangedDimensionEvent extends PlayerEvent {
         private final ResourceKey<Level> fromDim;
         private final ResourceKey<Level> toDim;
@@ -535,10 +470,7 @@ public abstract class PlayerEvent extends LivingEvent {
 
     /**
      * Fired when the game type of a server player is changed to a different value than what it was previously. Eg Creative to Survival, not Survival to Survival.
-     * <p>
      * If the event is cancelled the game mode of the player is not changed and the value of <code>newGameMode</code> is ignored.
-     * <p>
-     * This event is fired on the {@link NeoForge#EVENT_BUS}.
      */
     public static class PlayerChangeGameModeEvent extends PlayerEvent implements ICancellableEvent {
         private final GameType currentGameMode;

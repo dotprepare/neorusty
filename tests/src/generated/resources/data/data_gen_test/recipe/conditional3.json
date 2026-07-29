@@ -8,13 +8,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "X": "minecraft:diamond_block"
+    "X": {
+      "item": "minecraft:diamond_block"
+    }
   },
   "pattern": [
     "XX",
     "XX"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:netherite_block"
   }
 }

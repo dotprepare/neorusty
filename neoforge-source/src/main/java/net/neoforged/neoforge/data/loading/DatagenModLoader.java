@@ -5,21 +5,22 @@
 
 package net.neoforged.neoforge.data.loading;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.data.DataGenerator;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.server.Bootstrap;
-import net.minecraft.server.packs.PackResources;
-import net.minecraft.util.Util;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
+import net.neoforged.fml.ModLoader;
+import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.client.entity.animation.json.AnimationTypeManager;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.internal.CommonModLoader;
+import net.neoforged.neoforge.internal.RegistrationEvents;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.ApiStatus;
@@ -27,6 +28,7 @@ import org.jetbrains.annotations.ApiStatus;
 public class DatagenModLoader extends CommonModLoader {
     private static final Logger LOGGER = LogManager.getLogger();
     private static GatherDataEvent.DataGeneratorConfig dataGeneratorConfig;
+    private static ExistingFileHelper existingFileHelper;
     private static boolean runningDataGen;
 
     public static boolean isRunningDataGen() {
@@ -34,39 +36,31 @@ public class DatagenModLoader extends CommonModLoader {
     }
 
     @ApiStatus.Internal
-    public static void begin(
-            final Set<String> mods,
-            final Path path,
-            final Collection<Path> inputs,
-            Collection<Path> existingPacks,
-            final boolean devToolGenerators,
-            final boolean reportsGenerator,
-            final boolean structureValidator,
-            final boolean flat,
-            boolean uncached,
-            Runnable setup,
-            GatherDataEvent.GatherDataEventGenerator eventGenerator,
-            DataGenerator vanillaGenerator,
-            Consumer<Consumer<PackResources>> vanillaClientAssets) {
+    public static void begin(final Set<String> mods, final Path path, final Collection<Path> inputs, Collection<Path> existingPacks,
+            Set<String> existingMods, final boolean serverGenerators, final boolean clientGenerators, final boolean devToolGenerators, final boolean reportsGenerator,
+            final boolean structureValidator, final boolean flat, final String assetIndex, final File assetsDir) {
         if (mods.contains("minecraft") && mods.size() == 1)
             return;
         LOGGER.info("Initializing Data Gatherer for mods {}", mods);
         runningDataGen = true;
         Bootstrap.bootStrap();
         begin(() -> {}, true);
+        // Modify components as the (modified) defaults may be required in datagen, i.e. stack size
+        RegistrationEvents.modifyComponents();
         CompletableFuture<HolderLookup.Provider> lookupProvider = CompletableFuture.supplyAsync(VanillaRegistries::createLookup, Util.backgroundExecutor());
-        dataGeneratorConfig = new GatherDataEvent.DataGeneratorConfig(mods, path, inputs, lookupProvider, devToolGenerators, reportsGenerator, structureValidator, flat, vanillaGenerator, existingPacks, vanillaClientAssets);
-        setup.run();
-
-        // Only fire the event for mods that have their generators enabled
-        for (ModContainer mod : ModList.get().getSortedMods()) {
-            if (dataGeneratorConfig.getMods().contains(mod.getModId())) {
-                var generator = dataGeneratorConfig.makeGenerator(p -> dataGeneratorConfig.isFlat() ? p : p.resolve(mod.getModId()), uncached);
-                var event = eventGenerator.create(mod, generator, dataGeneratorConfig);
-                mod.acceptEvent(event);
-            }
+        dataGeneratorConfig = new GatherDataEvent.DataGeneratorConfig(mods, path, inputs, lookupProvider, serverGenerators,
+                clientGenerators, devToolGenerators, reportsGenerator, structureValidator, flat, assetIndex, assetsDir, existingPacks);
+        if (!mods.contains("neoforge")) {
+            // If we aren't generating data for forge, automatically add forge as an existing so mods can access forge's data
+            existingMods.add("neoforge");
         }
-
+        if (clientGenerators) {
+            ClientHooks.registerSpriteSourceTypes();
+            AnimationTypeManager.init();
+        }
+        existingFileHelper = new ExistingFileHelper(existingPacks, existingMods, structureValidator, assetIndex, assetsDir);
+        ModLoader.runEventGenerator(mc -> new GatherDataEvent(mc, dataGeneratorConfig.makeGenerator(p -> dataGeneratorConfig.isFlat() ? p : p.resolve(mc.getModId()),
+                dataGeneratorConfig.getMods().contains(mc.getModId())), dataGeneratorConfig, existingFileHelper));
         dataGeneratorConfig.runAll();
     }
 }

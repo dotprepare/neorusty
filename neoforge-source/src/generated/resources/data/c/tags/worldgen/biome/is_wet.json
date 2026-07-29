@@ -2,6 +2,10 @@
   "values": [
     "#c:is_wet/overworld",
     "#c:is_wet/nether",
-    "#c:is_wet/end"
+    "#c:is_wet/end",
+    {
+      "id": "#forge:is_wet",
+      "required": false
+    }
   ]
 }

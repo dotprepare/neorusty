@@ -9,12 +9,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.animal.cow.CowSoundVariants;
-import net.minecraft.world.entity.animal.pig.PigSoundVariants;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -40,7 +39,7 @@ public class CustomBreakSoundTest {
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
 
-    private static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.registerBlock("testblock", Block::new);
+    private static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.registerBlock("testblock", Block::new, BlockBehaviour.Properties.of());
     private static final DeferredItem<BlockItem> TEST_BLOCK_ITEM = ITEMS.registerSimpleBlockItem(TEST_BLOCK);
 
     public CustomBreakSoundTest(IEventBus modBus) {
@@ -49,7 +48,7 @@ public class CustomBreakSoundTest {
             ITEMS.register(modBus);
             modBus.addListener(CustomBreakSoundTest::addCreative);
 
-            if (FMLEnvironment.getDist().isClient()) {
+            if (FMLEnvironment.dist.isClient()) {
                 modBus.addListener(ClientEvents::onRegisterClientExtensions);
             }
         }
@@ -66,9 +65,9 @@ public class CustomBreakSoundTest {
                 @Override
                 public boolean playBreakSound(BlockState state, Level level, BlockPos pos) {
                     SoundEvent sound = switch (Math.abs(pos.getX()) % 3) {
-                        case 0 -> SoundEvents.COW_SOUNDS.get(CowSoundVariants.SoundSet.CLASSIC).hurtSound().value();
+                        case 0 -> SoundEvents.COW_HURT;
                         case 1 -> SoundEvents.ZOMBIE_DEATH;
-                        case 2 -> SoundEvents.PIG_SOUNDS.get(PigSoundVariants.SoundSet.CLASSIC).adultSounds().hurtSound().value();
+                        case 2 -> SoundEvents.PIG_HURT;
                         default -> throw new IncompatibleClassChangeError();
                     };
                     level.playLocalSound(pos, sound, SoundSource.BLOCKS, 1.0F, 0.8F, false);

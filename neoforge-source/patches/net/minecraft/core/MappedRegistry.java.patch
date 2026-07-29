@@ -1,154 +1,153 @@
 --- a/net/minecraft/core/MappedRegistry.java
 +++ b/net/minecraft/core/MappedRegistry.java
-@@ -30,7 +_,7 @@
- import net.minecraft.util.Util;
- import org.jspecify.annotations.Nullable;
+@@ -31,7 +_,7 @@
+ import net.minecraft.util.RandomSource;
+ import org.slf4j.Logger;
  
 -public class MappedRegistry<T> implements WritableRegistry<T> {
 +public class MappedRegistry<T> extends net.neoforged.neoforge.registries.BaseMappedRegistry<T> implements WritableRegistry<T> {
-     private final ResourceKey<? extends Registry<T>> key;
+     private static final Logger LOGGER = LogUtils.getLogger();
+     final ResourceKey<? extends Registry<T>> key;
      private final ObjectList<Holder.Reference<T>> byId = new ObjectArrayList<>(256);
-     private final Reference2IntMap<T> toId = Util.make(new Reference2IntOpenHashMap<>(), t -> t.defaultReturnValue(-1));
-@@ -86,9 +_,17 @@
+@@ -75,6 +_,12 @@
+         public Stream<HolderSet.Named<T>> listTags() {
+             return MappedRegistry.this.getTags().map(Pair::getSecond);
+         }
++
++        @Override
++        @org.jetbrains.annotations.Nullable
++        public <A> A getData(net.neoforged.neoforge.registries.datamaps.DataMapType<T, A> type, ResourceKey<T> key) {
++            return MappedRegistry.this.getData(type, key);
++        }
+     };
+     private final Object tagAdditionLock = new Object();
+ 
+@@ -114,15 +_,25 @@
  
      @Override
-     public Holder.Reference<T> register(ResourceKey<T> key, T value, RegistrationInfo registrationInfo) {
-+        return register(this.byId.size(), key, value, registrationInfo);
+     public Holder.Reference<T> register(ResourceKey<T> p_256252_, T p_256591_, RegistrationInfo p_326235_) {
++        return register(this.byId.size(), p_256252_, p_256591_, p_326235_);
 +    }
 +
-+    public Holder.Reference<T> register(int id, ResourceKey<T> key, T value, RegistrationInfo registrationInfo) {
-         this.validateWrite(key);
-         Objects.requireNonNull(key);
-         Objects.requireNonNull(value);
-+        int newId = id;
-+        if (newId > this.getMaxId())
-+            throw new IllegalStateException(String.format(java.util.Locale.ENGLISH, "Invalid id %d - maximum id range of %d exceeded.", newId, this.getMaxId()));
++    public Holder.Reference<T> register(int id, ResourceKey<T> p_256252_, T p_256591_, RegistrationInfo p_326235_) {
+         this.validateWrite(p_256252_);
+         Objects.requireNonNull(p_256252_);
+         Objects.requireNonNull(p_256591_);
++        int i = id;
++        if (i > this.getMaxId())
++            throw new IllegalStateException(String.format(java.util.Locale.ENGLISH, "Invalid id %d - maximum id range of %d exceeded.", i, this.getMaxId()));
 +
-         if (this.byLocation.containsKey(key.identifier())) {
-             throw (IllegalStateException)Util.pauseInIde(new IllegalStateException("Adding duplicate key '" + key + "' to registry"));
+         if (this.byLocation.containsKey(p_256252_.location())) {
+-            Util.pauseInIde(new IllegalStateException("Adding duplicate key '" + p_256252_ + "' to registry"));
++            // Neo: Add missing 'throw' clause (fixed in 1.21.2/24w33a)
++            throw Util.pauseInIde(new IllegalStateException("Adding duplicate key '" + p_256252_ + "' to registry"));
          }
-@@ -107,16 +_,18 @@
-             holder.bindKey(key);
+ 
+         if (this.byValue.containsKey(p_256591_)) {
+-            Util.pauseInIde(new IllegalStateException("Adding duplicate value '" + p_256591_ + "' to registry"));
++            // Neo: Add missing 'throw' clause (fixed in 1.21.2/24w33a)
++            throw Util.pauseInIde(new IllegalStateException("Adding duplicate value '" + p_256591_ + "' to registry"));
+         }
+ 
+         Holder.Reference<T> reference;
+@@ -135,16 +_,18 @@
+             reference.bindKey(p_256252_);
          } else {
-             holder = this.byKey.computeIfAbsent(key, k -> Holder.Reference.createStandAlone(this, (ResourceKey<T>)k));
-+            // Neo: Bind the value immediately so it can be queried while the registry is not frozen
-+            holder.bindValue(value);
+             reference = this.byKey.computeIfAbsent(p_256252_, p_258168_ -> Holder.Reference.createStandAlone(this.holderOwner(), (ResourceKey<T>)p_258168_));
++            // Forge: Bind the value immediately so it can be queried while the registry is not frozen
++            reference.bindValue(p_256591_);
          }
  
-         this.byKey.put(key, holder);
-         this.byLocation.put(key.identifier(), holder);
-         this.byValue.put(value, holder);
--        int newId = this.byId.size();
-         this.byId.add(holder);
-         this.toId.put(value, newId);
-         this.registrationInfos.put(key, registrationInfo);
-         this.registryLifecycle = this.registryLifecycle.add(registrationInfo.lifecycle());
-+        this.addCallbacks.forEach(addCallback -> addCallback.onAdd(this, newId, key, value));
-         return holder;
+         this.byKey.put(p_256252_, reference);
+         this.byLocation.put(p_256252_.location(), reference);
+         this.byValue.put(p_256591_, reference);
+-        int i = this.byId.size();
+         this.byId.add(reference);
+         this.toId.put(p_256591_, i);
+         this.registrationInfos.put(p_256252_, p_326235_);
+         this.registryLifecycle = this.registryLifecycle.add(p_326235_.lifecycle());
++        this.addCallbacks.forEach(addCallback -> addCallback.onAdd(this, i, p_256252_, p_256591_));
+         return reference;
      }
  
-@@ -138,7 +_,7 @@
- 
+@@ -168,7 +_,7 @@
+     @Nullable
      @Override
-     public @Nullable T getValue(@Nullable ResourceKey<T> key) {
--        return getValueFromNullable(this.byKey.get(key));
-+        return getValueFromNullable(this.byKey.get(resolve(key)));
+     public T get(@Nullable ResourceKey<T> p_122714_) {
+-        return getValueFromNullable(this.byKey.get(p_122714_));
++        return getValueFromNullable(this.byKey.get(resolve(p_122714_)));
      }
  
-     @Override
-@@ -153,12 +_,12 @@
+     @Nullable
+@@ -184,12 +_,12 @@
  
      @Override
-     public Optional<Holder.Reference<T>> get(Identifier id) {
--        return Optional.ofNullable(this.byLocation.get(id));
-+        return Optional.ofNullable(this.byLocation.get(resolve(id)));
-     }
- 
-     @Override
-     public Optional<Holder.Reference<T>> get(ResourceKey<T> id) {
--        return Optional.ofNullable(this.byKey.get(id));
-+        return Optional.ofNullable(this.byKey.get(resolve(id)));
+     public Optional<Holder.Reference<T>> getHolder(ResourceLocation p_316743_) {
+-        return Optional.ofNullable(this.byLocation.get(p_316743_));
++        return Optional.ofNullable(this.byLocation.get(resolve(p_316743_)));
      }
  
      @Override
-@@ -173,7 +_,7 @@
+     public Optional<Holder.Reference<T>> getHolder(ResourceKey<T> p_205905_) {
+-        return Optional.ofNullable(this.byKey.get(p_205905_));
++        return Optional.ofNullable(this.byKey.get(resolve(p_205905_)));
      }
  
-     private Holder.Reference<T> getOrCreateHolderOrThrow(ResourceKey<T> key) {
--        return this.byKey.computeIfAbsent(key, id -> {
-+        return this.byKey.computeIfAbsent(resolve(key), id -> {
+     @Override
+@@ -204,7 +_,7 @@
+     }
+ 
+     Holder.Reference<T> getOrCreateHolderOrThrow(ResourceKey<T> p_248831_) {
+-        return this.byKey.computeIfAbsent(p_248831_, p_258169_ -> {
++        return this.byKey.computeIfAbsent(resolve(p_248831_), p_258169_ -> {
              if (this.unregisteredIntrusiveHolders != null) {
                  throw new IllegalStateException("This registry can't create new holders without value");
-             }
-@@ -205,7 +_,7 @@
- 
+             } else {
+@@ -237,7 +_,7 @@
+     @Nullable
      @Override
-     public @Nullable T getValue(@Nullable Identifier key) {
--        Holder.Reference<T> result = this.byLocation.get(key);
-+        Holder.Reference<T> result = this.byLocation.get(key != null ? resolve(key) : null);
-         return getValueFromNullable(result);
+     public T get(@Nullable ResourceLocation p_122739_) {
+-        Holder.Reference<T> reference = this.byLocation.get(p_122739_);
++        Holder.Reference<T> reference = this.byLocation.get(p_122739_ != null ? resolve(p_122739_) : null);
+         return getValueFromNullable(reference);
      }
  
-@@ -271,6 +_,17 @@
-         return Objects.requireNonNull(this.componentLookup, "Registry not frozen yet");
+@@ -321,13 +_,18 @@
+         return this.byKey.containsKey(p_175392_);
      }
  
-+    /** @deprecated Neo: For internal use only. Use the Register events when registering values. */
++    /** @deprecated Forge: For internal use only. Use the Register events when registering values. */
 +    @Deprecated
-+    @Override
-+    public void unfreeze(boolean clearTags) {
-+        if (clearTags) {
-+            // unbind tags which were bound by the previous freeze
-+            this.allTags = MappedRegistry.TagSet.unbound();
-+        }
++    public void unfreeze() {
 +        this.frozen = false;
 +    }
 +
      @Override
      public Registry<T> freeze() {
          if (this.frozen) {
-@@ -278,7 +_,6 @@
-         }
+             return this;
+         } else {
+             this.frozen = true;
+-            this.byValue.forEach((p_247989_, p_247990_) -> p_247990_.bindValue((T)p_247989_));
+             List<ResourceLocation> list = this.byKey
+                 .entrySet()
+                 .stream()
+@@ -343,8 +_,10 @@
+                         throw new IllegalStateException("Some intrusive holders were not registered: " + this.unregisteredIntrusiveHolders.values());
+                     }
  
-         this.frozen = true;
--        this.byValue.forEach((value, holder) -> holder.bindValue((T)value));
-         List<Identifier> unboundEntries = this.byKey
-             .entrySet()
-             .stream()
-@@ -295,11 +_,14 @@
-                 throw new IllegalStateException("Some intrusive holders were not registered: " + this.unregisteredIntrusiveHolders.values());
+-                    this.unregisteredIntrusiveHolders = null;
++                    // Neo: We freeze/unfreeze vanilla registries more than once, so we need to keep the unregistered intrusive holders map around.
++                    // this.unregisteredIntrusiveHolders = null;
+                 }
++                this.bakeCallbacks.forEach(bakeCallback -> bakeCallback.onBake(this));
+ 
+                 return this;
              }
- 
--            this.unregisteredIntrusiveHolders = null;
-+            // Neo: We freeze/unfreeze vanilla registries more than once, so we need to keep the unregistered intrusive holders map around.
-+            // this.unregisteredIntrusiveHolders = null;
-         }
-+        this.bakeCallbacks.forEach(bakeCallback -> bakeCallback.onBake(this));
- 
-         if (this.allTags.isBound()) {
--            throw new IllegalStateException("Tags already present before freezing");
-+            // Neo: we freeze/unfreeze the registry to apply snapshots and tags need to be preserved in those cases
-+            // throw new IllegalStateException("Tags already present before freezing");
-         }
- 
-         List<Identifier> unboundTags = this.frozenTags
-@@ -443,6 +_,12 @@
-                 return patchedHolder;
-             }
- 
-+            // Neo: Make the underlying staged tag contents accessible for loading condition evaluation.
-+            @Override
-+            public Map<TagKey<T>, List<Holder<T>>> contents() {
-+                return Collections.unmodifiableMap(pendingContents);
-+            }
-+
-             @Override
-             public void apply() {
-                 pendingTags.forEach((id, tag) -> {
-@@ -453,6 +_,55 @@
-                 MappedRegistry.this.refreshTagsInHolders();
-             }
-         };
+@@ -440,5 +_,53 @@
+     @Override
+     public HolderLookup.RegistryLookup<T> asLookup() {
+         return this.lookup;
 +    }
 +
 +    @Override
@@ -162,8 +161,7 @@
 +            this.byLocation.clear();
 +            this.byKey.clear();
 +            this.byValue.clear();
-+            this.allTags = MappedRegistry.TagSet.unbound();
-+            this.frozenTags.entrySet().removeIf(entry -> !entry.getValue().isBound());
++            this.tags.clear();
 +            if (unregisteredIntrusiveHolders != null) {
 +                unregisteredIntrusiveHolders.clear();
 +                unregisteredIntrusiveHolders = null;
@@ -186,18 +184,17 @@
 +    }
 +
 +    @Override
-+    public int getId(Identifier name) {
-+        return getId(getValue(name));
++    public int getId(ResourceLocation name) {
++        return getId(get(name));
 +    }
 +
 +    @Override
 +    public int getId(ResourceKey<T> key) {
-+        return getId(getValue(key));
++        return getId(get(key));
 +    }
 +
 +    @Override
 +    public boolean containsValue(T value) {
 +        return byValue.containsKey(value);
      }
- 
-     private interface TagSet<T> {
+ }

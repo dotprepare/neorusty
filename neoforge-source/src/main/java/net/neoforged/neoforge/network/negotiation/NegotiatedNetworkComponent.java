@@ -5,7 +5,7 @@
 
 package net.neoforged.neoforge.network.negotiation;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
@@ -16,5 +16,5 @@ import org.jetbrains.annotations.ApiStatus;
  */
 @ApiStatus.Internal
 public record NegotiatedNetworkComponent(
-        Identifier id,
+        ResourceLocation id,
         String version) {}

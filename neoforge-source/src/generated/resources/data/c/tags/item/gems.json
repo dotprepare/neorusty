@@ -5,6 +5,10 @@
     "#c:gems/emerald",
     "#c:gems/lapis",
     "#c:gems/prismarine",
-    "#c:gems/quartz"
+    "#c:gems/quartz",
+    {
+      "id": "#forge:gems",
+      "required": false
+    }
   ]
 }

@@ -8,10 +8,12 @@ package net.neoforged.neoforge.event;
 import java.util.Optional;
 import java.util.function.Consumer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.PackSelectionConfig;
 import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.PathPackResources;
+import net.minecraft.server.packs.repository.BuiltInPackSource;
 import net.minecraft.server.packs.repository.KnownPack;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -20,7 +22,6 @@ import net.minecraft.server.packs.repository.RepositorySource;
 import net.neoforged.bus.api.Event;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.IModBusEvent;
-import net.neoforged.neoforge.resource.JarContentsPackResources;
 import net.neoforged.neoforgespi.language.IModInfo;
 
 /**
@@ -67,17 +68,17 @@ public class AddPackFindersEvent extends Event implements IModBusEvent {
      * @param alwaysActive    Whether the pack is forced active always. If false, players have to manually activate the pack themselves
      * @param packPosition    Where the pack goes for determining pack applying order
      */
-    public void addPackFinders(Identifier packLocation, PackType packType, Component packNameDisplay, PackSource packSource, boolean alwaysActive, Pack.Position packPosition) {
+    public void addPackFinders(ResourceLocation packLocation, PackType packType, Component packNameDisplay, PackSource packSource, boolean alwaysActive, Pack.Position packPosition) {
         if (getPackType() == packType) {
             IModInfo modInfo = ModList.get().getModContainerById(packLocation.getNamespace()).orElseThrow(() -> new IllegalArgumentException("Mod not found: " + packLocation.getNamespace())).getModInfo();
 
-            var version = modInfo.getVersion();
+            var resourcePath = modInfo.getOwningFile().getFile().findResource(packLocation.getPath());
 
-            String prefix = packLocation.getPath();
+            var version = modInfo.getVersion();
 
             var pack = Pack.readMetaAndCreate(
                     new PackLocationInfo("mod/" + packLocation, packNameDisplay, packSource, Optional.of(new KnownPack("neoforge", "mod/" + packLocation, version.toString()))),
-                    new JarContentsPackResources.JarContentsResourcesSupplier(modInfo.getOwningFile().getFile().getContents(), prefix),
+                    BuiltInPackSource.fromName((path) -> new PathPackResources(path, resourcePath)),
                     packType,
                     new PackSelectionConfig(alwaysActive, packPosition, false));
 

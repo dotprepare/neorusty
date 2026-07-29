@@ -7,11 +7,10 @@ package net.neoforged.neoforge.common.data.internal;
 
 import java.util.Locale;
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.data.LanguageProvider;
 import org.apache.commons.lang3.StringUtils;
@@ -31,9 +30,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         // Blocks
         add(Tags.Blocks.BARRELS, "Barrels");
         add(Tags.Blocks.BARRELS_WOODEN, "Wooden Barrels");
-        add(Tags.Blocks.BARS, "Bars");
-        add(Tags.Blocks.BARS_COPPER, "Copper Bars");
-        add(Tags.Blocks.BARS_IRON, "Iron Bars");
         add(Tags.Blocks.BOOKSHELVES, "Bookshelves");
         add(Tags.Blocks.BUDDING_BLOCKS, "Budding Blocks");
         add(Tags.Blocks.BUDS, "Buds");
@@ -56,12 +52,8 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Blocks.FENCE_GATES, "Fence Gates");
         add(Tags.Blocks.FENCE_GATES_WOODEN, "Wooden Fence Gates");
         add(Tags.Blocks.FENCES, "Fences");
-        add(Tags.Blocks.FENCES_NETHER_BRICK, "Nether Brick Fences");
+        add(Tags.Blocks.FENCES_NETHER_BRICK, "Fences Nether Brick");
         add(Tags.Blocks.FENCES_WOODEN, "Wooden Fences");
-        add(Tags.Blocks.FLOWERS_SMALL, "Small Flowers");
-        add(Tags.Blocks.FLOWERS_TALL, "Tall Flowers");
-        add(Tags.Blocks.FLOWERS, "Flowers");
-        add(Tags.Blocks.FROGLIGHTS, "Froglights");
         add(Tags.Blocks.GLASS_BLOCKS, "Glass Blocks");
         add(Tags.Blocks.GLASS_BLOCKS_COLORLESS, "Colorless Glass Blocks");
         add(Tags.Blocks.GLASS_BLOCKS_CHEAP, "Silica Glass Blocks");
@@ -135,13 +127,8 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Blocks.STORAGE_BLOCKS_RAW_GOLD, "Raw Gold Storage Blocks");
         add(Tags.Blocks.STORAGE_BLOCKS_RAW_IRON, "Raw Iron Storage Blocks");
         add(Tags.Blocks.STORAGE_BLOCKS_REDSTONE, "Redstone Storage Blocks");
-        add(Tags.Blocks.STORAGE_BLOCKS_RESIN, "Resin Storage Blocks");
         add(Tags.Blocks.STORAGE_BLOCKS_SLIME, "Slime Storage Blocks");
         add(Tags.Blocks.STORAGE_BLOCKS_WHEAT, "Wheat Storage Blocks");
-        add(Tags.Blocks.OVERWORLD_NATURAL_LOGS, "Overworld Natural Logs");
-        add(Tags.Blocks.NETHER_NATURAL_LOGS, "Nether Natural Logs");
-        add(Tags.Blocks.NATURAL_LOGS, "Natural Logs");
-        add(Tags.Blocks.NATURAL_WOODS, "Natural Woods");
         add(Tags.Blocks.STRIPPED_LOGS, "Stripped Logs");
         add(Tags.Blocks.STRIPPED_WOODS, "Stripped Woods");
         add(Tags.Blocks.VILLAGER_JOB_SITES, "Villager Job Sites");
@@ -150,15 +137,11 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         // Items
         add(Tags.Items.BARRELS, "Barrels");
         add(Tags.Items.BARRELS_WOODEN, "Wooden Barrels");
-        add(Tags.Items.BARS, "Bars");
-        add(Tags.Items.BARS_COPPER, "Copper Bars");
-        add(Tags.Items.BARS_IRON, "Iron Bars");
         add(Tags.Items.BONES, "Bones");
         add(Tags.Items.BOOKSHELVES, "Bookshelves");
         add(Tags.Items.BRICKS, "Bricks");
         add(Tags.Items.BRICKS_NORMAL, "Normal Bricks");
         add(Tags.Items.BRICKS_NETHER, "Nether Bricks");
-        add(Tags.Items.BRICKS_RESIN, "Resin Bricks");
         add(Tags.Items.BUCKETS, "Buckets");
         add(Tags.Items.BUCKETS_EMPTY, "Empty Buckets");
         add(Tags.Items.BUCKETS_WATER, "Water Buckets");
@@ -166,7 +149,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.BUCKETS_MILK, "Milk Buckets");
         add(Tags.Items.BUCKETS_POWDER_SNOW, "Powder Snow Buckets");
         add(Tags.Items.BUCKETS_ENTITY_WATER, "Water Entity Buckets");
-        add(Tags.Items.BUCKETS_ENTITY_DRY, "Dry Entity Buckets");
         add(Tags.Items.BUDDING_BLOCKS, "Budding Blocks");
         add(Tags.Items.BUDS, "Buds");
         add(Tags.Items.CHAINS, "Chains");
@@ -175,8 +157,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.CHESTS_TRAPPED, "Trapped Chests");
         add(Tags.Items.CHESTS_WOODEN, "Wooden Chests");
         add(Tags.Items.CLUSTERS, "Clusters");
-        add(Tags.Items.CLUMPS, "Clumps");
-        add(Tags.Items.CLUMPS_RESIN, "Resin Clumps");
         add(Tags.Items.COBBLESTONES, "Cobblestones");
         add(Tags.Items.COBBLESTONES_NORMAL, "Normal Cobblestones");
         add(Tags.Items.COBBLESTONES_INFESTED, "Infested Cobblestones");
@@ -238,9 +218,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.FENCES_NETHER_BRICK, "Nether Brick Fences");
         add(Tags.Items.FENCES_WOODEN, "Wooden Fences");
         add(Tags.Items.FERTILIZERS, "Fertilizers");
-        add(Tags.Items.FLOWERS_SMALL, "Small Flowers");
-        add(Tags.Items.FLOWERS_TALL, "Tall Flowers");
-        add(Tags.Items.FLOWERS, "Flowers");
         add(Tags.Items.FOODS, "Foods");
         add(Tags.Items.FOODS_BERRY, "Berries");
         add(Tags.Items.FOODS_BREAD, "Breads");
@@ -259,7 +236,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.FOODS_SOUP, "Soups");
         add(Tags.Items.FOODS_VEGETABLE, "Vegetables");
         add(Tags.Items.ANIMAL_FOODS, "Animal Foods");
-        add(Tags.Items.FROGLIGHTS, "Froglights");
         add(Tags.Items.GEMS, "Gems");
         add(Tags.Items.GEMS_AMETHYST, "Amethyst Gems");
         add(Tags.Items.GEMS_DIAMOND, "Diamond Gems");
@@ -284,11 +260,11 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.INGOTS_NETHERITE, "Netherite Ingots");
         add(Tags.Items.LEATHERS, "Leathers");
         add(Tags.Items.MUSIC_DISCS, "Music Discs");
+        add(Tags.Items.LOOM_PATTERNS, "Loom Patterns");
         add(Tags.Items.MUSHROOMS, "Mushrooms");
         add(Tags.Items.NETHER_STARS, "Nether Stars");
         add(Tags.Items.NETHERRACKS, "Netherracks");
         add(Tags.Items.NUGGETS, "Nuggets");
-        add(Tags.Items.NUGGETS_COPPER, "Copper Nuggets");
         add(Tags.Items.NUGGETS_IRON, "Iron Nuggets");
         add(Tags.Items.NUGGETS_GOLD, "Gold Nuggets");
         add(Tags.Items.OBSIDIANS, "Obsidians");
@@ -314,12 +290,10 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.ORES_IN_GROUND_DEEPSLATE, "Deepslate Ores In Ground");
         add(Tags.Items.ORES_IN_GROUND_NETHERRACK, "Netherrack Ores In Ground");
         add(Tags.Items.ORES_IN_GROUND_STONE, "Stone Ores In Ground");
-        add(Tags.Items.PIGLIN_USABLE_CROSSBOWS, "Piglin Usable Crossbows");
-        add(Tags.Items.PILLAGER_USABLE_CROSSBOWS, "Pillager Usable Crossbows");
         add(Tags.Items.PLAYER_WORKSTATIONS_CRAFTING_TABLES, "Crafting Tables");
         add(Tags.Items.PLAYER_WORKSTATIONS_FURNACES, "Furnaces");
         add(Tags.Items.POTIONS, "Potions");
-        add(Tags.Items.POTIONS_BOTTLE, "Bottled Potions");
+        add(Tags.Items.POTION_BOTTLE, "Bottled Potions");
         add(Tags.Items.PUMPKINS, "Pumpkins");
         add(Tags.Items.PUMPKINS_NORMAL, "Normal Pumpkins");
         add(Tags.Items.PUMPKINS_CARVED, "Carved Pumpkins");
@@ -350,11 +324,10 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.SEEDS_MELON, "Melon Seeds");
         add(Tags.Items.SEEDS_PUMPKIN, "Pumpkin Seeds");
         add(Tags.Items.SEEDS_TORCHFLOWER, "Torchflower Seeds");
-        add(Tags.Items.SEEDS_PITCHER_PLANT, "Pitcher Plant Seeds");
         add(Tags.Items.SEEDS_WHEAT, "Wheat Seeds");
-        add(Tags.Items.SKELETON_USABLE_BOWS, "Skeleton Usable Bows");
         add(Tags.Items.SHULKER_BOXES, "Shulker Boxes");
         add(Tags.Items.SLIME_BALLS, "Slimeballs");
+        add(Tags.Items.SLIMEBALLS, "Slimeballs");
         add(Tags.Items.STONES, "Stones");
         add(Tags.Items.STORAGE_BLOCKS, "Storage Blocks");
         add(Tags.Items.STORAGE_BLOCKS_BONE_MEAL, "Bone Meal Storage Blocks");
@@ -371,14 +344,9 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.STORAGE_BLOCKS_RAW_GOLD, "Raw Gold Storage Blocks");
         add(Tags.Items.STORAGE_BLOCKS_RAW_IRON, "Raw Iron Storage Blocks");
         add(Tags.Items.STORAGE_BLOCKS_REDSTONE, "Redstone Storage Blocks");
-        add(Tags.Items.STORAGE_BLOCKS_RESIN, "Resin Storage Blocks");
         add(Tags.Items.STORAGE_BLOCKS_SLIME, "Slime Storage Blocks");
         add(Tags.Items.STORAGE_BLOCKS_WHEAT, "Wheat Storage Blocks");
         add(Tags.Items.STRINGS, "Strings");
-        add(Tags.Items.OVERWORLD_NATURAL_LOGS, "Overworld Natural Logs");
-        add(Tags.Items.NETHER_NATURAL_LOGS, "Nether Natural Logs");
-        add(Tags.Items.NATURAL_LOGS, "Natural Logs");
-        add(Tags.Items.NATURAL_WOODS, "Natural Woods");
         add(Tags.Items.STRIPPED_LOGS, "Stripped Log Blocks");
         add(Tags.Items.STRIPPED_WOODS, "Stripped Wood Blocks");
         add(Tags.Items.VILLAGER_JOB_SITES, "Villager Job Sites");
@@ -389,7 +357,7 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.TOOLS_FISHING_ROD, "Fishing Rods");
         add(Tags.Items.TOOLS_BRUSH, "Brushes");
         add(Tags.Items.TOOLS_MACE, "Maces");
-        add(Tags.Items.TOOLS_TRIDENT, "Tridents");
+        add(Tags.Items.TOOLS_SPEAR, "Spears");
         add(Tags.Items.TOOLS_IGNITER, "Igniters");
         add(Tags.Items.TOOLS_WRENCH, "Wrenches");
         add(Tags.Items.MELEE_WEAPON_TOOLS, "Melee Weapons");
@@ -397,10 +365,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Items.MINING_TOOL_TOOLS, "Mining Tools");
         add(Tags.Items.TOOLS, "Tools");
         add(Tags.Items.ARMORS, "Armors");
-        add(Tags.Items.ARMORS_HUMANOID, "Humanoid Armors");
-        add(Tags.Items.ARMORS_HORSE, "Horse Armors");
-        add(Tags.Items.ARMORS_NAUTILUS, "Nautilus Armors");
-        add(Tags.Items.ARMORS_WOLF, "Wolf Armors");
         add(Tags.Items.ENCHANTABLES, "Enchantables");
 
         // Fluids
@@ -421,7 +385,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.EntityTypes.BOSSES, "Bosses");
         add(Tags.EntityTypes.MINECARTS, "Minecarts");
         add(Tags.EntityTypes.BOATS, "Boats");
-        add(Tags.EntityTypes.ITEM_FRAMES, "Item Frames");
         add(Tags.EntityTypes.CAPTURING_NOT_SUPPORTED, "Capturing Not Supported");
         add(Tags.EntityTypes.TELEPORTING_NOT_SUPPORTED, "Teleporting Not Supported");
 
@@ -432,10 +395,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Enchantments.ENTITY_SPEED_ENHANCEMENTS, "Entity Speed Enhancements");
         add(Tags.Enchantments.ENTITY_AUXILIARY_MOVEMENT_ENHANCEMENTS, "Entity Auxiliary Movement Enhancements");
         add(Tags.Enchantments.ENTITY_DEFENSE_ENHANCEMENTS, "Entity Defense Enhancements");
-        add(Tags.Enchantments.HIDDEN_FROM_RECIPE_VIEWERS, "Hidden From Recipe Viewers");
-
-        // Potions
-        add(Tags.Potions.HIDDEN_FROM_RECIPE_VIEWERS, "Hidden From Recipe Viewers");
 
         // Biomes
         add(Tags.Biomes.NO_DEFAULT_MONSTERS, "No Default Monsters");
@@ -475,20 +434,6 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Biomes.IS_DRY_NETHER, "Dry Nether");
         add(Tags.Biomes.IS_DRY_END, "Dry End");
 
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE, "Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_OAK, "Oak Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_BIRCH, "Birch Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_SPRUCE, "Spruce Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_JUNGLE, "Jungle Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_ACACIA, "Acacia Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_DARK_OAK, "Dark Oak Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_MANGROVE, "Mangrove Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_CHERRY, "Cherry Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_PALE_OAK, "Pale Oak Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_BAMBOO, "Bamboo Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_CRIMSON, "Crimson Primary Wood Type");
-        add(Tags.Biomes.PRIMARY_WOOD_TYPE_WARPED, "Warped Primary Wood Type");
-
         add(Tags.Biomes.IS_CONIFEROUS_TREE, "Coniferous Trees");
         add(Tags.Biomes.IS_SAVANNA_TREE, "Savanna Trees");
         add(Tags.Biomes.IS_JUNGLE_TREE, "Jungle Trees");
@@ -524,7 +469,8 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         add(Tags.Biomes.IS_MUSHROOM, "Mushrooms");
         add(Tags.Biomes.IS_MAGICAL, "Magical");
         add(Tags.Biomes.IS_RARE, "Rare");
-        add(Tags.Biomes.IS_PLATEAU, "Plateau");
+        add(Tags.Biomes.IS_PLATEAU, "Plateaus");
+        add(Tags.Biomes.IS_MODIFIED, "Modified");
         add(Tags.Biomes.IS_OLD_GROWTH, "Old Growth");
 
         add(Tags.Biomes.IS_AQUATIC, "Aquatic");
@@ -543,16 +489,13 @@ public final class NeoForgeLanguageProvider extends LanguageProvider {
         // Structures
         add(Tags.Structures.HIDDEN_FROM_DISPLAYERS, "Hidden From Displayers");
         add(Tags.Structures.HIDDEN_FROM_LOCATOR_SELECTION, "Hidden From Locator's Selection");
-
-        // Command exceptions
-        add(CommonHooks.ERROR_IGNORES_PAUSING_KEY, "Clock %s disallows pausing");
     }
 
     private <T> void addColored(TagKey<T> baseTagKey, String pattern) {
         for (DyeColor color : DyeColor.values()) {
             TagKey<T> coloredTag = TagKey.create(
                     baseTagKey.registry(),
-                    Identifier.fromNamespaceAndPath(baseTagKey.location().getNamespace(), baseTagKey.location().getPath() + "/" + color.name().toLowerCase(Locale.ROOT)));
+                    ResourceLocation.fromNamespaceAndPath(baseTagKey.location().getNamespace(), baseTagKey.location().getPath() + "/" + color.name().toLowerCase(Locale.ROOT)));
 
             add(coloredTag, pattern.replace("{color}", StringUtils.capitalize(color.getName())));
         }

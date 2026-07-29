@@ -2,6 +2,10 @@
   "values": [
     "minecraft:jagged_peaks",
     "minecraft:frozen_peaks",
-    "minecraft:stony_peaks"
+    "minecraft:stony_peaks",
+    {
+      "id": "#forge:is_peak",
+      "required": false
+    }
   ]
 }

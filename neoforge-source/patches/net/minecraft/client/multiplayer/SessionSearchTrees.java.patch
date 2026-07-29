@@ -1,34 +1,34 @@
 --- a/net/minecraft/client/multiplayer/SessionSearchTrees.java
 +++ b/net/minecraft/client/multiplayer/SessionSearchTrees.java
-@@ -64,7 +_,7 @@
-                 Registry<Item> itemRegistries = registryAccess.lookupOrThrow(Registries.ITEM);
-                 Item.TooltipContext tooltipContext = Item.TooltipContext.of(registryAccess);
-                 ContextMap recipeContext = SlotDisplayContext.fromLevel(level);
--                TooltipFlag tooltipFlag = TooltipFlag.Default.NORMAL;
-+                TooltipFlag tooltipFlag = net.neoforged.neoforge.client.ClientTooltipFlag.of(TooltipFlag.Default.NORMAL);
-                 CompletableFuture<?> previous = this.recipeSearch;
+@@ -60,7 +_,7 @@
+                 List<RecipeCollection> list = p_346233_.getCollections();
+                 Registry<Item> registry = p_345600_.registryOrThrow(Registries.ITEM);
+                 Item.TooltipContext item$tooltipcontext = Item.TooltipContext.of(p_345600_);
+-                TooltipFlag tooltipflag = TooltipFlag.Default.NORMAL;
++                TooltipFlag tooltipflag = net.neoforged.neoforge.client.ClientTooltipFlag.of(TooltipFlag.Default.NORMAL);
+                 CompletableFuture<?> completablefuture = this.recipeSearch;
                  this.recipeSearch = CompletableFuture.supplyAsync(
                      () -> new FullTextSearchTree<>(
-@@ -89,44 +_,60 @@
+@@ -86,44 +_,60 @@
      }
  
-     public void updateCreativeTags(List<ItemStack> items) {
-+        this.updateCreativeTags(items, CREATIVE_TAGS);
+     public void updateCreativeTags(List<ItemStack> p_346121_) {
++        this.updateCreativeTags(p_346121_, CREATIVE_TAGS);
 +    }
 +
-+    public void updateCreativeTags(List<ItemStack> items, SessionSearchTrees.Key key) {
++    public void updateCreativeTags(List<ItemStack> p_346121_, SessionSearchTrees.Key key) {
          this.register(
 -            CREATIVE_TAGS,
 +            key,
              () -> {
--                CompletableFuture<?> previous = this.creativeByTagSearch;
+-                CompletableFuture<?> completablefuture = this.creativeByTagSearch;
 -                this.creativeByTagSearch = CompletableFuture.supplyAsync(
-+                CompletableFuture<?> previous = net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getTagSearchTree(key);
++                CompletableFuture<?> completablefuture = net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getTagSearchTree(key);
 +                net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.putTagSearchTree(key, CompletableFuture.supplyAsync(
-                     () -> new IdSearchTree<>(itemStack -> itemStack.tags().map(TagKey::location), items), Util.backgroundExecutor()
+                     () -> new IdSearchTree<>(p_344728_ -> p_344728_.getTags().map(TagKey::location), p_346121_), Util.backgroundExecutor()
 -                );
 +                ));
-                 previous.cancel(true);
+                 completablefuture.cancel(true);
              }
          );
      }
@@ -42,31 +42,31 @@
 +        return net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getTagSearchTree(key).join();
      }
  
-     public void updateCreativeTooltips(HolderLookup.Provider registries, List<ItemStack> itemStacks) {
-+        this.updateCreativeTooltips(registries, itemStacks, CREATIVE_NAMES);
+     public void updateCreativeTooltips(HolderLookup.Provider p_345391_, List<ItemStack> p_346357_) {
++        this.updateCreativeTooltips(p_345391_, p_346357_, CREATIVE_NAMES);
 +    }
 +
-+    public void updateCreativeTooltips(HolderLookup.Provider registries, List<ItemStack> itemStacks, SessionSearchTrees.Key key) {
++    public void updateCreativeTooltips(HolderLookup.Provider p_345391_, List<ItemStack> p_346357_, SessionSearchTrees.Key key) {
          this.register(
 -            CREATIVE_NAMES,
 +            key,
              () -> {
-                 Item.TooltipContext tooltipContext = Item.TooltipContext.of(registries);
--                TooltipFlag tooltipFlag = TooltipFlag.Default.NORMAL.asCreative();
--                CompletableFuture<?> previous = this.creativeByNameSearch;
+                 Item.TooltipContext item$tooltipcontext = Item.TooltipContext.of(p_345391_);
+-                TooltipFlag tooltipflag = TooltipFlag.Default.NORMAL.asCreative();
+-                CompletableFuture<?> completablefuture = this.creativeByNameSearch;
 -                this.creativeByNameSearch = CompletableFuture.supplyAsync(
-+                TooltipFlag tooltipFlag = net.neoforged.neoforge.client.ClientTooltipFlag.of(TooltipFlag.Default.NORMAL.asCreative());
-+                CompletableFuture<?> previous = net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getNameSearchTree(key);
++                TooltipFlag tooltipflag = net.neoforged.neoforge.client.ClientTooltipFlag.of(TooltipFlag.Default.NORMAL.asCreative());
++                CompletableFuture<?> completablefuture = net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getNameSearchTree(key);
 +                net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.putNameSearchTree(key, CompletableFuture.supplyAsync(
                      () -> new FullTextSearchTree<>(
-                         itemStack -> getTooltipLines(Stream.of(itemStack), tooltipContext, tooltipFlag),
-                         itemStack -> itemStack.typeHolder().unwrapKey().map(ResourceKey::identifier).stream(),
-                         itemStacks
-                     ),
+                             p_345006_ -> getTooltipLines(Stream.of(p_345006_), item$tooltipcontext, tooltipflag),
+                             p_345861_ -> p_345861_.getItemHolder().unwrapKey().map(ResourceKey::location).stream(),
+                             p_346357_
+                         ),
                      Util.backgroundExecutor()
 -                );
 +                ));
-                 previous.cancel(true);
+                 completablefuture.cancel(true);
              }
          );
      }
@@ -80,4 +80,4 @@
 +        return net.neoforged.neoforge.client.CreativeModeTabSearchRegistry.getNameSearchTree(key).join();
      }
  
-     public static class Key {
+     @OnlyIn(Dist.CLIENT)

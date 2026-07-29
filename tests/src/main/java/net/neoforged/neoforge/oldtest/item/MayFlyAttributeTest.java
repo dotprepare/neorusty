@@ -5,7 +5,7 @@
 
 package net.neoforged.neoforge.oldtest.item;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -35,7 +35,7 @@ public class MayFlyAttributeTest {
     protected static final String MODID = "may_fly_attribute_item";
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
 
-    private static final Identifier MODIFIER_ID = Identifier.fromNamespaceAndPath(MODID, "add_flight");
+    private static final ResourceLocation MODIFIER_ID = ResourceLocation.fromNamespaceAndPath(MODID, "add_flight");
     private static final AttributeModifier MODIFIER = new AttributeModifier(MODIFIER_ID, 1D, AttributeModifier.Operation.ADD_VALUE);
 
     public MayFlyAttributeTest(IEventBus modEventBus) {
@@ -44,7 +44,7 @@ public class MayFlyAttributeTest {
     }
 
     /** Successful "scope item" using the Forge method, all cases of stopping using the item will remove the flight ability */
-    public static DeferredItem<Item> GOOD = ITEMS.registerItem("good_scope", InvertedTelescope::new);
+    public static DeferredItem<Item> GOOD = ITEMS.register("good_scope", () -> new InvertedTelescope(new Item.Properties()));
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.COMBAT) {

@@ -6,25 +6,13 @@
 package net.neoforged.neoforge.common;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.graph.Graph;
-import com.mojang.authlib.GameProfile;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.Lifecycle;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.MapLike;
-import com.mojang.serialization.RecordBuilder;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -33,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -46,10 +33,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
-import net.minecraft.IdentifierException;
+import net.minecraft.ResourceLocationException;
 import net.minecraft.SharedConstants;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -61,48 +47,46 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderLookup.RegistryLookup;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.dispenser.BlockSource;
 import net.minecraft.core.dispenser.ShearsDispenseItemBehavior;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.ChatDecorator;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializer;
-import net.minecraft.network.syncher.SyncedDataHolder;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.PackType;
-import net.minecraft.stats.RecipeBookSettings;
 import net.minecraft.stats.Stats;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.CrudeIncrementalIntIdentityHashBiMap;
 import net.minecraft.util.Mth;
-import net.minecraft.util.Util;
 import net.minecraft.util.datafix.fixes.StructuresBecomeConfiguredFix;
 import net.minecraft.world.Container;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.clock.WorldClock;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -114,7 +98,6 @@ import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.EnderMan;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.AnvilMenu;
@@ -124,23 +107,23 @@ import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.RecipeBookType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.AdventureModePredicate;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PotionItem;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.TippedArrowItem;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.item.crafting.RecipeMap;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.item.equipment.Equippable;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -149,17 +132,17 @@ import net.minecraft.world.level.biome.BiomeGenerationSettings;
 import net.minecraft.world.level.biome.BiomeSpecialEffects;
 import net.minecraft.world.level.biome.MobSpawnSettings;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.GameMasterBlock;
-import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.pattern.BlockInWorld;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.WorldData;
@@ -171,13 +154,14 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.ModLoader;
+import net.neoforged.fml.common.asm.enumextension.ExtensionInfo;
 import net.neoforged.fml.i18n.MavenVersionTranslator;
-import net.neoforged.fml.loading.toposort.CyclePresentException;
-import net.neoforged.fml.loading.toposort.TopologicalSort;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.client.ClientHooks;
 import net.neoforged.neoforge.common.conditions.ConditionalOps;
-import net.neoforged.neoforge.common.config.NeoForgeServerConfig;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.common.extensions.IBlockExtension;
+import net.neoforged.neoforge.common.extensions.IEntityExtension;
 import net.neoforged.neoforge.common.loot.IGlobalLootModifier;
 import net.neoforged.neoforge.common.loot.LootModifierManager;
 import net.neoforged.neoforge.common.loot.LootTableIdCondition;
@@ -201,10 +185,12 @@ import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.ArmorHurtEvent;
 import net.neoforged.neoforge.event.entity.living.EnderManAngerEvent;
+import net.neoforged.neoforge.event.entity.living.LivingBreatheEvent;
 import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDrownEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingGetProjectileEvent;
@@ -214,10 +200,9 @@ import net.neoforged.neoforge.event.entity.living.LivingShieldBlockEvent;
 import net.neoforged.neoforge.event.entity.living.LivingSwapItemsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingUseTotemEvent;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
-import net.neoforged.neoforge.event.entity.player.AnvilCraftEvent;
+import net.neoforged.neoforge.event.entity.player.AnvilRepairEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.CriticalHitEvent;
-import net.neoforged.neoforge.event.entity.player.CustomClickActionEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEnchantItemEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -225,14 +210,9 @@ import net.neoforged.neoforge.event.entity.player.SweepAttackEvent;
 import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.NoteBlockEvent;
-import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.event.level.block.CropGrowEvent;
 import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.internal.NeoForgeProxy;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.payload.RecipeContentPayload;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
-import net.neoforged.neoforge.resource.NeoForgeReloadListeners;
 import net.neoforged.neoforge.resource.ResourcePackLoader;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import net.neoforged.neoforge.server.permission.PermissionAPI;
@@ -243,17 +223,12 @@ import org.apache.logging.log4j.MarkerManager;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
-import org.spongepowered.asm.mixin.transformer.meta.MixinMerged;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for various common (i.e. client and server-side) hooks.
  */
 public class CommonHooks {
-    public static final Comparator<Identifier> CMP_BY_NAMESPACE_VANILLA_FIRST = Comparator
-            .<Identifier, Boolean>comparing(location -> !location.getNamespace().equals(Identifier.DEFAULT_NAMESPACE))
-            .thenComparing(Identifier::compareNamespaced);
-
     private static final Logger LOGGER = LogManager.getLogger();
     private static final Marker WORLDPERSISTENCE = MarkerManager.getMarker("WP");
 
@@ -295,7 +270,7 @@ public class CommonHooks {
 
     /**
      * Creates and posts an {@link EntityInvulnerabilityCheckEvent}. This is invoked in
-     * {@link Entity#isInvulnerableToBase(DamageSource)} and returns a post-listener result
+     * {@link Entity#isInvulnerableTo(DamageSource)} and returns a post-listener result
      * to the invulnerability status of the entity to the damage source.
      *
      * @param entity  the entity being checked for invulnerability
@@ -315,12 +290,10 @@ public class CommonHooks {
      * @param entity    the entity to receive damage
      * @param container the newly instantiated container for damage to be dealt. Most properties of
      *                  the container will be empty at this stage.
-     * @return if the event is cancelled or the entity was killed during the event. If true, further processing stops and no damage will be applied to the entity
+     * @return if the event is cancelled and no damage will be applied to the entity
      */
     public static boolean onEntityIncomingDamage(LivingEntity entity, DamageContainer container) {
-        Preconditions.checkArgument(!entity.isDeadOrDying(), "The LivingIncomingDamageEvent cannot be fired with a dead entity.");
-        var event = NeoForge.EVENT_BUS.post(new LivingIncomingDamageEvent(entity, container));
-        return event.isCanceled() || entity.isDeadOrDying();
+        return NeoForge.EVENT_BUS.post(new LivingIncomingDamageEvent(entity, container)).isCanceled();
     }
 
     public static LivingKnockBackEvent onLivingKnockBack(LivingEntity target, float strength, double ratioX, double ratioZ) {
@@ -377,8 +350,7 @@ public class CommonHooks {
         for (EquipmentSlot slot : slots) {
             ItemStack armorPiece = armoredEntity.getItemBySlot(slot);
             if (armorPiece.isEmpty()) continue;
-            Equippable equippable = armorPiece.get(DataComponents.EQUIPPABLE);
-            float damageAfterFireResist = (equippable != null && equippable.damageOnHurt() && armorPiece.isDamageableItem() && armorPiece.canBeHurtBy(source)) ? damage : 0;
+            float damageAfterFireResist = (armorPiece.getItem() instanceof ArmorItem && armorPiece.canBeHurtBy(source)) ? damage : 0;
             armorMap.put(slot, new ArmorHurtEvent.ArmorEntry(armorPiece, damageAfterFireResist));
         }
 
@@ -395,9 +367,10 @@ public class CommonHooks {
         return NeoForge.EVENT_BUS.post(new LivingDropsEvent(entity, source, drops, recentlyHit)).isCanceled();
     }
 
-    public static LivingFallEvent onLivingFall(LivingEntity entity, double distance, float damageMultiplier) {
+    @Nullable
+    public static float[] onLivingFall(LivingEntity entity, float distance, float damageMultiplier) {
         LivingFallEvent event = new LivingFallEvent(entity, distance, damageMultiplier);
-        return NeoForge.EVENT_BUS.post(event);
+        return (NeoForge.EVENT_BUS.post(event).isCanceled() ? null : new float[] { event.getDistance(), event.getDamageMultiplier() });
     }
 
     public static double getEntityVisibilityMultiplier(LivingEntity entity, Entity lookingEntity, double originalMultiplier) {
@@ -410,7 +383,7 @@ public class CommonHooks {
         boolean isSpectator = (entity instanceof Player && entity.isSpectator());
         if (isSpectator)
             return Optional.empty();
-        if (!NeoForgeServerConfig.INSTANCE.fullBoundingBoxLadders.get()) {
+        if (!NeoForgeConfig.SERVER.fullBoundingBoxLadders.get()) {
             return state.isLadder(level, pos, entity) ? Optional.of(pos) : Optional.empty();
         } else {
             AABB bb = entity.getBoundingBox();
@@ -437,9 +410,9 @@ public class CommonHooks {
     }
 
     @Nullable
-    public static ItemEntity onPlayerTossEvent(Player player, ItemStack item, boolean dropAround, boolean includeName) {
+    public static ItemEntity onPlayerTossEvent(Player player, ItemStack item, boolean includeName) {
         player.captureDrops(Lists.newArrayList());
-        ItemEntity ret = player.drop(item, dropAround, includeName);
+        ItemEntity ret = player.drop(item, false, includeName);
         player.captureDrops(null);
 
         if (ret == null)
@@ -449,8 +422,8 @@ public class CommonHooks {
         if (NeoForge.EVENT_BUS.post(event).isCanceled())
             return null;
 
-        if (!player.level().isClientSide())
-            player.level().addFreshEntity(event.getEntity());
+        if (!player.level().isClientSide)
+            player.getCommandSenderWorld().addFreshEntity(event.getEntity());
         return event.getEntity();
     }
 
@@ -513,9 +486,8 @@ public class CommonHooks {
             MutableComponent link = Component.literal(url);
 
             try {
-                URI uri = new URI(url);
                 // Add schema so client doesn't crash.
-                if (uri.getScheme() == null) {
+                if ((new URI(url)).getScheme() == null) {
                     if (!allowMissingHeader) {
                         if (ichat == null)
                             ichat = Component.literal(url);
@@ -523,11 +495,8 @@ public class CommonHooks {
                             ichat.append(url);
                         continue;
                     }
-                    uri = new URI("http://" + url);
+                    url = "http://" + url;
                 }
-                // Set the click event
-                ClickEvent click = new ClickEvent.OpenUrl(uri);
-                link.setStyle(link.getStyle().withClickEvent(click).withUnderlined(true).withColor(TextColor.fromLegacyFormat(ChatFormatting.BLUE)));
             } catch (URISyntaxException e) {
                 // Bad syntax bail out!
                 if (ichat == null)
@@ -537,7 +506,9 @@ public class CommonHooks {
                 continue;
             }
 
-            // Append the link.
+            // Set the click event and append the link.
+            ClickEvent click = new ClickEvent(ClickEvent.Action.OPEN_URL, url);
+            link.setStyle(link.getStyle().withClickEvent(click).withUnderlined(true).withColor(TextColor.fromLegacyFormat(ChatFormatting.BLUE)));
             if (ichat == null)
                 ichat = Component.literal("");
             ichat.append(link);
@@ -591,11 +562,11 @@ public class CommonHooks {
      * @param state    The state of the block being broken
      * @return The event
      */
-    public static BreakBlockEvent fireBlockBreak(Level level, GameType gameType, Player player, BlockPos pos, BlockState state) {
+    public static BlockEvent.BreakEvent fireBlockBreak(Level level, GameType gameType, ServerPlayer player, BlockPos pos, BlockState state) {
         boolean preCancelEvent = false;
 
         ItemStack itemstack = player.getMainHandItem();
-        if (!itemstack.isEmpty() && !itemstack.canDestroyBlock(state, level, pos, player)) {
+        if (!itemstack.isEmpty() && !itemstack.getItem().canAttackBlock(state, level, pos, player)) {
             preCancelEvent = true;
         }
 
@@ -607,13 +578,14 @@ public class CommonHooks {
             preCancelEvent = true;
         }
 
-        var event = new BreakBlockEvent(level, pos, state, player);
+        // Post the block break event
+        BlockEvent.BreakEvent event = new BlockEvent.BreakEvent(level, pos, state, player);
         event.setCanceled(preCancelEvent);
         NeoForge.EVENT_BUS.post(event);
 
-        // If the event is canceled on the server, let the client know the block still exists
-        if (event.isCanceled() && event.shouldNotifyClient() && player instanceof ServerPlayer sp) {
-            sp.connection.send(new ClientboundBlockUpdatePacket(pos, state));
+        // If the event is canceled, let the client know the block still exists
+        if (event.isCanceled()) {
+            player.connection.send(new ClientboundBlockUpdatePacket(pos, state));
         }
 
         return event;
@@ -676,11 +648,6 @@ public class CommonHooks {
                     blocksnapshot.restore(blocksnapshot.getFlags() | Block.UPDATE_CLIENTS);
                     level.restoringBlockSnapshots = false;
                 }
-                // inform the client that the item was not consumed
-                if (player instanceof ServerPlayer serverPlayer) {
-                    int slot = context.getHand() == InteractionHand.MAIN_HAND ? serverPlayer.getInventory().getSelectedSlot() : Inventory.SLOT_OFFHAND;
-                    serverPlayer.connection.send(serverPlayer.getInventory().createInventoryUpdatePacket(slot));
-                }
             } else {
                 // Change the stack to its new content
                 itemstack.setCount(newSize);
@@ -715,69 +682,27 @@ public class CommonHooks {
         NeoForge.EVENT_BUS.post(new PlayerEnchantItemEvent(player, stack, instances));
     }
 
-    /**
-     * Called from {@link AnvilMenu#createResult()} after the vanilla result has been computed.
-     * <p>
-     * If the left input to the anvil is not empty, this method fires the {@link AnvilUpdateEvent} to allow mods to manipulate the result.
-     *
-     * @param menu       The anvil menu
-     * @param leftInput  The left input item
-     * @param rightInput The right input item
-     * @param resultSlot A reference to the output slot
-     * @param name       The item name in the text input field.
-     * @param player     The player who is using the anvil
-     */
-    public static void onAnvilUpdate(AnvilMenu menu, ItemStack leftInput, ItemStack rightInput, Container resultSlot, @Nullable String name, Player player) {
-        if (!leftInput.isEmpty()) {
-            var event = new AnvilUpdateEvent(leftInput, rightInput, name, resultSlot.getItem(0), menu.getCost(), menu.repairItemCountCost, player);
-            // If the event is cancelled, the anvil operation is void. Set the result to empty and the cost to zero.
-            if (NeoForge.EVENT_BUS.post(event).isCanceled()) {
-                resultSlot.setItem(0, ItemStack.EMPTY);
-                menu.setCost(0);
-                menu.repairItemCountCost = 0;
-                return;
-            }
-
-            // Otherwise, update the results to the new values.
-            resultSlot.setItem(0, event.getOutput());
-            menu.setCost(event.getXpCost());
-            menu.repairItemCountCost = event.getMaterialCost();
+    public static boolean onAnvilChange(AnvilMenu container, ItemStack left, ItemStack right, Container outputSlot, String name, long baseCost, Player player) {
+        AnvilUpdateEvent e = new AnvilUpdateEvent(left, right, name, baseCost, player);
+        if (NeoForge.EVENT_BUS.post(e).isCanceled()) {
+            outputSlot.setItem(0, ItemStack.EMPTY);
+            container.setMaximumCost(0);
+            container.repairItemCountCost = 0;
+            return false;
         }
+        if (e.getOutput().isEmpty())
+            return true;
+
+        outputSlot.setItem(0, e.getOutput());
+        container.setMaximumCost(e.getCost());
+        container.repairItemCountCost = e.getMaterialCost();
+        return false;
     }
 
-    /**
-     * Fires the {@link AnvilCraftEvent.Pre} when the anvil is used to craft an item.
-     * <p>
-     * This is fired from the head of {@link AnvilMenu#onTake}, before any other logic is run.
-     * <p>
-     * If this event is cancelled, {@link AnvilMenu#onTake} should return immediately.
-     *
-     * @param menu   The anvil menu
-     * @param player The player who is using the anvil
-     * @param output The output item
-     * @param left   The left input item
-     * @param right  The right input item
-     * @return The fired event
-     */
-    public static AnvilCraftEvent.Pre fireAnvilCraftPre(AnvilMenu menu, Player player, ItemStack output, ItemStack left, ItemStack right) {
-        var e = new AnvilCraftEvent.Pre(menu, player, left, right, output);
-        return NeoForge.EVENT_BUS.post(e);
-    }
-
-    /**
-     * Fires the {@link AnvilCraftEvent.Post} when the anvil is used to craft an item.
-     * <p>
-     * This is fired from the tail of {@link AnvilMenu#onTake}, after all other logic is run.
-     *
-     * @param menu   The anvil menu
-     * @param player The player who is using the anvil
-     * @param output The output item
-     * @param left   A copy of the original left input item, before post-processing
-     * @param right  A copy of the original right input item, before post-processing
-     */
-    public static void fireAnvilCraftPost(AnvilMenu menu, Player player, ItemStack output, ItemStack left, ItemStack right) {
-        var e = new AnvilCraftEvent.Post(menu, player, left, right, output);
+    public static float onAnvilRepair(Player player, ItemStack output, ItemStack left, ItemStack right) {
+        AnvilRepairEvent e = new AnvilRepairEvent(player, left, right, output);
         NeoForge.EVENT_BUS.post(e);
+        return e.getBreakChance();
     }
 
     public static int onGrindstoneChange(ItemStack top, ItemStack bottom, Container outputSlot, int xp) {
@@ -793,7 +718,16 @@ public class CommonHooks {
         return e.getXp();
     }
 
-    public static boolean onGrindstoneTake(Container inputSlots, ContainerLevelAccess access, Player player, Function<Level, Integer> xpFunction) {
+    /**
+     * @deprecated Use {@link #onGrindstoneTake(Container, ContainerLevelAccess, Player, Function) the player version} instead
+     */
+    @Deprecated(forRemoval = true, since = "1.21.8")
+    public static boolean onGrindstoneTake(Container inputSlots, ContainerLevelAccess access, Function<Level, Integer> xpFunction) {
+        return onGrindstoneTake(inputSlots, access, null, xpFunction);
+    }
+
+    //TODO remove nullable annotation from player once method above is removed
+    public static boolean onGrindstoneTake(Container inputSlots, ContainerLevelAccess access, @Nullable Player player, Function<Level, Integer> xpFunction) {
         access.execute((l, p) -> {
             int xp = xpFunction.apply(l);
             GrindstoneEvent.OnTakeItem e = new GrindstoneEvent.OnTakeItem(access, player, inputSlots.getItem(0), inputSlots.getItem(1), xp);
@@ -811,15 +745,26 @@ public class CommonHooks {
         return true;
     }
 
-    private static final ThreadLocal<@Nullable Player> craftingPlayer = new ThreadLocal<>();
+    private static ThreadLocal<Player> craftingPlayer = new ThreadLocal<Player>();
 
-    public static void setCraftingPlayer(@Nullable Player player) {
+    public static void setCraftingPlayer(Player player) {
         craftingPlayer.set(player);
     }
 
-    @Nullable
     public static Player getCraftingPlayer() {
         return craftingPlayer.get();
+    }
+
+    public static ItemStack getCraftingRemainingItem(ItemStack stack) {
+        if (stack.getItem().hasCraftingRemainingItem(stack)) {
+            stack = stack.getItem().getCraftingRemainingItem(stack);
+            if (!stack.isEmpty() && stack.isDamageableItem() && stack.getDamageValue() > stack.getMaxDamage()) {
+                EventHooks.onPlayerDestroyItem(craftingPlayer.get(), stack, null);
+                return ItemStack.EMPTY;
+            }
+            return stack;
+        }
+        return ItemStack.EMPTY;
     }
 
     public static boolean onPlayerAttackTarget(Player player, Entity target) {
@@ -941,8 +886,7 @@ public class CommonHooks {
         throw new RuntimeException("Mod fluids must override getFluidType.");
     }
 
-    // FIXME: is this still needed
-    /*public static TagKey<Block> getTagFromVanillaTier(Tiers tier) {
+    public static TagKey<Block> getTagFromVanillaTier(Tiers tier) {
         return switch (tier) {
             case WOOD -> Tags.Blocks.NEEDS_WOOD_TOOL;
             case GOLD -> Tags.Blocks.NEEDS_GOLD_TOOL;
@@ -951,7 +895,7 @@ public class CommonHooks {
             case DIAMOND -> BlockTags.NEEDS_DIAMOND_TOOL;
             case NETHERITE -> Tags.Blocks.NEEDS_NETHERITE_TOOL;
         };
-    }*/
+    }
 
     public static Collection<CreativeModeTab> onCheckCreativeTabs(CreativeModeTab... vanillaTabs) {
         final List<CreativeModeTab> tabs = new ArrayList<>(Arrays.asList(vanillaTabs));
@@ -1027,18 +971,18 @@ public class CommonHooks {
      * Used as the default implementation of {@link Item#getCreatorModId}. Call that method instead.
      */
     @Nullable
-    public static String getDefaultCreatorModId(HolderLookup.Provider registries, ItemStack itemStack) {
+    public static String getDefaultCreatorModId(ItemStack itemStack) {
         Item item = itemStack.getItem();
-        Identifier registryName = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation registryName = BuiltInRegistries.ITEM.getKey(item);
         String modId = registryName == null ? null : registryName.getNamespace();
         if ("minecraft".equals(modId)) {
-            if (itemStack.has(DataComponents.STORED_ENCHANTMENTS)) {
+            if (item instanceof EnchantedBookItem) {
                 Set<Holder<Enchantment>> enchantments = itemStack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY).keySet();
                 if (enchantments.size() == 1) {
                     Holder<Enchantment> enchantmentHolder = enchantments.iterator().next();
                     Optional<ResourceKey<Enchantment>> key = enchantmentHolder.unwrapKey();
                     if (key.isPresent()) {
-                        return key.get().identifier().getNamespace();
+                        return key.get().location().getNamespace();
                     }
                 }
             } else if (item instanceof PotionItem || item instanceof TippedArrowItem) {
@@ -1046,20 +990,20 @@ public class CommonHooks {
                 Optional<Holder<Potion>> potionType = potionContents.potion();
                 Optional<ResourceKey<Potion>> key = potionType.flatMap(Holder::unwrapKey);
                 if (key.isPresent()) {
-                    return key.get().identifier().getNamespace();
+                    return key.get().location().getNamespace();
                 }
             } else if (item instanceof SpawnEggItem spawnEggItem) {
                 Optional<ResourceKey<EntityType<?>>> key = BuiltInRegistries.ENTITY_TYPE.getResourceKey(spawnEggItem.getType(itemStack));
                 if (key.isPresent()) {
-                    return key.get().identifier().getNamespace();
+                    return key.get().location().getNamespace();
                 }
             }
         }
         return modId;
     }
 
-    public static boolean onFarmlandTrample(ServerLevel level, BlockPos pos, BlockState state, double fallDistance, Entity entity) {
-        if (entity.canTrample(level, state, pos, fallDistance)) {
+    public static boolean onFarmlandTrample(Level level, BlockPos pos, BlockState state, float fallDistance, Entity entity) {
+        if (entity.canTrample(state, pos, fallDistance)) {
             BlockEvent.FarmlandTrampleEvent event = new BlockEvent.FarmlandTrampleEvent(level, pos, state, fallDistance, entity);
             NeoForge.EVENT_BUS.post(event);
             return !event.isCanceled();
@@ -1096,7 +1040,7 @@ public class CommonHooks {
         return id;
     }
 
-    public static boolean canEntityDestroy(ServerLevel level, BlockPos pos, LivingEntity entity) {
+    public static boolean canEntityDestroy(Level level, BlockPos pos, LivingEntity entity) {
         if (!level.isLoaded(pos))
             return false;
         BlockState state = level.getBlockState(pos);
@@ -1110,7 +1054,7 @@ public class CommonHooks {
      * @param context The loot context that generated that loot
      * @return The modified list
      *
-     * @deprecated Use {@link #modifyLoot(Identifier, ObjectArrayList, LootContext)} instead.
+     * @deprecated Use {@link #modifyLoot(ResourceLocation, ObjectArrayList, LootContext)} instead.
      *
      * @implNote This method will use the {@linkplain LootTableIdCondition#UNKNOWN_LOOT_TABLE unknown loot table marker} when redirecting.
      */
@@ -1133,18 +1077,11 @@ public class CommonHooks {
      *
      * @apiNote The given context will be modified by this method to also store the ID of the loot table being queried.
      */
-    public static ObjectArrayList<ItemStack> modifyLoot(Identifier lootTableId, ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
+    public static ObjectArrayList<ItemStack> modifyLoot(ResourceLocation lootTableId, ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
         context.setQueriedLootTableId(lootTableId); // In case the ID was set via copy constructor, this will be ignored: intended
-        LootModifierManager man = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer())
-                .getServerResources()
-                .managers()
-                .getListener(NeoForgeReloadListeners.LOOT_MODIFIERS_KEY);
-        for (IGlobalLootModifier mod : man.getSortedModifiers()) {
-            try {
-                generatedLoot = mod.apply(generatedLoot, context);
-            } catch (Exception e) {
-                LOGGER.error("Error applying global loot modifier %s for loot table %s!".formatted(man.getId(mod), lootTableId), e);
-            }
+        LootModifierManager man = NeoForgeEventHandler.getLootModifierManager();
+        for (IGlobalLootModifier mod : man.getAllLootMods()) {
+            generatedLoot = mod.apply(generatedLoot, context);
         }
         return generatedLoot;
     }
@@ -1201,12 +1138,11 @@ public class CommonHooks {
      * @param blocker         the entity performing the block
      * @param container       the entity's internal damage container for accessing current values
      *                        in the damage pipeline at the time of this invocation.
-     * @param blockedDamage   the amount of damage that would be blocked
      * @param originalBlocked whether this entity is blocking according to preceding/vanilla logic
      * @return the event object after event listeners have been invoked.
      */
-    public static LivingShieldBlockEvent onDamageBlock(LivingEntity blocker, DamageContainer container, float blockedDamage, boolean originalBlocked) {
-        LivingShieldBlockEvent e = new LivingShieldBlockEvent(blocker, container, blockedDamage, originalBlocked);
+    public static LivingShieldBlockEvent onDamageBlock(LivingEntity blocker, DamageContainer container, boolean originalBlocked) {
+        LivingShieldBlockEvent e = new LivingShieldBlockEvent(blocker, container, originalBlocked);
         NeoForge.EVENT_BUS.post(e);
         return e;
     }
@@ -1247,19 +1183,19 @@ public class CommonHooks {
      */
     @ApiStatus.Internal
     public static void readAdditionalLevelSaveData(CompoundTag rootTag, LevelStorageSource.LevelDirectory levelDirectory) {
-        CompoundTag tag = rootTag.getCompoundOrEmpty("fml");
+        CompoundTag tag = rootTag.getCompound("fml");
         if (tag.contains("LoadingModList")) {
-            ListTag modList = tag.getListOrEmpty("LoadingModList");
+            ListTag modList = tag.getList("LoadingModList", Tag.TAG_COMPOUND);
             Map<String, ArtifactVersion> mismatchedVersions = new HashMap<>(modList.size());
             Map<String, ArtifactVersion> missingVersions = new HashMap<>(modList.size());
             for (int i = 0; i < modList.size(); i++) {
-                CompoundTag mod = modList.getCompoundOrEmpty(i);
-                String modId = mod.getStringOr("ModId", "");
+                CompoundTag mod = modList.getCompound(i);
+                String modId = mod.getString("ModId");
                 if (Objects.equals("minecraft", modId)) {
                     continue;
                 }
 
-                String modVersion = mod.getStringOr("ModVersion", "");
+                String modVersion = mod.getString("ModVersion");
                 final var previousVersion = new DefaultArtifactVersion(modVersion);
                 ModList.get().getModContainerById(modId).ifPresentOrElse(container -> {
                     final var loadingVersion = container.getModInfo().getVersion();
@@ -1345,19 +1281,19 @@ public class CommonHooks {
 
     @Nullable
     public static MobEffect loadMobEffect(CompoundTag nbt, String key, @Nullable MobEffect fallback) {
-        var registryName = nbt.getStringOr(key, "");
+        var registryName = nbt.getString(key);
         if (Strings.isNullOrEmpty(registryName)) {
             return fallback;
         }
         try {
-            return BuiltInRegistries.MOB_EFFECT.getValue(Identifier.parse(registryName));
-        } catch (IdentifierException e) {
+            return BuiltInRegistries.MOB_EFFECT.get(ResourceLocation.parse(registryName));
+        } catch (ResourceLocationException e) {
             return fallback;
         }
     }
 
-    public static boolean shouldSuppressEnderManAnger(EnderMan enderMan, Player player) {
-        return NeoForge.EVENT_BUS.post(new EnderManAngerEvent(enderMan, player)).isCanceled();
+    public static boolean shouldSuppressEnderManAnger(EnderMan enderMan, Player player, ItemStack mask) {
+        return mask.isEnderMask(player, enderMan) || NeoForge.EVENT_BUS.post(new EnderManAngerEvent(enderMan, player)).isCanceled();
     }
 
     private static final Lazy<Map<String, StructuresBecomeConfiguredFix.Conversion>> FORGE_CONVERSION_MAP = Lazy.of(() -> {
@@ -1370,7 +1306,8 @@ public class CommonHooks {
     /**
      * @hidden For internal use only.
      */
-    public static StructuresBecomeConfiguredFix.@Nullable Conversion getStructureConversion(String originalBiome) {
+    @Nullable
+    public static StructuresBecomeConfiguredFix.Conversion getStructureConversion(String originalBiome) {
         return FORGE_CONVERSION_MAP.get().get(originalBiome);
     }
 
@@ -1379,8 +1316,8 @@ public class CommonHooks {
      */
     public static boolean checkStructureNamespace(String biome) {
         @Nullable
-        Identifier biomeLocation = Identifier.tryParse(biome);
-        return biomeLocation != null && !biomeLocation.getNamespace().equals(Identifier.DEFAULT_NAMESPACE);
+        ResourceLocation biomeLocation = ResourceLocation.tryParse(biome);
+        return biomeLocation != null && !biomeLocation.getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE);
     }
 
     /**
@@ -1400,7 +1337,7 @@ public class CommonHooks {
      * @param registryKey key of the registry
      * @return path of the registry key. Prefixed with the namespace if it is not "minecraft"
      */
-    public static String prefixNamespace(Identifier registryKey) {
+    public static String prefixNamespace(ResourceLocation registryKey) {
         return registryKey.getNamespace().equals("minecraft") ? registryKey.getPath() : registryKey.getNamespace() + "/" + registryKey.getPath();
     }
 
@@ -1408,7 +1345,6 @@ public class CommonHooks {
         if (EntitySelectorParser.allowSelectors(provider)) {
             return true;
         } else if (provider instanceof CommandSourceStack source && source.source instanceof ServerPlayer player) {
-            // TODO 1.21.11: Minecraft now has a permission system too and has permissions for this
             return PermissionAPI.getPermission(player, NeoForgeMod.USE_SELECTORS_PERMISSION);
         }
         return false;
@@ -1434,55 +1370,53 @@ public class CommonHooks {
         };
     }
 
-// TODO: Reimplement with Entity/Fluid interaction patches
-//
-//    /**
-//     * Handles living entities being underwater. This fires the {@link LivingBreatheEvent} and if the entity's air supply is less than or equal to zero also the {@link LivingDrownEvent}. Additionally, when the entity is underwater it will
-//     * dismount if {@link IEntityExtension#canBeRiddenUnderFluidType(FluidType, Entity)} returns false.
-//     *
-//     * @param entity           The living entity which is currently updated
-//     * @param consumeAirAmount The amount of air to consume when the entity is unable to breathe
-//     * @param refillAirAmount  The amount of air to refill when the entity is able to breathe
-//     * @implNote This method needs to closely replicate the logic found right after the call site in {@link LivingEntity#baseTick()} as it overrides it.
-//     */
-//    public static void onLivingBreathe(LivingEntity entity, int consumeAirAmount, int refillAirAmount) {
-//        // Check things that vanilla considers to be air - these will cause the air supply to be increased.
-//        boolean isAir = entity.getEyeInFluidType().isAir() || entity.level().getBlockState(BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ())).is(Blocks.BUBBLE_COLUMN);
-//        boolean canBreathe = isAir;
-//        // The following effects cause the entity to not drown, but do not cause the air supply to be increased.
-//        if (!isAir && (MobEffectUtil.hasWaterBreathing(entity) || !entity.canDrownInFluidType(entity.getEyeInFluidType()) || (entity instanceof Player player && player.getAbilities().invulnerable))) {
-//            canBreathe = true;
-//            refillAirAmount = 0;
-//        }
-//        LivingBreatheEvent breatheEvent = new LivingBreatheEvent(entity, canBreathe, consumeAirAmount, refillAirAmount);
-//        NeoForge.EVENT_BUS.post(breatheEvent);
-//        if (breatheEvent.canBreathe()) {
-//            entity.setAirSupply(Math.min(entity.getAirSupply() + breatheEvent.getRefillAirAmount(), entity.getMaxAirSupply()));
-//        } else {
-//            entity.setAirSupply(entity.getAirSupply() - breatheEvent.getConsumeAirAmount());
-//        }
-//
-//        if (entity.getAirSupply() <= 0) {
-//            LivingDrownEvent drownEvent = new LivingDrownEvent(entity);
-//            if (!NeoForge.EVENT_BUS.post(drownEvent).isCanceled() && drownEvent.isDrowning()) {
-//                entity.setAirSupply(0);
-//                Vec3 vec3 = entity.getDeltaMovement();
-//
-//                for (int i = 0; i < drownEvent.getBubbleCount(); ++i) {
-//                    double d2 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
-//                    double d3 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
-//                    double d4 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
-//                    entity.level().addParticle(ParticleTypes.BUBBLE, entity.getX() + d2, entity.getY() + d3, entity.getZ() + d4, vec3.x, vec3.y, vec3.z);
-//                }
-//
-//                if (drownEvent.getDamageAmount() > 0) entity.hurt(entity.damageSources().drown(), drownEvent.getDamageAmount());
-//            }
-//        }
-//
-//        if (!isAir && !entity.level().isClientSide() && entity.isPassenger() && entity.getVehicle() != null && !entity.getVehicle().canBeRiddenUnderFluidType(entity.getEyeInFluidType(), entity)) {
-//            entity.stopRiding();
-//        }
-//    }
+    /**
+     * Handles living entities being underwater. This fires the {@link LivingBreatheEvent} and if the entity's air supply is less than or equal to zero also the {@link LivingDrownEvent}. Additionally, when the entity is underwater it will
+     * dismount if {@link IEntityExtension#canBeRiddenUnderFluidType(FluidType, Entity)} returns false.
+     *
+     * @param entity           The living entity which is currently updated
+     * @param consumeAirAmount The amount of air to consume when the entity is unable to breathe
+     * @param refillAirAmount  The amount of air to refill when the entity is able to breathe
+     * @implNote This method needs to closely replicate the logic found right after the call site in {@link LivingEntity#baseTick()} as it overrides it.
+     */
+    public static void onLivingBreathe(LivingEntity entity, int consumeAirAmount, int refillAirAmount) {
+        // Check things that vanilla considers to be air - these will cause the air supply to be increased.
+        boolean isAir = entity.getEyeInFluidType().isAir() || entity.level().getBlockState(BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ())).is(Blocks.BUBBLE_COLUMN);
+        boolean canBreathe = isAir;
+        // The following effects cause the entity to not drown, but do not cause the air supply to be increased.
+        if (!isAir && (MobEffectUtil.hasWaterBreathing(entity) || !entity.canDrownInFluidType(entity.getEyeInFluidType()) || (entity instanceof Player player && player.getAbilities().invulnerable))) {
+            canBreathe = true;
+            refillAirAmount = 0;
+        }
+        LivingBreatheEvent breatheEvent = new LivingBreatheEvent(entity, canBreathe, consumeAirAmount, refillAirAmount);
+        NeoForge.EVENT_BUS.post(breatheEvent);
+        if (breatheEvent.canBreathe()) {
+            entity.setAirSupply(Math.min(entity.getAirSupply() + breatheEvent.getRefillAirAmount(), entity.getMaxAirSupply()));
+        } else {
+            entity.setAirSupply(entity.getAirSupply() - breatheEvent.getConsumeAirAmount());
+        }
+
+        if (entity.getAirSupply() <= 0) {
+            LivingDrownEvent drownEvent = new LivingDrownEvent(entity);
+            if (!NeoForge.EVENT_BUS.post(drownEvent).isCanceled() && drownEvent.isDrowning()) {
+                entity.setAirSupply(0);
+                Vec3 vec3 = entity.getDeltaMovement();
+
+                for (int i = 0; i < drownEvent.getBubbleCount(); ++i) {
+                    double d2 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    double d3 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    double d4 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    entity.level().addParticle(ParticleTypes.BUBBLE, entity.getX() + d2, entity.getY() + d3, entity.getZ() + d4, vec3.x, vec3.y, vec3.z);
+                }
+
+                if (drownEvent.getDamageAmount() > 0) entity.hurt(entity.damageSources().drown(), drownEvent.getDamageAmount());
+            }
+        }
+
+        if (!isAir && !entity.level().isClientSide && entity.isPassenger() && entity.getVehicle() != null && !entity.getVehicle().canBeRiddenUnderFluidType(entity.getEyeInFluidType(), entity)) {
+            entity.stopRiding();
+        }
+    }
 
     private static final Set<Class<?>> checkedComponentClasses = ConcurrentHashMap.newKeySet();
 
@@ -1510,11 +1444,13 @@ public class CommonHooks {
     }
 
     static {
+        // Mark common singletons as valid
+        markComponentClassAsValid(BlockState.class);
+        markComponentClassAsValid(FluidState.class);
         // Block, Fluid, Item, etc. are handled via the registry check further down
 
         // Mark common interned classes as valid
         markComponentClassAsValid(ResourceKey.class);
-        markComponentClassAsValid(HolderSet.Named.class);
     }
 
     /**
@@ -1580,7 +1516,25 @@ public class CommonHooks {
         poiManager.flush(chunkPos); // Make sure all POI in chunk are saved to disk first.
 
         // Remove the cached POIs for this chunk's location.
-        poiManager.remove(chunkPos);
+        int SectionPosMinY = SectionPos.blockToSectionCoord(chunkAccess.getMinBuildHeight());
+        for (int currentSectionY = 0; currentSectionY < chunkAccess.getSectionsCount(); currentSectionY++) {
+            long sectionPosKey = SectionPos.asLong(chunkPos.x, SectionPosMinY + currentSectionY, chunkPos.z);
+            poiManager.remove(sectionPosKey);
+        }
+    }
+
+    /**
+     * Checks if a mob effect can be applied to an entity by firing {@link MobEffectEvent.Applicable}.
+     *
+     * @param entity The target entity the mob effect is being applied to.
+     * @param effect The mob effect being applied.
+     * @return True if the mob effect can be applied, otherwise false.
+     *
+     * @deprecated Use {@link CommonHooks#canMobEffectBeApplied(LivingEntity, MobEffectInstance, Entity)} instead.
+     */
+    @Deprecated(forRemoval = true)
+    public static boolean canMobEffectBeApplied(LivingEntity entity, MobEffectInstance effect) {
+        return canMobEffectBeApplied(entity, effect, null);
     }
 
     /**
@@ -1607,7 +1561,13 @@ public class CommonHooks {
      */
     @Nullable
     public static <T> RegistryLookup<T> resolveLookup(ResourceKey<? extends Registry<T>> key) {
-        return NeoForgeProxy.INSTANCE.resolveLookup(key);
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            return server.registryAccess().lookup(key).orElse(null);
+        } else if (FMLEnvironment.dist.isClient()) {
+            return ClientHooks.resolveLookup(key);
+        }
+        return null;
     }
 
     /**
@@ -1659,255 +1619,26 @@ public class CommonHooks {
         return true;
     }
 
-    /**
-     * A list of recipe book types that were added via the enum extension method.
-     */
-    @ApiStatus.Internal
-    public static final List<RecipeBookType> MODDED_RECIPE_BOOK_TYPES = Util.make(() -> {
-        var extensionInfo = RecipeBookType.getExtensionInfo();
-        if (!extensionInfo.extended()) {
-            return List.of();
-        }
-        return Arrays.stream(RecipeBookType.values())
-                .filter(t -> t.ordinal() >= extensionInfo.vanillaCount())
-                .toList();
-    });
-
-    @ApiStatus.Internal
-    public static final StreamCodec<RegistryFriendlyByteBuf, Map<RecipeBookType, RecipeBookSettings.TypeSettings>> MODDED_RECIPE_BOOK_TYPES_SETTINGS_STREAM_CODEC = new StreamCodec<>() {
-        @Override
-        public Map<RecipeBookType, RecipeBookSettings.TypeSettings> decode(RegistryFriendlyByteBuf buf) {
-            if (buf.getConnectionType().isOther()) {
-                return Map.of(); // Don't expect Vanilla to send modded settings
-            }
-
-            Map<RecipeBookType, RecipeBookSettings.TypeSettings> map = new EnumMap<>(RecipeBookType.class);
-            for (var type : MODDED_RECIPE_BOOK_TYPES) {
-                map.put(type, RecipeBookSettings.TypeSettings.STREAM_CODEC.decode(buf));
-            }
-            return map;
-        }
-
-        @Override
-        public void encode(RegistryFriendlyByteBuf buf, Map<RecipeBookType, RecipeBookSettings.TypeSettings> value) {
-            if (buf.getConnectionType().isOther()) {
-                return; // Don't send modded settings to Vanilla
-            }
-
-            for (var type : MODDED_RECIPE_BOOK_TYPES) {
-                RecipeBookSettings.TypeSettings settings = value.getOrDefault(type, RecipeBookSettings.TypeSettings.DEFAULT);
-                RecipeBookSettings.TypeSettings.STREAM_CODEC.encode(buf, settings);
-            }
-        }
-    };
-
-    @ApiStatus.Internal
-    public static MapCodec<Map<RecipeBookType, RecipeBookSettings.TypeSettings>> makeModdedRecipeBookTypesSettingsCodec() {
-        Map<RecipeBookType, MapCodec<RecipeBookSettings.TypeSettings>> codecs = MODDED_RECIPE_BOOK_TYPES.stream()
-                .map(type -> {
-                    String name = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, type.name());
-                    String openName = "is" + name + "GuiOpen";
-                    String filteringName = "is" + name + "FilteringCraftable";
-                    var codec = RecipeBookSettings.TypeSettings.codec(openName, filteringName);
-                    return Pair.of(type, codec);
-                })
-                .collect(Pair.toMap());
-
-        return new MapCodec<>() {
-            @Override
-            public <T> Stream<T> keys(DynamicOps<T> ops) {
-                return codecs.values().stream().flatMap(codec -> codec.keys(ops));
-            }
-
-            @Override
-            public <T> DataResult<Map<RecipeBookType, RecipeBookSettings.TypeSettings>> decode(DynamicOps<T> ops, MapLike<T> input) {
-                Map<RecipeBookType, RecipeBookSettings.TypeSettings> map = new EnumMap<>(RecipeBookType.class);
-                for (var entry : codecs.entrySet()) {
-                    var result = entry.getValue().decode(ops, input);
-                    result.error().ifPresent(error -> LOGGER.error("Failed to decode RecipeBookSettings.TypeSettings for key {}: {}", entry.getKey(), error));
-                    result.result().ifPresent(settings -> map.put(entry.getKey(), settings));
+    public static Map<RecipeBookType, Pair<String, String>> buildRecipeBookTypeTagFields(Map<RecipeBookType, Pair<String, String>> vanillaMap) {
+        ExtensionInfo extInfo = RecipeBookType.getExtensionInfo();
+        if (extInfo.extended()) {
+            vanillaMap = new HashMap<>(vanillaMap);
+            for (RecipeBookType type : RecipeBookType.values()) {
+                if (type.ordinal() < extInfo.vanillaCount()) {
+                    continue;
                 }
-                return DataResult.success(map);
+                String name = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, type.name());
+                vanillaMap.put(type, Pair.of("is" + name + "GuiOpen", "is" + name + "FilteringCraftable"));
             }
-
-            @Override
-            public <T> RecordBuilder<T> encode(Map<RecipeBookType, RecipeBookSettings.TypeSettings> input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-                for (var entry : codecs.entrySet()) {
-                    prefix = entry.getValue().encode(input.getOrDefault(entry.getKey(), RecipeBookSettings.TypeSettings.DEFAULT), ops, prefix);
-                }
-                return prefix;
-            }
-        };
+            vanillaMap = Map.copyOf(vanillaMap);
+        }
+        return vanillaMap;
     }
 
-    /**
-     * Determines whether the given players should be sent full recipe content or not and handles the sending.
-     */
-    public static void sendRecipes(ServerPlayer player, Set<RecipeType<?>> recipeTypesToSend, RecipeMap recipeMap) {
-        if (player.connection.getConnectionType().isNeoForge()) {
-            var payload = RecipeContentPayload.create(recipeTypesToSend, recipeMap);
-            LOGGER.debug("Sending {} recipes of the following types: {}", payload.recipes().size(), payload.recipeTypes());
-            PacketDistributor.sendToPlayer(player, payload);
+    public static RecipeBookType[] getFilteredRecipeBookTypeValues() {
+        if (FMLEnvironment.dist.isClient()) {
+            return ClientHooks.getFilteredRecipeBookTypeValues();
         }
-    }
-
-    private static final Set<Class<?>> EDA_CHECKED_CLASSES = ConcurrentHashMap.newKeySet(BuiltInRegistries.ENTITY_TYPE.size());
-
-    @ApiStatus.Internal
-    public static void verifyEntityDataAccessorRegistration(final Class<?> callerClass, final Class<? extends SyncedDataHolder> holderClass) {
-        if (!EDA_CHECKED_CLASSES.add(callerClass)) return;
-
-        // Replicate Mojang check, which ensures that the defining class is the same as the holder
-        final var isEntityClass = callerClass == holderClass;
-
-        // The check might hold up either because the definition is sound or because someone added a Mixin into the
-        // entity class aiming to add their own synced data; this is still an issue as different ordering that might
-        // occur due to whatever version might still cause problems down the line.
-        final Collection<String> mixinsInjectingEda;
-        if (isEntityClass) {
-            mixinsInjectingEda = Stream.of(callerClass.getDeclaredFields())
-                    .filter(it -> EntityDataAccessor.class.isAssignableFrom(it.getType()))
-                    .map(it -> it.getAnnotation(MixinMerged.class))
-                    .filter(Objects::nonNull)
-                    .map(MixinMerged::mixin)
-                    .collect(Collectors.toSet());
-        } else {
-            // We don't care about which mixins exist outside of entities, it's wrong already
-            mixinsInjectingEda = Set.of();
-        }
-
-        final var isValid = isEntityClass && mixinsInjectingEda.isEmpty();
-        if (isValid) {
-            return;
-        }
-
-        final var message = new StringBuilder();
-        message.append("Identified an attempt to add synced data to a foreign entity: this is highly discouraged.\n");
-        message.append("Entity class: ").append(holderClass.getName()).append('\n');
-
-        if (mixinsInjectingEda.isEmpty()) {
-            message.append("Declaring class: ").append(callerClass.getName());
-        } else {
-            message.append("Mixins into entity class: ").append(String.join(", ", mixinsInjectingEda));
-        }
-
-        message.append("\nModders should use syncable data attachments instead, as they do not suffer from potential ID mismatches.\n");
-        message.append("Please refer to the data attachments documentation available at https://docs.neoforged.net/docs/datastorage/attachments.\n");
-        message.append("This message will only be printed once per class");
-
-        if (SharedConstants.IS_RUNNING_IN_IDE) {
-            throw new IllegalStateException(message.toString());
-        } else {
-            LOGGER.warn(message);
-        }
-    }
-
-    public static final String ERROR_IGNORES_PAUSING_KEY = "commands.time.neoforge.clock_ignores_pausing";
-    private static final DynamicCommandExceptionType ERROR_IGNORES_PAUSING = new DynamicCommandExceptionType(clock -> Component.translatable(ERROR_IGNORES_PAUSING_KEY, clock));
-
-    @ApiStatus.Internal
-    public static void throwIfIgnoresPausing(Holder<WorldClock> clock) throws CommandSyntaxException {
-        if (clock.is(Tags.WorldClocks.IGNORES_PAUSE_COMMAND)) {
-            throw ERROR_IGNORES_PAUSING.create(clock.getRegisteredName());
-        }
-    }
-
-    private static final String STRUCTURE_ROTATION_KEY = "neoforge:structure_rotation";
-
-    @Nullable
-    public static CompoundTag captureStructureRotation(@Nullable CompoundTag blockEntityNbt, Rotation rotation) {
-        if (blockEntityNbt != null && rotation != Rotation.NONE) {
-            Optional<Rotation> prevRotation = blockEntityNbt.read(STRUCTURE_ROTATION_KEY, Rotation.CODEC);
-            if (prevRotation.isPresent()) {
-                rotation = rotation.getRotated(prevRotation.get());
-            }
-
-            blockEntityNbt = blockEntityNbt.copy();
-
-            if (rotation != Rotation.NONE) {
-                blockEntityNbt.store(STRUCTURE_ROTATION_KEY, Rotation.CODEC, rotation);
-            } else {
-                blockEntityNbt.remove(STRUCTURE_ROTATION_KEY);
-            }
-        }
-        return blockEntityNbt;
-    }
-
-    public static void applyStructureRotation(BlockEntity blockEntity, CompoundTag blockEntityNbt, StructurePlaceSettings settings) {
-        Rotation rotation = settings.getRotation();
-        Optional<Rotation> prevRotation = blockEntityNbt.read(STRUCTURE_ROTATION_KEY, Rotation.CODEC);
-        if (prevRotation.isPresent()) {
-            rotation = rotation.getRotated(prevRotation.get());
-        }
-        blockEntity.applyStructureRotation(settings.getMirror(), rotation);
-    }
-
-    @ApiStatus.Internal
-    public static boolean onCustomClickAction(@Nullable ServerPlayer player, GameProfile profile, Identifier id, Optional<Tag> payload) {
-        return NeoForge.EVENT_BUS.post(new CustomClickActionEvent(player, profile, id, payload.orElse(null))).isCanceled();
-    }
-
-    /// Toposort the given graph, throwing a descriptive exception if the graph contains cycles.
-    ///
-    /// @param graph           The graph to sort
-    /// @param values          The values of the graph in insertion order for secondary ordering
-    /// @param typeDescription A descriptive name of the type being sorted
-    /// @param valuePrinter    A function converting the sorted values to a human-readable representation
-    /// @return the sorted list of values
-    public static <T> List<T> sortGraphChecked(Graph<T> graph, Collection<T> values, String typeDescription, Function<T, ?> valuePrinter) {
-        // Build the index mapping in a way that can be used as a comparator to preserve insertion order.
-        Object2IntMap<T> insertionOrder = new Object2IntOpenHashMap<>();
-        int idx = 0;
-        for (T value : values) {
-            insertionOrder.put(value, idx++);
-        }
-
-        // Do the sort.
-        try {
-            return TopologicalSort.topologicalSort(graph, Comparator.comparingInt(insertionOrder::getInt));
-        } catch (CyclePresentException ex) {
-            // Build a real error message and re-throw.
-            StringBuilder sb = new StringBuilder();
-            sb.append("Cycles were detected during ").append(typeDescription).append(" sorting:\n");
-
-            Set<Set<T>> cycles = ex.getCycles();
-            idx = 0;
-            for (Set<T> cycle : cycles) {
-                sb.append(idx++).append(": ");
-                for (T key : cycle) {
-                    sb.append(valuePrinter.apply(key)).append("->");
-                }
-                sb.append(valuePrinter.apply(cycle.iterator().next())).append('\n');
-            }
-
-            throw new IllegalArgumentException(sb.toString());
-        }
-    }
-
-    public static StreamCodec<RegistryFriendlyByteBuf, ItemAttributeModifiers> makeItemAttributesStreamCodec(
-            StreamCodec<RegistryFriendlyByteBuf, List<ItemAttributeModifiers.Entry>> entriesStreamCodec,
-            Function<ItemAttributeModifiers, List<ItemAttributeModifiers.Entry>> entryGetter,
-            Function<List<ItemAttributeModifiers.Entry>, ItemAttributeModifiers> constructor) {
-        return new StreamCodec<>() {
-            @Override
-            public ItemAttributeModifiers decode(RegistryFriendlyByteBuf input) {
-                return constructor.apply(entriesStreamCodec.decode(input));
-            }
-
-            @Override
-            public void encode(RegistryFriendlyByteBuf output, ItemAttributeModifiers value) {
-                List<ItemAttributeModifiers.Entry> modifiers = entryGetter.apply(value);
-                if (output.getConnectionType().isOther()) {
-                    List<ItemAttributeModifiers.Entry> filteredModifiers = new ArrayList<>(modifiers.size());
-                    for (ItemAttributeModifiers.Entry entry : modifiers) {
-                        if (entry.attribute().getKey().identifier().getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) {
-                            filteredModifiers.add(entry);
-                        }
-                    }
-                    modifiers = filteredModifiers;
-                }
-                entriesStreamCodec.encode(output, modifiers);
-            }
-        };
+        return RecipeBookType.values();
     }
 }

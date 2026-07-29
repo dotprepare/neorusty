@@ -1,20 +1,19 @@
 --- a/net/minecraft/client/multiplayer/CommonListenerCookie.java
 +++ b/net/minecraft/client/multiplayer/CommonListenerCookie.java
-@@ -29,6 +_,30 @@
+@@ -26,6 +_,28 @@
+     @Nullable ChatComponent.State chatState,
+     @Deprecated(forRemoval = true) boolean strictErrorHandling,
      Map<String, String> customReportDetails,
-     ServerLinks serverLinks,
-     Map<UUID, PlayerInfo> seenPlayers,
--    boolean seenInsecureChatWarning
-+    boolean seenInsecureChatWarning,
+-    ServerLinks serverLinks
++    ServerLinks serverLinks,
 +    net.neoforged.neoforge.network.connection.ConnectionType connectionType
  ) {
 +    /**
-+     * @deprecated Use {@link #CommonListenerCookie(LevelLoadTracker, GameProfile, WorldSessionTelemetryManager, RegistryAccess.Frozen, FeatureFlagSet, String, ServerData, Screen, Map, ChatComponent.State, Map, ServerLinks, Map, boolean, net.neoforged.neoforge.network.connection.ConnectionType)}
++     * @deprecated Use {@link #CommonListenerCookie(GameProfile, WorldSessionTelemetryManager, RegistryAccess.Frozen, FeatureFlagSet, String, ServerData, Screen, Map, ChatComponent.State, boolean, Map, ServerLinks, net.neoforged.neoforge.network.connection.ConnectionType)}
 +     * instead,to indicate whether the connection is modded.
 +     */
 +    @Deprecated
 +    public CommonListenerCookie(
-+            LevelLoadTracker levelLoadTracker,
 +            GameProfile localGameProfile,
 +            WorldSessionTelemetryManager telemetryManager,
 +            RegistryAccess.Frozen receivedRegistries,
@@ -22,13 +21,12 @@
 +            @Nullable String serverBrand,
 +            @Nullable ServerData serverData,
 +            @Nullable Screen postDisconnectScreen,
-+            Map<Identifier, byte[]> serverCookies,
-+            ChatComponent.@Nullable State chatState,
++            Map<ResourceLocation, byte[]> serverCookies,
++            @Nullable ChatComponent.State chatState,
++            @Deprecated(forRemoval = true) boolean strictErrorHandling,
 +            Map<String, String> customReportDetails,
-+            ServerLinks serverLinks,
-+            Map<UUID, PlayerInfo> seenPlayers,
-+            boolean seenInsecureChatWarning
++            ServerLinks serverLinks
 +    ) {
-+        this(levelLoadTracker, localGameProfile, telemetryManager, receivedRegistries, enabledFeatures, serverBrand, serverData, postDisconnectScreen, serverCookies, chatState, customReportDetails, serverLinks, seenPlayers, seenInsecureChatWarning, net.neoforged.neoforge.network.connection.ConnectionType.OTHER);
++        this(localGameProfile, telemetryManager, receivedRegistries, enabledFeatures, serverBrand, serverData, postDisconnectScreen, serverCookies, chatState, strictErrorHandling, customReportDetails, serverLinks, net.neoforged.neoforge.network.connection.ConnectionType.OTHER);
 +    }
  }

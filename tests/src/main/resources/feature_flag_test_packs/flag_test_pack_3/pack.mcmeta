@@ -6,6 +6,6 @@
     },
     "pack": {
         "description": "Custom FeatureFlag test pack description",
-        "pack_format": 57
+        "pack_format": 48
     }
 }

@@ -16,14 +16,17 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.ParametersAreNonnullByDefault;
 import net.minecraft.ChatFormatting;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.gametest.framework.StructureUtils;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
@@ -36,7 +39,6 @@ import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.annotation.WithListener;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.GameTestData;
 import net.neoforged.testframework.gametest.StructureTemplateBuilder;
 import net.neoforged.testframework.impl.EventListenerGroupImpl;
@@ -46,9 +48,11 @@ import net.neoforged.testframework.impl.ReflectionUtils;
 import net.neoforged.testframework.impl.TestFrameworkImpl;
 import net.neoforged.testframework.impl.reg.RegistrationHelperImpl;
 import net.neoforged.testframework.registration.RegistrationHelper;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public abstract class AbstractTest implements Test {
     protected TestFramework framework;
     protected String id;
@@ -89,18 +93,18 @@ public abstract class AbstractTest implements Test {
     protected final void configureGameTest(@Nullable GameTest gameTest, @Nullable EmptyTemplate template) {
         if (gameTest == null) return;
 
-        Identifier templateFromPattern = null;
+        ResourceLocation templateFromPattern = null;
         if (template != null) {
             var size = EmptyTemplate.Size.parse(template.value());
             if (template.floor()) {
-                templateFromPattern = Identifier.fromNamespaceAndPath(framework.id().getNamespace(), "empty_" + size + "_floor");
+                templateFromPattern = ResourceLocation.fromNamespaceAndPath(framework.id().getNamespace(), "empty_" + size + "_floor");
                 if (!framework.dynamicStructures().contains(templateFromPattern)) {
                     framework.dynamicStructures().register(templateFromPattern, StructureTemplateBuilder.withSize(size.length(), size.height() + 1, size.width())
                             .fill(0, 0, 0, size.length() - 1, 0, size.width() - 1, Blocks.IRON_BLOCK.defaultBlockState())
                             .build());
                 }
             } else {
-                templateFromPattern = Identifier.fromNamespaceAndPath(framework.id().getNamespace(), "empty_" + size);
+                templateFromPattern = ResourceLocation.fromNamespaceAndPath(framework.id().getNamespace(), "empty_" + size);
                 if (!framework.dynamicStructures().contains(templateFromPattern)) {
                     framework.dynamicStructures().register(templateFromPattern, StructureTemplateBuilder.empty(size.length(), size.height(), size.width()));
                 }
@@ -109,11 +113,11 @@ public abstract class AbstractTest implements Test {
 
         this.gameTestData = new GameTestData(
                 gameTest.batch().equals("defaultBatch") ? null : gameTest.batch(),
-                gameTest.template().isBlank() ? (templateFromPattern == null ? gameTestTemplate(gameTest) : templateFromPattern.toString()) : gameTest.template(),
+                gameTest.templateNamespace().isBlank() ? (templateFromPattern == null ? gameTestTemplate(gameTest) : templateFromPattern.toString()) : ResourceLocation.fromNamespaceAndPath(gameTest.templateNamespace(), gameTest.template()).toString(),
                 gameTest.required(), gameTest.attempts(), gameTest.requiredSuccesses(),
                 this::onGameTest, gameTest.timeoutTicks(), gameTest.setupTicks(),
                 StructureUtils.getRotationForRotationSteps(gameTest.rotationSteps()),
-                gameTest.skyAccess(), gameTest.padding(), gameTest.manualOnly());
+                gameTest.skyAccess());
     }
 
     protected String gameTestTemplate(GameTest gameTest) {
@@ -205,10 +209,11 @@ public abstract class AbstractTest implements Test {
                             .append(" ").append(
                                     Component.literal("No").withStyle(style -> style.withColor(ChatFormatting.RED).withBold(true)
                                             .withClickEvent(internal.setStatusCommand(
-                                                    id(), Result.FAILED, player.getGameProfile().name() + " denied seeing the effects of the test"))))));
+                                                    id(), Result.FAILED, player.getGameProfile().getName() + " denied seeing the effects of the test"))))));
         }
     }
 
+    @ParametersAreNonnullByDefault
     public static abstract class Dynamic extends AbstractTest implements DynamicTest {
         @Override
         public TestFramework framework() {
@@ -285,16 +290,16 @@ public abstract class AbstractTest implements Test {
             final StringBuilder modId = new StringBuilder()
                     .append(framework().id().getNamespace()).append('_');
             boolean isInUpper = false;
-            for (int value : id().codePoints().toArray()) {
-                if (Character.isUpperCase(value)) {
+            for (char c : id().toCharArray()) {
+                if (Character.isUpperCase(c)) {
                     if (!isInUpper) {
                         isInUpper = true;
                         modId.append('_');
                     }
-                    modId.append(Character.toString(Character.toLowerCase(value)));
+                    modId.append(Character.toLowerCase(c));
                 } else {
                     isInUpper = false;
-                    modId.append(Character.toString(value));
+                    modId.append(c);
                 }
             }
             return modId.toString();
@@ -326,7 +331,7 @@ public abstract class AbstractTest implements Test {
                 }
 
                 @Override
-                public void testAddedForRerun(GameTestInfo original, GameTestInfo copy, GameTestRunner runner) {}
+                public void testAddedForRerun(GameTestInfo p_320937_, GameTestInfo p_320294_, GameTestRunner p_320147_) {}
             });
             this.onGameTest.forEach(test -> test.accept(helper));
         }
@@ -344,11 +349,6 @@ public abstract class AbstractTest implements Test {
         @Override
         public void pass() {
             DynamicTest.super.pass();
-        }
-
-        @Nullable
-        public Method getMethod() {
-            return null;
         }
     }
 

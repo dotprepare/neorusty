@@ -1,19 +1,11 @@
 --- a/net/minecraft/client/renderer/texture/atlas/SpriteSources.java
 +++ b/net/minecraft/client/renderer/texture/atlas/SpriteSources.java
 @@ -17,7 +_,7 @@
- public class SpriteSources {
-     private static final ExtraCodecs.LateBoundIdMapper<Identifier, MapCodec<? extends SpriteSource>> ID_MAPPER = new ExtraCodecs.LateBoundIdMapper<>();
-     public static final Codec<SpriteSource> CODEC = ID_MAPPER.codec(Identifier.CODEC).dispatch(SpriteSource::codec, c -> c);
--    public static final Codec<List<SpriteSource>> FILE_CODEC = CODEC.listOf().fieldOf("sources").codec();
-+    public static final Codec<List<SpriteSource>> FILE_CODEC = net.neoforged.neoforge.common.conditions.ConditionalOps.decodeListWithElementConditions(CODEC).fieldOf("sources").codec();
  
-     public static void bootstrap() {
-         ID_MAPPER.put(Identifier.withDefaultNamespace("single"), SingleFile.MAP_CODEC);
-@@ -25,5 +_,7 @@
-         ID_MAPPER.put(Identifier.withDefaultNamespace("filter"), SourceFilter.MAP_CODEC);
-         ID_MAPPER.put(Identifier.withDefaultNamespace("unstitch"), Unstitcher.MAP_CODEC);
-         ID_MAPPER.put(Identifier.withDefaultNamespace("paletted_permutations"), PalettedPermutations.MAP_CODEC);
-+
-+        net.neoforged.fml.ModLoader.postEvent(new net.neoforged.neoforge.client.event.RegisterSpriteSourcesEvent(ID_MAPPER));
-     }
- }
+ @OnlyIn(Dist.CLIENT)
+ public class SpriteSources {
+-    private static final BiMap<ResourceLocation, SpriteSourceType> TYPES = HashBiMap.create();
++    private static final BiMap<ResourceLocation, SpriteSourceType> TYPES = net.neoforged.neoforge.client.ClientHooks.makeSpriteSourceTypesMap();
+     public static final SpriteSourceType SINGLE_FILE = register("single", SingleFile.CODEC);
+     public static final SpriteSourceType DIRECTORY = register("directory", DirectoryLister.CODEC);
+     public static final SpriteSourceType FILTER = register("filter", SourceFilter.CODEC);

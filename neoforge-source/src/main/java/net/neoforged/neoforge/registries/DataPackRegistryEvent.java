@@ -9,16 +9,16 @@ import com.mojang.serialization.Codec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.RegistryDataLoader;
-import net.minecraft.resources.RegistryValidator;
 import net.minecraft.resources.ResourceKey;
 import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.fml.event.IModBusEvent;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class DataPackRegistryEvent extends Event implements IModBusEvent {
     @ApiStatus.Internal
@@ -72,7 +72,7 @@ public abstract class DataPackRegistryEvent extends Event implements IModBusEven
          * @see #dataPackRegistry(ResourceKey, Codec)
          */
         public <T> void dataPackRegistry(ResourceKey<Registry<T>> registryKey, Codec<T> codec, @Nullable Codec<T> networkCodec) {
-            this.registryDataList.add(new DataPackRegistryData<>(new RegistryDataLoader.RegistryData<>(registryKey, codec, RegistryValidator.none()), networkCodec));
+            this.registryDataList.add(new DataPackRegistryData<>(new RegistryDataLoader.RegistryData<>(registryKey, codec, false), networkCodec));
         }
 
         /**
@@ -95,7 +95,7 @@ public abstract class DataPackRegistryEvent extends Event implements IModBusEven
          * @see #dataPackRegistry(ResourceKey, Codec, Codec)
          */
         public <T> void dataPackRegistry(ResourceKey<Registry<T>> registryKey, Codec<T> codec, @Nullable Codec<T> networkCodec, Consumer<RegistryBuilder<T>> consumer) {
-            this.registryDataList.add(new DataPackRegistryData<>(new RegistryDataLoader.RegistryData<>(registryKey, codec, RegistryValidator.none(), consumer), networkCodec));
+            this.registryDataList.add(new DataPackRegistryData<>(new RegistryDataLoader.RegistryData<>(registryKey, codec, false, consumer), networkCodec));
         }
 
         void process() {

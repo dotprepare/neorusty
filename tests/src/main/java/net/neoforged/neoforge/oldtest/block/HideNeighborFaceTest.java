@@ -5,6 +5,8 @@
 
 package net.neoforged.neoforge.oldtest.block;
 
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
@@ -12,11 +14,14 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SlabBlock;
-import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.SlabType;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -28,7 +33,7 @@ public class HideNeighborFaceTest {
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
 
-    private static final DeferredBlock<Block> GLASS_SLAB = BLOCKS.registerBlock("glass_slab", GlassSlab::new, () -> BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS));
+    private static final DeferredBlock<Block> GLASS_SLAB = BLOCKS.register("glass_slab", GlassSlab::new);
     private static final DeferredItem<BlockItem> GLASS_SLAB_ITEM = ITEMS.registerSimpleBlockItem(GLASS_SLAB);
 
     public HideNeighborFaceTest(IEventBus bus) {
@@ -37,8 +42,8 @@ public class HideNeighborFaceTest {
     }
 
     private static class GlassSlab extends SlabBlock {
-        public GlassSlab(Properties props) {
-            super(props);
+        public GlassSlab() {
+            super(Properties.ofFullCopy(Blocks.GLASS));
         }
 
         @Override
@@ -70,6 +75,14 @@ public class HideNeighborFaceTest {
             }
 
             return false;
+        }
+    }
+
+    @EventBusSubscriber(value = Dist.CLIENT, modid = MOD_ID)
+    public static class ClientEvents {
+        @SubscribeEvent
+        public static void onClientSetup(final FMLClientSetupEvent event) {
+            ItemBlockRenderTypes.setRenderLayer(GLASS_SLAB.get(), RenderType.cutout());
         }
     }
 }

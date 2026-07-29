@@ -2,13 +2,12 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         maven { url = 'https://maven.neoforged.net/releases' }
-        mavenLocal()
     }
 }
 
 plugins {
     id 'net.neoforged.moddev.repositories' version "${moddevgradle_plugin_version}"
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
 
 // This makes the version available to buildSrc
@@ -25,14 +24,14 @@ dependencyResolutionManagement {
     }
 }
 
-if (rootProject.name.toLowerCase(Locale.ROOT) == "neoforge") {
+if (rootProject.name.toLowerCase() == "neoforge") {
     // Solve name clashes between projects/neoforge and the rootProject for Eclipse.
     rootProject.name = "NeoForge-Root"
 }
 
-include ':base'
+    include ':base'
 project(':base').projectDir = file('projects/base')
-include ':neoforge'
+    include ':neoforge'
 project(':neoforge').projectDir = file('projects/neoforge')
 
 include ':tests'

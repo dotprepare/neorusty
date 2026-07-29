@@ -25,17 +25,15 @@ public class NeoDevBasePlugin implements Plugin<Project> {
 
         var extension = project.getExtensions().create(NeoDevExtension.NAME, NeoDevExtension.class);
 
-        var decompilationSetup = NeoDevPlugin.configureMinecraftDecompilation(project);
-        var createSources = decompilationSetup.createArtifacts();
+        var createSources = NeoDevPlugin.configureMinecraftDecompilation(project);
         // Task must run on sync to have MC resources available for IDEA nondelegated builds.
-        NeoDevFacade.runTaskOnProjectSync(project, decompilationSetup.vanillaResources());
+        NeoDevFacade.runTaskOnProjectSync(project, createSources);
 
         tasks.register("setup", Sync.class, task -> {
             task.setGroup(NeoDevPlugin.GROUP);
             task.setDescription("Replaces the contents of the base project sources with the unpatched, decompiled Minecraft source code.");
-            task.from(project.zipTree(createSources.flatMap(CreateMinecraftArtifacts::getGameSourcesArtifact)));
+            task.from(project.zipTree(createSources.flatMap(CreateMinecraftArtifacts::getSourcesArtifact)));
             task.into(project.file("src/main/java/"));
-            task.include("**/*.java");
         });
 
         var downloadAssets = tasks.register("downloadAssets", DownloadAssets.class, task -> {
@@ -48,7 +46,9 @@ public class NeoDevBasePlugin implements Plugin<Project> {
         var runtimeClasspath = project.getConfigurations().getByName(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME);
         runtimeClasspath.getDependencies().add(
                 dependencyFactory.create(
-                        project.files(decompilationSetup.vanillaResources())));
+                        project.files(createSources.flatMap(CreateMinecraftArtifacts::getResourcesArtifact))
+                )
+        );
         NeoDevFacade.setupRuns(
                 project,
                 neoDevBuildDir,
@@ -59,6 +59,7 @@ public class NeoDevBasePlugin implements Plugin<Project> {
                 modulePath -> {},
                 legacyClasspath -> {},
                 downloadAssets.flatMap(DownloadAssets::getAssetPropertiesFile),
-                mcAndNeoFormVersion);
+                mcAndNeoFormVersion
+        );
     }
 }

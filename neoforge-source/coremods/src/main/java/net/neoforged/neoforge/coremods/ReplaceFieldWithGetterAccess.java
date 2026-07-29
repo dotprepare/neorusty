@@ -5,15 +5,15 @@
 
 package net.neoforged.neoforge.coremods;
 
+import cpw.mods.modlauncher.api.ITransformer;
+import cpw.mods.modlauncher.api.ITransformerVotingContext;
+import cpw.mods.modlauncher.api.TargetType;
+import cpw.mods.modlauncher.api.TransformerVoteResult;
 import java.lang.reflect.Modifier;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.neoforged.neoforgespi.transformation.ProcessorName;
-import net.neoforged.neoforgespi.transformation.SimpleClassProcessor;
-import net.neoforged.neoforgespi.transformation.SimpleTransformationContext;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
@@ -27,33 +27,37 @@ import org.objectweb.asm.tree.MethodInsnNode;
  * same type as the field.
  * If no methodName is passed, any method matching the described signature will be used as callable method.
  */
-public class ReplaceFieldWithGetterAccess extends SimpleClassProcessor {
+public class ReplaceFieldWithGetterAccess implements ITransformer<ClassNode> {
     private final Map<String, String> fieldToMethod;
-    private final Set<Target> targets;
-    private final String className;
+    private final Set<Target<ClassNode>> targets;
 
     public ReplaceFieldWithGetterAccess(String className, Map<String, String> fieldToMethod) {
-        this.targets = Set.of(new Target(className));
+        this.targets = Set.of(Target.targetClass(className));
         this.fieldToMethod = fieldToMethod;
-        this.className = className;
     }
 
     @Override
-    public ProcessorName name() {
-        var owner = className.toLowerCase(Locale.ROOT).replace('$', '.');
-        return new ProcessorName("neoforge.coremods", "field_to_getter." + owner);
+    public TargetType<ClassNode> getTargetType() {
+        return TargetType.CLASS;
     }
 
     @Override
-    public Set<Target> targets() {
+    public Set<Target<ClassNode>> targets() {
         return targets;
     }
 
     @Override
-    public void transform(ClassNode input, SimpleTransformationContext context) {
+    public ClassNode transform(ClassNode input, ITransformerVotingContext context) {
         for (var entry : fieldToMethod.entrySet()) {
             redirectFieldToMethod(input, entry.getKey(), entry.getValue());
         }
+
+        return input;
+    }
+
+    @Override
+    public TransformerVoteResult castVote(ITransformerVotingContext context) {
+        return TransformerVoteResult.YES;
     }
 
     private static void redirectFieldToMethod(ClassNode classNode, String fieldName, @Nullable String methodName) {

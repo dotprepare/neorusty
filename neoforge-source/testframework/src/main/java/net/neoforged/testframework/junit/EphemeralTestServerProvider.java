@@ -6,6 +6,7 @@
 package net.neoforged.testframework.junit;
 
 import com.google.common.base.Stopwatch;
+import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.yggdrasil.ServicesKeySet;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Lifecycle;
@@ -15,12 +16,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import net.minecraft.SystemReport;
+import net.minecraft.Util;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
@@ -29,36 +30,27 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.Services;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.WorldStem;
-import net.minecraft.server.level.progress.LoggingLevelLoadListener;
-import net.minecraft.server.notifications.NotificationManager;
-import net.minecraft.server.notifications.NotificationService;
+import net.minecraft.server.level.progress.LoggerChunkProgressListener;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.packs.repository.ServerPacksSource;
-import net.minecraft.server.permissions.LevelBasedPermissionSet;
-import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.util.Util;
 import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.util.debugchart.LocalSampleLogger;
 import net.minecraft.util.debugchart.SampleLogger;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.level.DataPackConfig;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.dimension.LevelStem;
-import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.WorldDimensions;
-import net.minecraft.world.level.levelgen.WorldGenSettings;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
-import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
-import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
-import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.Extension;
@@ -75,7 +67,7 @@ import org.slf4j.Logger;
  * The server is ephemeral, meaning that it doesn't store any data, and only has a void overworld available.
  * <p>
  * You should <strong>NOT</strong> not interact with the world of that server as it purely exists to load datapack data.
- * If you need an actual world, you should use a {@linkplain net.neoforged.testframework.gametest.GameTest GameTest} instead.
+ * If you need an actual world, you should use a {@linkplain net.minecraft.gametest.framework.GameTest GameTest} instead.
  *
  * <p>
  * Example usage:
@@ -119,13 +111,13 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
                 LevelStorageSource storage = LevelStorageSource.createDefault(tempDir.resolve("world"));
                 LevelStorageSource.LevelStorageAccess storageAccess = storage.validateAndCreateAccess("main");
                 PackRepository packrepository = ServerPacksSource.createPackRepository(storageAccess);
-                JUnitServer server = MinecraftServer.spin(
+                final MinecraftServer server = MinecraftServer.spin(
                         thread -> JUnitServer.create(thread, tempDir, storageAccess, packrepository));
 
-                FMLLoader.getCurrent().addCloseCallback(() -> {
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     server.stopServer();
                     LogManager.shutdown();
-                });
+                }));
             } catch (Exception ex) {
                 LogUtils.getLogger().error(LogUtils.FATAL_MARKER, "Failed to start the minecraft server", ex);
                 throw new RuntimeException(ex);
@@ -145,10 +137,10 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
 
     public static class JUnitServer extends MinecraftServer {
         private static final Logger LOGGER = LogUtils.getLogger();
-        private static final Services NO_SERVICES = new Services(null, ServicesKeySet.EMPTY, null, null, null);
-        private static final GameRules TEST_GAME_RULES = Util.make(new GameRules(FeatureFlags.REGISTRY.allFlags()), rules -> {
-            rules.set(GameRules.SPAWN_MOBS, false, null);
-            rules.set(GameRules.ADVANCE_WEATHER, false, null);
+        private static final Services NO_SERVICES = new Services(null, ServicesKeySet.EMPTY, null, null);
+        private static final GameRules TEST_GAME_RULES = Util.make(new GameRules(), rules -> {
+            rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+            rules.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
         });
         private static final WorldOptions WORLD_OPTIONS = new WorldOptions(0L, false, false);
 
@@ -158,9 +150,9 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
             WorldDataConfiguration config = new WorldDataConfiguration(
                     new DataPackConfig(new ArrayList<>(resources.getAvailableIds()), List.of()), FeatureFlags.REGISTRY.allFlags());
             LevelSettings levelsettings = new LevelSettings(
-                    "Test Level", GameType.CREATIVE, new LevelSettings.DifficultySettings(Difficulty.NORMAL, false, false), true, config);
+                    "Test Level", GameType.CREATIVE, false, Difficulty.NORMAL, true, TEST_GAME_RULES, config);
             WorldLoader.PackConfig worldloader$packconfig = new WorldLoader.PackConfig(resources, config, false, true);
-            WorldLoader.InitConfig worldloader$initconfig = new WorldLoader.InitConfig(worldloader$packconfig, Commands.CommandSelection.DEDICATED, LevelBasedPermissionSet.OWNER);
+            WorldLoader.InitConfig worldloader$initconfig = new WorldLoader.InitConfig(worldloader$packconfig, Commands.CommandSelection.DEDICATED, 4);
 
             try {
                 LOGGER.debug("Starting resource loading");
@@ -170,17 +162,15 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
                                 worldloader$initconfig,
                                 ctx -> {
                                     Registry<LevelStem> registry = new MappedRegistry<>(Registries.LEVEL_STEM, Lifecycle.stable()).freeze();
-                                    WorldDimensions worldDimensions = ctx.datapackWorldgen()
-                                            .lookupOrThrow(Registries.WORLD_PRESET)
-                                            .getOrThrow(WorldPresets.FLAT)
+                                    WorldDimensions.Complete worlddimensions$complete = ctx.datapackWorldgen()
+                                            .registryOrThrow(Registries.WORLD_PRESET)
+                                            .getHolderOrThrow(WorldPresets.FLAT)
                                             .value()
-                                            .createWorldDimensions();
-                                    WorldDimensions.Complete worlddimensions$complete = worldDimensions.bake(registry);
-                                    LevelDataAndDimensions.WorldDataAndGenSettings worldDataAndGenSettings = new LevelDataAndDimensions.WorldDataAndGenSettings(
-                                            new PrimaryLevelData(levelsettings, worlddimensions$complete.specialWorldProperty(), worlddimensions$complete.lifecycle()),
-                                            new WorldGenSettings(WORLD_OPTIONS, worldDimensions));
+                                            .createWorldDimensions()
+                                            .bake(registry);
                                     return new WorldLoader.DataLoadOutput<>(
-                                            worldDataAndGenSettings,
+                                            new PrimaryLevelData(
+                                                    levelsettings, WORLD_OPTIONS, worlddimensions$complete.specialWorldProperty(), worlddimensions$complete.lifecycle()),
                                             worlddimensions$complete.dimensionsRegistryAccess());
                                 },
                                 WorldStem::new,
@@ -198,7 +188,6 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         }
 
         private final Path tempDir;
-        private final NotificationService notificationService = new NotificationManager();
 
         public JUnitServer(
                 Thread thread,
@@ -206,13 +195,13 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
                 PackRepository pack,
                 WorldStem stem,
                 Path tempDir) {
-            super(thread, access, pack, stem, Optional.of(TEST_GAME_RULES), Proxy.NO_PROXY, DataFixers.getDataFixer(), NO_SERVICES, LoggingLevelLoadListener.forDedicatedServer(), true, new NotificationManager());
+            super(thread, access, pack, stem, Proxy.NO_PROXY, DataFixers.getDataFixer(), NO_SERVICES, LoggerChunkProgressListener::createFromGameruleRadius);
             this.tempDir = tempDir;
         }
 
         @Override
         public boolean initServer() {
-            this.setPlayerList(new PlayerList(this, this.registries(), this.playerDataStorage, this.notificationService) {});
+            this.setPlayerList(new PlayerList(this, this.registries(), this.playerDataStorage, 1) {});
             net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerAboutToStart(this);
             LOGGER.info("Started ephemeral JUnit server");
             net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerStarting(this);
@@ -227,12 +216,7 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         }
 
         @Override
-        protected void updateEffectiveRespawnData() {
-            // The server doesn't have any levels
-        }
-
-        @Override
-        public boolean saveEverything(boolean silent, boolean flush, boolean force) {
+        public boolean saveEverything(boolean p_195515_, boolean p_195516_, boolean p_195517_) {
             // The server is ephemeral
             return false;
         }
@@ -247,7 +231,7 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
                 storageSource.deleteLevel();
                 this.storageSource.close();
 
-                FileUtils.deleteDirectory(tempDir.toFile());
+                Files.delete(tempDir);
             } catch (IOException ioexception) {
                 LOGGER.error("Failed to unlock level {}", this.storageSource.getLevelId(), ioexception);
             }
@@ -270,13 +254,13 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         }
 
         @Override
-        public LevelBasedPermissionSet operatorUserPermissions() {
-            return LevelBasedPermissionSet.ALL;
+        public int getOperatorUserPermissionLevel() {
+            return 0;
         }
 
         @Override
-        public LevelBasedPermissionSet getFunctionCompilationPermissions() {
-            return LevelBasedPermissionSet.OWNER;
+        public int getFunctionCompilationLevel() {
+            return 4;
         }
 
         @Override
@@ -295,18 +279,13 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         }
 
         @Override
-        public int getCommandSpamThresholdSeconds() {
-            return 0;
-        }
-
-        @Override
-        public int getChatSpamThresholdSeconds() {
-            return 0;
-        }
-
-        @Override
-        public boolean useNativeTransport() {
+        public boolean isEpollEnabled() {
             return false;
+        }
+
+        @Override
+        public boolean isCommandBlockEnabled() {
+            return true;
         }
 
         @Override
@@ -320,7 +299,7 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         }
 
         @Override
-        public boolean isSingleplayerOwner(NameAndId nameAndId) {
+        public boolean isSingleplayerOwner(GameProfile profile) {
             return false;
         }
 
@@ -334,11 +313,6 @@ public class EphemeralTestServerProvider implements ParameterResolver, Extension
         @Override
         public boolean isTickTimeLoggingEnabled() {
             return false;
-        }
-
-        @Override
-        public int getMaxPlayers() {
-            return 1;
         }
     }
 }

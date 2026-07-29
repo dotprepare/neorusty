@@ -6,7 +6,6 @@
 package net.neoforged.neoforge.fluids;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.transfer.access.ItemAccess;
 
 /**
  * Holds the result of a fluid action from {@link FluidUtil}.
@@ -16,11 +15,7 @@ import net.neoforged.neoforge.transfer.access.ItemAccess;
  * Successful actions will always have {@link #isSuccess()} == true.
  * Successful actions may have an empty ItemStack result in some cases,
  * for example the action succeeded and the resulting item was consumed.
- *
- * @deprecated The new {@link ItemAccess}-backed handler implementations will directly mutate the underlying item access,
- *             thus there is no need to represent the resulting item stack anymore.
  */
-@Deprecated(since = "1.21.9", forRemoval = true)
 public class FluidActionResult {
     public static final FluidActionResult FAILURE = new FluidActionResult(false, ItemStack.EMPTY);
 

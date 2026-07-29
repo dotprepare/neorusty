@@ -12,7 +12,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.Event;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerXpEvent;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Event to determine which player an XP Orb should follow.
@@ -32,7 +32,6 @@ import org.jspecify.annotations.Nullable;
 public class XpOrbTargetingEvent extends Event {
     private final ExperienceOrb xpOrb;
     private final double scanDistance;
-    @Nullable
     private Optional<Player> followingPlayer = null;
 
     // Not internal, modded XP Orbs may call this.

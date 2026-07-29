@@ -47,7 +47,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /*
  * Like {@link com.electronwill.nightconfig.core.ConfigSpec} except in builder format, and extended to accept comments, language keys,
@@ -131,15 +131,6 @@ public class ModConfigSpec implements IConfigSpec {
             if (!configValue.getSpec().restartType().isValid(config.getType())) {
                 throw new IllegalArgumentException("Configuration value " + String.join(".", configValue.getPath())
                         + " defined in config " + config.getFileName() + " has restart of type " + configValue.getSpec().restartType() + " which cannot be used for configs of type " + config.getType());
-            }
-            // Check that the spec's validator accepts its own default value
-            if (!configValue.getSpec().test(configValue.getDefault())) {
-                throw new IllegalArgumentException("Configuration value "
-                        + String.join(".", configValue.getPath())
-                        + " defined in config "
-                        + config.getFileName()
-                        + " has a validator that does not accept its own default value of "
-                        + configValue.getDefault());
             }
         });
     }
@@ -925,7 +916,7 @@ public class ModConfigSpec implements IConfigSpec {
 
         public String buildComment(final List<String> path) {
             if (comment.stream().allMatch(String::isBlank)) {
-                if (FMLEnvironment.isProduction())
+                if (FMLEnvironment.production)
                     LOGGER.warn(Logging.CORE, "Detected a comment that is all whitespace for config option {}, which causes obscure bugs in NeoForge's config system and will cause a crash in the future. Please report this to the mod author.",
                             DOT_JOINER.join(path));
                 else

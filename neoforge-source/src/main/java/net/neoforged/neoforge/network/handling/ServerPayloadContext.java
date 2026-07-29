@@ -7,12 +7,11 @@ package net.neoforged.neoforge.network.handling;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import net.minecraft.network.PacketProcessor;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.ServerCommonPacketListener;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ConfigurationTask.Type;
 import net.minecraft.server.network.ServerPlayerConnection;
@@ -21,7 +20,7 @@ import net.neoforged.neoforge.network.registration.NetworkRegistry;
 import org.jetbrains.annotations.ApiStatus;
 
 @ApiStatus.Internal
-public record ServerPayloadContext(ServerCommonPacketListener listener, Identifier payloadId) implements IPayloadContext {
+public record ServerPayloadContext(ServerCommonPacketListener listener, ResourceLocation payloadId) implements IPayloadContext {
     @Override
     public void handle(CustomPacketPayload payload) {
         handle(new ServerboundCustomPayloadPacket(payload));
@@ -29,21 +28,19 @@ public record ServerPayloadContext(ServerCommonPacketListener listener, Identifi
 
     @Override
     public CompletableFuture<Void> enqueueWork(Runnable task) {
-        PacketProcessor processor = listener.getPacketProcessor();
-        if (processor.isSameThread()) {
+        if (listener.getMainThreadEventLoop().isSameThread()) {
             task.run();
             return CompletableFuture.completedFuture(null);
         }
-        return NetworkRegistry.guard(CompletableFuture.runAsync(task, processor::scheduleIfPossible), this.payloadId);
+        return NetworkRegistry.guard(listener.getMainThreadEventLoop().submit(task), this.payloadId);
     }
 
     @Override
     public <T> CompletableFuture<T> enqueueWork(Supplier<T> task) {
-        PacketProcessor processor = listener.getPacketProcessor();
-        if (processor.isSameThread()) {
+        if (listener.getMainThreadEventLoop().isSameThread()) {
             return CompletableFuture.completedFuture(task.get());
         }
-        return NetworkRegistry.guard(CompletableFuture.supplyAsync(task, processor::scheduleIfPossible), this.payloadId);
+        return NetworkRegistry.guard(listener.getMainThreadEventLoop().submit(task), this.payloadId);
     }
 
     @Override

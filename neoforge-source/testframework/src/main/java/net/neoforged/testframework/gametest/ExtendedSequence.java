@@ -6,54 +6,54 @@
 package net.neoforged.testframework.gametest;
 
 import java.util.function.Supplier;
-import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestSequence;
 
 public class ExtendedSequence extends GameTestSequence {
-    private final GameTestHelper gameTestHelper;
+    private final GameTestInfo gameTestInfo;
 
-    public ExtendedSequence(GameTestHelper gameTestHelper) {
-        super(gameTestHelper.testInfo);
-        this.gameTestHelper = gameTestHelper;
+    public ExtendedSequence(GameTestInfo p_177542_) {
+        super(p_177542_);
+        this.gameTestInfo = p_177542_;
     }
 
     @Override
-    public ExtendedSequence thenWaitUntil(Runnable assertion) {
-        return (ExtendedSequence) super.thenWaitUntil(assertion);
+    public ExtendedSequence thenWaitUntil(Runnable p_177553_) {
+        return (ExtendedSequence) super.thenWaitUntil(p_177553_);
     }
 
     @Override
-    public ExtendedSequence thenWaitUntil(long expectedDelay, Runnable assertion) {
-        return (ExtendedSequence) super.thenWaitUntil(expectedDelay, assertion);
+    public ExtendedSequence thenWaitUntil(long p_177550_, Runnable p_177551_) {
+        return (ExtendedSequence) super.thenWaitUntil(p_177550_, p_177551_);
     }
 
     @Override
-    public ExtendedSequence thenIdle(int delta) {
-        return (ExtendedSequence) super.thenIdle(delta);
+    public ExtendedSequence thenIdle(int p_177545_) {
+        return (ExtendedSequence) super.thenIdle(p_177545_);
     }
 
     @Override
-    public ExtendedSequence thenExecute(Runnable assertion) {
-        return (ExtendedSequence) super.thenExecute(assertion);
+    public ExtendedSequence thenExecute(Runnable p_177563_) {
+        return (ExtendedSequence) super.thenExecute(p_177563_);
     }
 
     @Override
-    public ExtendedSequence thenExecuteAfter(int delta, Runnable after) {
-        return (ExtendedSequence) super.thenExecuteAfter(delta, after);
+    public ExtendedSequence thenExecuteAfter(int p_177547_, Runnable p_177548_) {
+        return (ExtendedSequence) super.thenExecuteAfter(p_177547_, p_177548_);
     }
 
     @Override
-    public ExtendedSequence thenExecuteFor(int delta, Runnable check) {
-        return (ExtendedSequence) super.thenExecuteFor(delta, check);
+    public ExtendedSequence thenExecuteFor(int p_177560_, Runnable p_177561_) {
+        return (ExtendedSequence) super.thenExecuteFor(p_177560_, p_177561_);
     }
 
     public <T> ParametrizedGameTestSequence<T> thenMap(Supplier<T> value) {
-        return new ParametrizedGameTestSequence<>(gameTestHelper, this, value);
+        return new ParametrizedGameTestSequence<>(gameTestInfo, this, value);
     }
 
     public ExtendedSequence thenSequence(java.util.function.Consumer<ExtendedSequence> consumer) {
-        final var sq = new ExtendedSequence(gameTestHelper);
-        gameTestHelper.testInfo.sequences.add(sq);
+        final var sq = new ExtendedSequence(gameTestInfo);
+        gameTestInfo.sequences.add(sq);
         consumer.accept(sq);
         return sq;
     }

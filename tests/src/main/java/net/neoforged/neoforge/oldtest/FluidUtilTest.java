@@ -11,9 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
+import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
@@ -24,18 +24,16 @@ import org.apache.logging.log4j.LogManager;
  * Various tests for {@link FluidUtil}, that run when the mod is loaded.
  * If one of the tests fails, an expection will be thrown, and mod loading will fail with an error.
  * If all tests pass, the mod will load successfully.
- *
- * <p>Note: these tests use the legacy wrappers, testing the wrappers and that the new bucket wrapper matches the behavior of the old one.
  */
 @Mod(FluidUtilTest.MODID)
 public class FluidUtilTest {
     public static final String MODID = "fluid_util_test";
 
-    public FluidUtilTest() {
-        NeoForge.EVENT_BUS.addListener(FluidUtilTest::runTests);
+    public FluidUtilTest(IEventBus modEventBus) {
+        modEventBus.addListener(FluidUtilTest::runTests);
     }
 
-    private static void runTests(DefaultDataComponentsBoundEvent event) {
+    private static void runTests(FMLLoadCompleteEvent commonSetupEvent) {
         test_tryEmptyContainer();
         test_tryFillContainer();
         test_tryEmptyContainerAndStow_stackable();

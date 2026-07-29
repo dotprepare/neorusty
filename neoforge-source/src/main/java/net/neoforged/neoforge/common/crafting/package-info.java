@@ -4,7 +4,9 @@
  */
 
 // Auto generated package-info by MCP
-@NullMarked
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 package net.neoforged.neoforge.common.crafting;
 
-import org.jspecify.annotations.NullMarked;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;

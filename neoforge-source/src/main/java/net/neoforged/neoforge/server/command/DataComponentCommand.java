@@ -31,7 +31,7 @@ class DataComponentCommand {
 
     public static ArgumentBuilder<CommandSourceStack, ?> register() {
         return Commands.literal("data_components")
-                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .requires(cs -> cs.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.literal("list")
                         .executes(DataComponentCommand::listComponents));
     }
@@ -51,7 +51,7 @@ class DataComponentCommand {
             DataComponentMap prototype = stack.getPrototype();
             DataComponentPatch patch = stack.getComponentsPatch();
             prototype.forEach(component -> {
-                Optional<?> optData = patch.getPatch(component.type());
+                Optional<?> optData = patch.get(component.type());
                 if (optData == null) { // Component is default
                     Component tooltip = CommandUtils.makeTranslatableWithFallback(
                             "commands.neoforge.data_components.list.tooltip.default",
@@ -94,6 +94,6 @@ class DataComponentCommand {
     private static Component print(DataComponentType<?> type, Object data, ChatFormatting color, Component tooltip) {
         MutableComponent entry = CommandUtils.makeTranslatableWithFallback("commands.neoforge.data_components.list.entry.key_value", getTypeId(type), data.toString());
         return CommandUtils.makeTranslatableWithFallback("commands.neoforge.data_components.list.entry", entry.withStyle(color))
-                .withStyle(style -> style.withHoverEvent(new HoverEvent.ShowText(tooltip)));
+                .withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, tooltip)));
     }
 }

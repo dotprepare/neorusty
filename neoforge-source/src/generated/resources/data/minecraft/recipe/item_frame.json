@@ -1,8 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "key": {
-    "#": "#c:rods/wooden",
-    "X": "#c:leathers"
+    "#": {
+      "tag": "c:rods/wooden"
+    },
+    "X": {
+      "item": "minecraft:leather"
+    }
   },
   "pattern": [
     "###",
@@ -10,6 +15,7 @@
     "###"
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:item_frame"
   }
 }

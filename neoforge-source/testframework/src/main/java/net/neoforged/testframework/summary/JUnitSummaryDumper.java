@@ -22,8 +22,8 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import net.minecraft.resources.Identifier;
-import org.jspecify.annotations.Nullable;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -36,7 +36,7 @@ public class JUnitSummaryDumper implements FileSummaryDumper {
     }
 
     @Override
-    public Path outputPath(Identifier frameworkId) {
+    public Path outputPath(ResourceLocation frameworkId) {
         return outputDir.resolve("testframework-" + frameworkId.toString().replace(':', '-') + "-" + Instant.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[:TZ-]", "") + ".junit.xml");
     }
 
@@ -59,7 +59,7 @@ public class JUnitSummaryDumper implements FileSummaryDumper {
         DocumentBuilder documentBuilder = builderFactory.newDocumentBuilder();
         Document document = documentBuilder.newDocument();
         Element testsuites = document.createElement("testsuites");
-        testsuites.setAttribute("name", summary.framework().id().toString());
+        testsuites.setAttribute("name", summary.frameworkId().toString());
         testsuites.setAttribute("tests", Integer.toString(root.tests));
         testsuites.setAttribute("failures", Integer.toString(root.failures));
         testsuites.setAttribute("skipped", Integer.toString(root.skipped));

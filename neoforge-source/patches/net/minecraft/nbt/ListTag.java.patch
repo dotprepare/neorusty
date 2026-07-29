@@ -1,7 +1,7 @@
 --- a/net/minecraft/nbt/ListTag.java
 +++ b/net/minecraft/nbt/ListTag.java
-@@ -146,6 +_,15 @@
-         this(new ArrayList<>());
+@@ -144,6 +_,15 @@
+         this(Lists.newArrayList(), (byte)0);
      }
  
 +    /**
@@ -10,9 +10,9 @@
 +     * @param initialCapacity the initial capacity of the list tag
 +     */
 +    public ListTag(int initialCapacity) {
-+        this(new ArrayList<>(initialCapacity));
++        this(new java.util.ArrayList<>(initialCapacity), (byte)0);
 +    }
 +
-     ListTag(List<Tag> list) {
-         this.list = list;
-     }
+     @Override
+     public void write(DataOutput p_128734_) throws IOException {
+         if (this.list.isEmpty()) {

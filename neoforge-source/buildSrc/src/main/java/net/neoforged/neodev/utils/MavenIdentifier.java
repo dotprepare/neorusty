@@ -11,10 +11,6 @@ public record MavenIdentifier(String group, String artifact, String version, Str
         return group.replace(".", "/") + "/" + artifact + "/" + version + "/" + artifact + "-" + version + (classifier.isEmpty() ? "" : "-" + classifier) + "." + extension;
     }
 
-    public MavenIdentifier withVersion(String version) {
-        return new MavenIdentifier(group, artifact, version, classifier, extension);
-    }
-
     /**
      * Valid forms:
      * <ul>

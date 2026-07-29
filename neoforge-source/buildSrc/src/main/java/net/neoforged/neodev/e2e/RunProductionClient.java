@@ -2,6 +2,24 @@ package net.neoforged.neodev.e2e;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import net.neoforged.neodev.installer.IdentifiedFile;
+import net.neoforged.neodev.utils.MavenIdentifier;
+import org.apache.tools.ant.taskdefs.condition.Os;
+import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.JavaExec;
+import org.gradle.api.tasks.Nested;
+import org.gradle.api.tasks.TaskAction;
+import org.gradle.process.ExecOperations;
+import org.gradle.process.JavaExecSpec;
+
+import javax.inject.Inject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -18,29 +36,11 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.inject.Inject;
-import net.neoforged.neodev.installer.IdentifiedFile;
-import net.neoforged.neodev.utils.MavenIdentifier;
-import org.apache.tools.ant.taskdefs.condition.Os;
-import org.gradle.api.GradleException;
-import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.ListProperty;
-import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputDirectory;
-import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.JavaExec;
-import org.gradle.api.tasks.Nested;
-import org.gradle.api.tasks.TaskAction;
-import org.gradle.jvm.toolchain.JavaLanguageVersion;
-import org.gradle.process.ExecOperations;
-import org.gradle.process.JavaExecSpec;
 
 /**
  * Runs a production client previously installed by {@link InstallProductionClient}.
  * <p>
- * This task has to extend from {@link JavaExec} instead of using {@link org.gradle.process.ExecOperations} internally
+ * This task has to extend from  {@link JavaExec} instead of using {@link org.gradle.process.ExecOperations} internally
  * to allow debugging it via IntelliJ directly.
  * (Technically, implementing {@link org.gradle.process.JavaForkOptions} would suffice).
  * <p>
@@ -88,13 +88,9 @@ public abstract class RunProductionClient extends JavaExec {
     @InputFile
     public abstract RegularFileProperty getOriginalClientJar();
 
-    @Input
-    public abstract Property<Integer> getJavaRuntimeVersion();
-
     @Inject
     public RunProductionClient(ExecOperations execOperations) {
         this.execOperations = execOperations;
-        getJavaLauncher().set(getJavaToolchainService().launcherFor(spec -> spec.getLanguageVersion().set(getJavaRuntimeVersion().map(JavaLanguageVersion::of))));
     }
 
     @TaskAction
@@ -143,15 +139,12 @@ public abstract class RunProductionClient extends JavaExec {
         placeholders.put("classpath_separator", File.pathSeparator);
 
         execOperations.javaexec(spec -> {
-            spec.executable(getJavaLauncher().get().getExecutablePath().getAsFile());
-
             // The JVM args at this point may include debugging options when started through IntelliJ
             spec.jvmArgs(getJvmArguments().get());
             spec.workingDir(installDir);
 
             spec.environment(getEnvironment());
             applyVersionManifest(installDir, versionId, placeholders, librariesDir, spec);
-            spec.args("--offlineDeveloperMode"); // Suppress complaints about the invalid access token
         });
     }
 
@@ -159,10 +152,10 @@ public abstract class RunProductionClient extends JavaExec {
      * Applies a Vanilla Launcher version manifest to the JavaForkOptions.
      */
     private void applyVersionManifest(Path installDir,
-            String versionId,
-            Map<String, String> placeholders,
-            Path librariesDir,
-            JavaExecSpec spec) {
+                                      String versionId,
+                                      Map<String, String> placeholders,
+                                      Path librariesDir,
+                                      JavaExecSpec spec) {
         var manifests = loadVersionManifests(installDir, versionId);
 
         var mergedProgramArgs = new ArrayList<String>();
@@ -183,7 +176,8 @@ public abstract class RunProductionClient extends JavaExec {
         for (var identifiedFile : getLibraryFiles().get()) {
             availableLibraries.put(
                     identifiedFile.getIdentifier().get(),
-                    identifiedFile.getFile().get().getAsFile().toPath());
+                    identifiedFile.getFile().get().getAsFile().toPath()
+            );
         }
 
         // The libraries are built in reverse, and libraries already added are not added again from parent manifests
@@ -210,7 +204,8 @@ public abstract class RunProductionClient extends JavaExec {
                         id.artifact(),
                         "",
                         id.classifier(),
-                        id.extension());
+                        id.extension()
+                );
 
                 if (!librariesAdded.add(idWithoutVersion)) {
                     continue; // The library was overridden by a child profile
@@ -356,8 +351,8 @@ public abstract class RunProductionClient extends JavaExec {
     private static void copyIfNeeded(Path source, Path destination) {
         try {
             if (!Files.exists(destination)
-                    || !Objects.equals(Files.getLastModifiedTime(destination), Files.getLastModifiedTime(source))
-                    || Files.size(destination) != Files.size(source)) {
+                || !Objects.equals(Files.getLastModifiedTime(destination), Files.getLastModifiedTime(source))
+                || Files.size(destination) != Files.size(source)) {
                 Files.createDirectories(destination.getParent());
                 Files.copy(source, destination, StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
             }

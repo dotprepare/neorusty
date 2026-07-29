@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class JsonUtils {
     // http://stackoverflow.com/questions/7706772/deserializing-immutablelist-using-gson/21677349#21677349
@@ -75,7 +75,7 @@ public class JsonUtils {
     public static CompoundTag readNBT(JsonObject json, String key) {
         if (net.minecraft.util.GsonHelper.isValidNode(json, key)) {
             try {
-                return TagParser.parseCompoundFully(net.minecraft.util.GsonHelper.getAsString(json, key));
+                return TagParser.parseTag(net.minecraft.util.GsonHelper.getAsString(json, key));
             } catch (CommandSyntaxException e) {
                 throw new JsonSyntaxException("Malformed NBT tag", e);
             }

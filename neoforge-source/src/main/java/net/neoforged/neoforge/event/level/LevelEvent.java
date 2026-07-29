@@ -5,12 +5,13 @@
 
 package net.neoforged.neoforge.event.level;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProgressListener;
-import net.minecraft.util.random.Weighted;
-import net.minecraft.util.random.WeightedList;
+import net.minecraft.util.random.WeightedRandomList;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.biome.MobSpawnSettings;
@@ -19,7 +20,7 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.neoforge.common.NeoForge;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This event is fired whenever an event involving a {@link LevelAccessor} occurs.
@@ -56,11 +57,13 @@ public abstract class LevelEvent extends Event {
         }
     }
 
-    /// Fired whenever a level unloads. This may be due to the server being stopped, or the client switching to another level or server.
-    ///
-    /// This event is not [cancellable][ICancellableEvent].
-    ///
-    /// This event is fired on the [game event bus][NeoForge#EVENT_BUS] on both [logical sides][LogicalSide].
+    /**
+     * Fired whenever a level unloads. This may be due to the server being stopped, or the client switching to another level or server.
+     * <p>
+     * This event is not {@linkplain ICancellableEvent cancellable}.
+     * <p>
+     * This event is fired on the {@linkplain NeoForge#EVENT_BUS game event bus} on both {@linkplain LogicalSide logical sides}.
+     */
     public static class Unload extends LevelEvent {
         public Unload(LevelAccessor level) {
             super(level);
@@ -122,10 +125,11 @@ public abstract class LevelEvent extends Event {
     public static class PotentialSpawns extends LevelEvent implements ICancellableEvent {
         private final MobCategory mobcategory;
         private final BlockPos pos;
-        private WeightedList.@Nullable Builder<MobSpawnSettings.SpawnerData> list;
-        private List<Weighted<MobSpawnSettings.SpawnerData>> view;
+        @Nullable
+        private List<MobSpawnSettings.SpawnerData> list;
+        private List<MobSpawnSettings.SpawnerData> view;
 
-        public PotentialSpawns(LevelAccessor level, MobCategory category, BlockPos pos, WeightedList<MobSpawnSettings.SpawnerData> oldList) {
+        public PotentialSpawns(LevelAccessor level, MobCategory category, BlockPos pos, WeightedRandomList<MobSpawnSettings.SpawnerData> oldList) {
             super(level);
             this.pos = pos;
             this.mobcategory = category;
@@ -150,15 +154,14 @@ public abstract class LevelEvent extends Event {
         /**
          * {@return the list of mobs that can potentially be spawned.}
          */
-        public List<Weighted<MobSpawnSettings.SpawnerData>> getSpawnerDataList() {
+        public List<MobSpawnSettings.SpawnerData> getSpawnerDataList() {
             return view;
         }
 
         private void makeList() {
             if (list == null) {
-                list = WeightedList.builder();
-                list.addAll(view);
-                view = list.getList();
+                list = new ArrayList<>(view);
+                view = Collections.unmodifiableList(list);
             }
         }
 
@@ -167,7 +170,7 @@ public abstract class LevelEvent extends Event {
          *
          * @param data SpawnerData entry to be appended to the spawn list.
          */
-        public void addSpawnerData(Weighted<MobSpawnSettings.SpawnerData> data) {
+        public void addSpawnerData(MobSpawnSettings.SpawnerData data) {
             makeList();
             list.add(data);
         }
@@ -176,10 +179,12 @@ public abstract class LevelEvent extends Event {
          * Removes a SpawnerData entry from the spawn list.
          *
          * @param data SpawnerData entry to be removed from the spawn list.
+         *
+         *             {@return {@code true} if the spawn list contained the specified element.}
          */
-        public void removeSpawnerData(Weighted<MobSpawnSettings.SpawnerData> data) {
+        public boolean removeSpawnerData(MobSpawnSettings.SpawnerData data) {
             makeList();
-            list.remove(data);
+            return list.remove(data);
         }
     }
 }

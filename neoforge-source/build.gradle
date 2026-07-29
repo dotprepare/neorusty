@@ -1,31 +1,20 @@
 import java.util.regex.Matcher
 import java.util.regex.Pattern
-import net.neoforged.neodev.CheckSplitSources
 
 plugins {
-    id 'net.neoforged.gradleutils' version '5.1.1'
-    id 'dev.lukebemish.immaculate' version '0.1.16' apply false
+    id 'net.neoforged.gradleutils' version '4.0.1'
+    id 'dev.lukebemish.immaculate' version '0.1.6' apply false
     id 'net.neoforged.licenser' version '0.7.5'
     id 'neoforge.formatting-conventions'
     id 'neoforge.versioning'
 }
 
-// If an external version is defined, always use that
-ext.isPreReleaseVersion = false
+ext.isPreReleaseVersion = project.minecraft_version.contains('w') || project.minecraft_version.contains('-')
 
-final fixedProjectVersion = project.providers.gradleProperty("version").getOrElse(null)
-if (fixedProjectVersion == null) {
-    if (project.minecraft_version.contains('-')) {
-        ext.isPreReleaseVersion = true
-        // Match the manual snapshot release suffix (e.g. -alpha.M+snapshot-N) with M=0 and a suffixed .<timestamp>
-        // Separate out the -snapshot-N or -rc-N suffix
-        final preReleaseSuffix = project.minecraft_version.split("-", 2)[1]
-        project.version = "${project.neoforge_snapshot_next_stable}.0-alpha.0+${preReleaseSuffix}.${(new Date()).format('yyyyMMdd.HHmmss', TimeZone.getTimeZone('UTC'))}"
-    } else {
-        project.version = gradleutils.version.toString()
-    }
+if (isPreReleaseVersion) {
+    project.version = "${project.neoforge_snapshot_next_stable}.0-alpha.${project.minecraft_version}.${(new Date()).format('yyyyMMdd.HHmmss', TimeZone.getTimeZone('UTC'))}"
 } else {
-    project.version = fixedProjectVersion
+    project.version = gradleutils.version.toString()
 }
 
 // Print version, generally useful to know - also appears on CI
@@ -69,9 +58,6 @@ license {
 // Put spotless here because it wants the files to live inside the project root
 immaculate {
     workflows.named("java") {
-        files.from rootProject.fileTree("buildSrc/src", {
-            include "**/*.java"
-        })
         files.from rootProject.fileTree("src", {
             include "**/*.java"
         })
@@ -88,12 +74,6 @@ immaculate {
 
         def interfaceChange = Pattern.compile('[-+].*(implements|(interface.*extends))(.*)\\{')
         custom 'noInterfaceModifications', { String fileContents ->
-            // FIXME: remove when handling of Holder is resolved
-            // Special case: removal of sealed and permits incorrectly triggers interface change detection
-            if (fileContents.startsWith("--- a/net/minecraft/core/Holder.java")) {
-                return fileContents
-            }
-
             def interfaceChanges = fileContents.lines().filter { it.matches(interfaceChange) }.toList()
             if (interfaceChanges.isEmpty()) return fileContents
             String oldInterfaces = ""
@@ -114,34 +94,35 @@ immaculate {
         //Note: This doesn't detect changing access level to or from package private
         //TODO: Eventually try and make this support checking package private access level changes?
         def accessLevelChange = Pattern.compile('^[-+]\\s*(public|private|protected)\\s.*\$', Pattern.UNIX_LINES | Pattern.MULTILINE)
-        custom 'noAccessChanges', { String fileContents ->
-            // Special case: we need to make the field private for our coremod
-            if (fileContents.startsWith("--- a/net/minecraft/world/level/levelgen/structure/Structure.java")) {
-                return fileContents
-            }
-
-            // The anvil menu patches a method to be final, which cannot be done with an AT, but trips this check otherwise.
-            if (fileContents.startsWith("--- a/net/minecraft/world/inventory/AnvilMenu.java")) {
-                return fileContents
-            }
-
+        custom 'noAccessWidening', { String fileContents ->
             def accessChanges = fileContents.findAll(accessLevelChange)
             if (accessChanges.isEmpty()) return fileContents
-            Map<String, Set<String>> removals = Map.of("private", new HashSet<>(), "protected", new HashSet<>(), "public", new HashSet<>())
+            Set<String> privateRemovals = new HashSet<>()
+            Set<String> protectedRemovals = new HashSet<>()
             accessChanges.each { String change ->
                 //Get the type of match
                 String[] data = change.substring(1).trim().split(" ", 2)
-                String lineStart = data[1].substring(0, Math.min(30, data[1].length()))
+                String lineStart = data[1].substring(0, Math.min(10, data[1].length()))
                 if (change.startsWith('-')) {//Removal
-                    removals.get(data[0]).add(lineStart)
-                } else {//Addition
-                    for (var entry : removals.entrySet()) {
-                        if (entry.key == data[0]) {
-                            continue
+                    if (data[0] == 'private') {
+                        privateRemovals.add(lineStart)
+                    } else if (data[0] == 'protected') {
+                        protectedRemovals.add(lineStart)
+                    }
+                } else if (!privateRemovals.isEmpty() || !protectedRemovals.isEmpty()) {//Addition and we know of at least one removal
+                    if (data[0] == 'public') {
+                        if (privateRemovals.remove(lineStart) || protectedRemovals.remove(lineStart)) {
+                            throw new GradleException("Widening access level via patches is not allowed, use an AT! Changed line: " + change)
                         }
-                        if (entry.value.remove(lineStart)) {
-                            throw new GradleException("Changing access level via patches is not allowed, use an AT! Changed line: " + change)
+                    } else if (data[0] == 'protected') {
+                        if (privateRemovals.remove(lineStart)) {
+                            throw new GradleException("Widening access level via patches is not allowed, use an AT! Changed line: " + change)
                         }
+                        //Remove any protected ones that we have a match for
+                        protectedRemovals.remove(lineStart)
+                    } else if (data[0] == 'private') {
+                        //Remove any private ones that we have a match for
+                        privateRemovals.remove(lineStart)
                     }
                 }
             }
@@ -173,20 +154,9 @@ immaculate {
             }
         }
 
-        //Replace any FQN versions of javax/jetbrains @Nullable with the jspecify variant
+        //Replace any FQN versions of javax.annotation.Nullable with the jetbrains variant
         custom 'jetbrainsNullablePatches', { String fileContents ->
-            fileContents.replace('@javax.annotation.Nullable', '@org.jspecify.annotations.Nullable')
-            fileContents.replace('@org.jetbrains.annotations.Nullable', '@org.jspecify.annotations.Nullable')
+            fileContents.replace('@javax.annotation.Nullable', '@org.jetbrains.annotations.Nullable')
         }
     }
-}
-
-final task = tasks.register('checkSourcesAreSplit', CheckSplitSources) {
-    serverClientFolder = project.provider { project.layout.projectDirectory.dir('src/main/java/net/neoforged/neoforge/client') }
-            .map { it.asFile.exists() ? it : null }
-    clientClientFolder = project.layout.projectDirectory.dir('src/client/java/net/neoforged/neoforge/client')
-}
-
-tasks.named('checkFormatting') {
-    dependsOn(task)
 }

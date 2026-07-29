@@ -6,15 +6,14 @@
 package net.neoforged.neoforge.common.world;
 
 import com.mojang.serialization.MapCodec;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.util.random.Weighted;
-import net.minecraft.util.random.WeightedList;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.biome.MobSpawnSettings.SpawnerData;
@@ -68,7 +67,7 @@ public final class StructureModifiers {
      * @param spawners   List of SpawnerDatas specifying EntityType, weight, and pack size.
      */
     public record AddSpawnsStructureModifier(HolderSet<Structure> structures,
-            WeightedList<SpawnerData> spawners) implements StructureModifier {
+            List<SpawnerData> spawners) implements StructureModifier {
         /**
          * Convenience method for using a single {@link SpawnerData}.
          *
@@ -76,16 +75,16 @@ public final class StructureModifiers {
          * @param spawner    SpawnerData specifying EntityTYpe, weight, and pack size.
          * @return AddSpawnsStructureModifier that adds a single spawn entry to the specified biomes.
          */
-        public static AddSpawnsStructureModifier singleSpawn(HolderSet<Structure> structures, Weighted<SpawnerData> spawner) {
-            return new AddSpawnsStructureModifier(structures, WeightedList.<SpawnerData>of(spawner));
+        public static AddSpawnsStructureModifier singleSpawn(HolderSet<Structure> structures, SpawnerData spawner) {
+            return new AddSpawnsStructureModifier(structures, List.of(spawner));
         }
 
         @Override
         public void modify(Holder<Structure> structure, Phase phase, ModifiableStructureInfo.StructureInfo.Builder builder) {
             if (phase == Phase.ADD && this.structures.contains(structure)) {
                 StructureSettingsBuilder settingsBuilder = builder.getStructureSettings();
-                for (Weighted<SpawnerData> spawner : this.spawners.unwrap()) {
-                    EntityType<?> type = spawner.value().type();
+                for (SpawnerData spawner : this.spawners) {
+                    EntityType<?> type = spawner.type;
                     settingsBuilder.getOrAddSpawnOverrides(type.getCategory()).addSpawn(spawner);
                 }
             }
@@ -126,8 +125,8 @@ public final class StructureModifiers {
                     if (overrides == null || overrides.getSpawns().isEmpty())
                         continue;
                     overrides.removeSpawns(spawnerData -> {
-                        Identifier key = BuiltInRegistries.ENTITY_TYPE.getKey(spawnerData.value().type());
-                        return this.entityTypes.contains(BuiltInRegistries.ENTITY_TYPE.getOrThrow(ResourceKey.create(Registries.ENTITY_TYPE, key)));
+                        ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(spawnerData.type);
+                        return this.entityTypes.contains(BuiltInRegistries.ENTITY_TYPE.getHolderOrThrow(ResourceKey.create(Registries.ENTITY_TYPE, key)));
                     });
                 }
             }

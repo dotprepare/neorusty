@@ -39,15 +39,14 @@ public class AddTableLootModifier extends LootModifier {
      * @see NeoForgeMod#ADD_TABLE_LOOT_MODIFIER_TYPE
      */
     @ApiStatus.Internal
-    public static final MapCodec<AddTableLootModifier> CODEC = RecordCodecBuilder.mapCodec(instance -> codecStart(instance)
-            .and(
-                    ResourceKey.codec(Registries.LOOT_TABLE).fieldOf("table").forGetter(AddTableLootModifier::table))
-            .apply(instance, AddTableLootModifier::new));
+    public static final MapCodec<AddTableLootModifier> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            IGlobalLootModifier.LOOT_CONDITIONS_CODEC.fieldOf("conditions").forGetter(glm -> glm.conditions),
+            ResourceKey.codec(Registries.LOOT_TABLE).fieldOf("table").forGetter(AddTableLootModifier::table)).apply(instance, AddTableLootModifier::new));
 
     private final ResourceKey<LootTable> table;
 
-    public AddTableLootModifier(LootItemCondition[] conditions, int priority, ResourceKey<LootTable> table) {
-        super(conditions, priority);
+    public AddTableLootModifier(LootItemCondition[] conditionsIn, ResourceKey<LootTable> table) {
+        super(conditionsIn);
         this.table = table;
     }
 
@@ -58,7 +57,7 @@ public class AddTableLootModifier extends LootModifier {
     @SuppressWarnings("deprecation")
     @Override
     protected ObjectArrayList<ItemStack> doApply(ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
-        context.getResolver().lookupOrThrow(Registries.LOOT_TABLE).get(this.table).ifPresent(extraTable -> {
+        context.getResolver().get(Registries.LOOT_TABLE, this.table).ifPresent(extraTable -> {
             // Don't run loot modifiers for subtables;
             // the added loot will be modifiable by downstream loot modifiers modifying the target table,
             // so if we modify it here then it could get modified twice.

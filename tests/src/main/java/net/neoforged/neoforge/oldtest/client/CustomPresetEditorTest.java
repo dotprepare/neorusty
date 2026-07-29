@@ -22,8 +22,8 @@ import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Biomes;
@@ -46,12 +46,12 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
 @Mod(CustomPresetEditorTest.MODID)
 public class CustomPresetEditorTest {
     public static final String MODID = "custom_preset_editor_test";
-    public static final ResourceKey<WorldPreset> WORLD_PRESET_KEY = ResourceKey.create(Registries.WORLD_PRESET, Identifier.fromNamespaceAndPath(MODID, MODID));
+    public static final ResourceKey<WorldPreset> WORLD_PRESET_KEY = ResourceKey.create(Registries.WORLD_PRESET, ResourceLocation.fromNamespaceAndPath(MODID, MODID));
 
     @EventBusSubscriber(modid = MODID)
     public static class CommonModEvents {
         @SubscribeEvent
-        public static void onGatherData(GatherDataEvent.Client event) {
+        public static void onGatherData(GatherDataEvent event) {
             DataGenerator gen = event.getGenerator();
             PackOutput packOutput = gen.getPackOutput();
             CompletableFuture<HolderLookup.Provider> lookupProvider = event.getLookupProvider();
@@ -59,7 +59,7 @@ public class CustomPresetEditorTest {
             RegistrySetBuilder registrySetBuilder = new RegistrySetBuilder()
                     .add(Registries.WORLD_PRESET, context -> context.register(WORLD_PRESET_KEY, makeWorldPreset(context)));
 
-            gen.addProvider(true, new DatapackBuiltinEntriesProvider(packOutput, lookupProvider, registrySetBuilder, Set.of(MODID)) {
+            gen.addProvider(event.includeServer(), new DatapackBuiltinEntriesProvider(packOutput, lookupProvider, registrySetBuilder, Set.of(MODID)) {
                 @Override
                 public String getName() {
                     return MODID + ":" + super.getName(); // dataproviders must have unique names
@@ -114,7 +114,7 @@ public class CustomPresetEditorTest {
         private OnPress onPressBiomeButton(ResourceKey<Biome> biomeKey) {
             return button -> {
                 this.parent.getUiState().updateDimensions(singleBiomeDimension(biomeKey));
-                this.minecraft.gui.setScreen(this.parent);
+                this.minecraft.setScreen(this.parent);
             };
         }
 
@@ -122,9 +122,9 @@ public class CustomPresetEditorTest {
             // The original dimension list from the world preset json is provided to the DimensionsUpdater lambda here.
             // We can alter which dimensions are present by returning a different list of dimensions.
             return (registries, oldDimensions) -> {
-                Holder<NoiseGeneratorSettings> overworldNoise = registries.lookupOrThrow(Registries.NOISE_SETTINGS)
-                        .getOrThrow(NoiseGeneratorSettings.OVERWORLD);
-                Holder<Biome> biome = registries.lookupOrThrow(Registries.BIOME).getOrThrow(biomeKey);
+                Holder<NoiseGeneratorSettings> overworldNoise = registries.registryOrThrow(Registries.NOISE_SETTINGS)
+                        .getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD);
+                Holder<Biome> biome = registries.registryOrThrow(Registries.BIOME).getHolderOrThrow(biomeKey);
                 return oldDimensions.replaceOverworldGenerator(registries, new NoiseBasedChunkGenerator(new FixedBiomeSource(biome), overworldNoise));
             };
         }

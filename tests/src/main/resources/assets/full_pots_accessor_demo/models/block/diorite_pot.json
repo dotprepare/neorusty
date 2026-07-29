@@ -1,7 +1,10 @@
 {
-    "parent": "minecraft:block/flower_pot",
-    "textures": {
-        "flowerpot": "minecraft:block/diorite",
-        "particle": "minecraft:block/diorite"
+    "loader": "full_pots_accessor_demo:diorite_pot",
+    "model": {
+        "parent": "minecraft:block/flower_pot",
+        "textures": {
+            "flowerpot": "minecraft:block/diorite",
+            "particle": "minecraft:block/diorite"
+        }
     }
 }

@@ -1,208 +1,231 @@
 --- a/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
 +++ b/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
-@@ -110,6 +_,7 @@
-             this.onStopHovering(previouslyHoveredSlot);
-         }
- 
-+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.client.event.ContainerScreenEvent.Render.Foreground(this, graphics, mouseX, mouseY));
-         graphics.pose().popMatrix();
-     }
- 
-@@ -170,7 +_,7 @@
-             ItemStack item = this.hoveredSlot.getItem();
-             if (this.menu.getCarried().isEmpty() || this.showTooltipWithItemInHand(item)) {
-                 graphics.setTooltipForNextFrame(
--                    this.font, this.getTooltipFromContainerItem(item), item.getTooltipImage(), mouseX, mouseY, item.get(DataComponents.TOOLTIP_STYLE)
-+                    this.font, this.getTooltipFromContainerItem(item), item.getTooltipImage(), item, mouseX, mouseY, item.get(DataComponents.TOOLTIP_STYLE)
-                 );
-             }
-         }
-@@ -186,7 +_,8 @@
- 
-     private void extractFloatingItem(GuiGraphicsExtractor graphics, ItemStack carried, int x, int y, @Nullable String itemCount) {
-         graphics.item(carried, x, y);
--        graphics.itemDecorations(this.font, carried, x, y, itemCount);
-+        var font = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(carried).getFont(carried, net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.FontContext.ITEM_COUNT);
-+        graphics.itemDecorations(font != null ? font : this.font, carried, x, y, itemCount);
-     }
- 
-     protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
-@@ -237,6 +_,13 @@
-                 graphics.fill(x, y, x + 16, y + 16, -2130706433);
-             }
- 
-+            renderSlotContents(graphics, itemStack, slot, itemCount);
+@@ -91,7 +_,12 @@
+     public void render(GuiGraphics p_283479_, int p_283661_, int p_281248_, float p_281886_) {
+         int i = this.leftPos;
+         int j = this.topPos;
+-        super.render(p_283479_, p_283661_, p_281248_, p_281886_);
++        // Neo: replicate the super method's implementation to insert the event between background and widgets
++        this.renderBackground(p_283479_, p_283661_, p_281248_, p_281886_);
++        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.client.event.ContainerScreenEvent.Render.Background(this, p_283479_, p_283661_, p_281248_));
++        for (net.minecraft.client.gui.components.Renderable renderable : this.renderables) {
++            renderable.render(p_283479_, p_283661_, p_281248_, p_281886_);
 +        }
+         RenderSystem.disableDepthTest();
+         p_283479_.pose().pushPose();
+         p_283479_.pose().translate((float)i, (float)j, 0.0F);
+@@ -105,15 +_,12 @@
+ 
+             if (this.isHovering(slot, (double)p_283661_, (double)p_281248_) && slot.isActive()) {
+                 this.hoveredSlot = slot;
+-                int l = slot.x;
+-                int i1 = slot.y;
+-                if (this.hoveredSlot.isHighlightable()) {
+-                    renderSlotHighlight(p_283479_, l, i1, 0);
+-                }
++                this.renderSlotHighlight(p_283479_, slot, p_283661_, p_281248_, p_281886_);
+             }
+         }
+ 
+         this.renderLabels(p_283479_, p_283661_, p_281248_);
++        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.client.event.ContainerScreenEvent.Render.Foreground(this, p_283479_, p_283661_, p_281248_));
+         ItemStack itemstack = this.draggingItem.isEmpty() ? this.menu.getCarried() : this.draggingItem;
+         if (!itemstack.isEmpty()) {
+             int l1 = 8;
+@@ -156,13 +_,25 @@
+     }
+ 
+     public static void renderSlotHighlight(GuiGraphics p_283692_, int p_281453_, int p_281915_, int p_283504_) {
+-        p_283692_.fillGradient(RenderType.guiOverlay(), p_281453_, p_281915_, p_281453_ + 16, p_281915_ + 16, -2130706433, -2130706433, p_283504_);
++        renderSlotHighlight(p_283692_, p_281453_, p_281915_, p_283504_, -2130706433);
++    }
++    public static void renderSlotHighlight(GuiGraphics p_283692_, int p_281453_, int p_281915_, int p_283504_, int color) {
++        p_283692_.fillGradient(RenderType.guiOverlay(), p_281453_, p_281915_, p_281453_ + 16, p_281915_ + 16, color, color, p_283504_);
 +    }
 +
-+    protected void renderSlotContents(GuiGraphicsExtractor graphics, ItemStack itemStack, Slot slot, @Nullable String itemCount) {
-+        {
-+            int x = slot.x; int y = slot.y;
-             int seed = slot.x + slot.y * this.imageWidth;
-             if (slot.isFake()) {
-                 graphics.fakeItem(itemStack, x, y, seed);
-@@ -244,7 +_,8 @@
-                 graphics.item(itemStack, x, y, seed);
-             }
++    /**
++     * Renders a highlight for the given slot to indicate the mouse is currently hovering over it.
++     */
++    protected void renderSlotHighlight(GuiGraphics guiGraphics, Slot slot, int mouseX, int mouseY, float partialTick) {
++        if (slot.isHighlightable()) {
++            renderSlotHighlight(guiGraphics, slot.x, slot.y, 0, getSlotColor(slot.index));
++        }
+     }
  
--            graphics.itemDecorations(this.font, itemStack, x, y, itemCount);
-+            var font = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(itemStack).getFont(itemStack, net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.FontContext.ITEM_COUNT);
-+            graphics.itemDecorations(font != null ? font : this.font, itemStack, x, y, itemCount);
+     protected void renderTooltip(GuiGraphics p_283594_, int p_282171_, int p_281909_) {
+         if (this.menu.getCarried().isEmpty() && this.hoveredSlot != null && this.hoveredSlot.hasItem()) {
+             ItemStack itemstack = this.hoveredSlot.getItem();
+-            p_283594_.renderTooltip(this.font, this.getTooltipFromContainerItem(itemstack), itemstack.getTooltipImage(), p_282171_, p_281909_);
++            p_283594_.renderTooltip(this.font, this.getTooltipFromContainerItem(itemstack), itemstack.getTooltipImage(), itemstack, p_282171_, p_281909_);
          }
      }
  
-@@ -285,7 +_,8 @@
-             return true;
-         }
+@@ -174,7 +_,8 @@
+         p_282567_.pose().pushPose();
+         p_282567_.pose().translate(0.0F, 0.0F, 232.0F);
+         p_282567_.renderItem(p_281330_, p_281772_, p_281689_);
+-        p_282567_.renderItemDecorations(this.font, p_281330_, p_281772_, p_281689_ - (this.draggingItem.isEmpty() ? 0 : 8), p_282568_);
++        var font = net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.of(p_281330_).getFont(p_281330_, net.neoforged.neoforge.client.extensions.common.IClientItemExtensions.FontContext.ITEM_COUNT);
++        p_282567_.renderItemDecorations(font == null ? this.font : font, p_281330_, p_281772_, p_281689_ - (this.draggingItem.isEmpty() ? 0 : 8), p_282568_);
+         p_282567_.pose().popPose();
+     }
  
--        boolean cloning = this.minecraft.options.keyPickItem.matchesMouse(event) && this.minecraft.player.hasInfiniteMaterials();
-+        var mouseKey = com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button());
-+        boolean cloning = this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey) && this.minecraft.player.hasInfiniteMaterials();
-         Slot slot = this.getHoveredSlot(event.x(), event.y());
-         this.doubleclick = this.lastClickSlot == slot && doubleClick;
-         this.skipNextRelease = false;
-@@ -295,6 +_,7 @@
-             int xo = this.leftPos;
-             int yo = this.topPos;
-             boolean clickedOutside = this.hasClickedOutside(event.x(), event.y(), xo, yo);
-+            if (slot != null) clickedOutside = false; // Neo: prevent dropping of items through slots outside of GUI boundaries
-             int slotId = -1;
-             if (slot != null) {
-                 slotId = slot.index;
-@@ -374,10 +_,13 @@
+@@ -233,6 +_,14 @@
+                 p_281607_.fill(i, j, i + 16, j + 16, -2130706433);
+             }
+ 
++            renderSlotContents(p_281607_, itemstack, p_282613_, s);
++        }
++
++        p_281607_.pose().popPose();
++    }
++
++    protected void renderSlotContents(GuiGraphics guiGraphics, ItemStack itemstack, Slot slot, @Nullable String countString) {
++            GuiGraphics p_281607_ = guiGraphics; Slot p_282613_ = slot; String s = countString; int i = slot.x; int j = slot.y;
+             int j1 = p_282613_.x + p_282613_.y * this.imageWidth;
+             if (p_282613_.isFake()) {
+                 p_281607_.renderFakeItem(itemstack, i, j, j1);
+@@ -241,9 +_,6 @@
+             }
+ 
+             p_281607_.renderItemDecorations(this.font, itemstack, i, j, s);
+-        }
+-
+-        p_281607_.pose().popPose();
+     }
+ 
+     private void recalculateQuickCraftRemaining() {
+@@ -282,7 +_,8 @@
+         if (super.mouseClicked(p_97748_, p_97749_, p_97750_)) {
+             return true;
+         } else {
+-            boolean flag = this.minecraft.options.keyPickItem.matchesMouse(p_97750_) && this.minecraft.gameMode.hasInfiniteItems();
++            InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(p_97750_);
++            boolean flag = this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey) && this.minecraft.player.hasInfiniteMaterials();
+             Slot slot = this.findSlot(p_97748_, p_97749_);
+             long i = Util.getMillis();
+             this.doubleclick = this.lastClickSlot == slot && i - this.lastClickTime < 250L && this.lastClickButton == p_97750_;
+@@ -293,6 +_,7 @@
+                 int j = this.leftPos;
+                 int k = this.topPos;
+                 boolean flag1 = this.hasClickedOutside(p_97748_, p_97749_, j, k, p_97750_);
++                if (slot != null) flag1 = false; // Forge, prevent dropping of items through slots outside of GUI boundaries
+                 int l = -1;
+                 if (slot != null) {
+                     l = slot.index;
+@@ -318,7 +_,7 @@
+                         }
+                     } else if (!this.isQuickCrafting) {
+                         if (this.menu.getCarried().isEmpty()) {
+-                            if (flag) {
++                            if (this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey)) {
+                                 this.slotClicked(slot, l, p_97750_, ClickType.CLONE);
+                             } else {
+                                 boolean flag2 = l != -999
+@@ -346,7 +_,7 @@
+                                 this.quickCraftingType = 0;
+                             } else if (p_97750_ == 1) {
+                                 this.quickCraftingType = 1;
+-                            } else if (flag) {
++                            } else if (this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey)) {
+                                 this.quickCraftingType = 2;
+                             }
+                         }
+@@ -425,10 +_,13 @@
  
      @Override
-     public boolean mouseReleased(MouseButtonEvent event) {
-+        super.mouseReleased(event); //Forge: call parent to release buttons
-         Slot slot = this.getHoveredSlot(event.x(), event.y());
-         int xo = this.leftPos;
-         int yo = this.topPos;
-         boolean clickedOutside = this.hasClickedOutside(event.x(), event.y(), xo, yo);
-+        if (slot != null) clickedOutside = false; // Forge, prevent dropping of items through slots outside of GUI boundaries
-+        var mouseKey = com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button());
-         int slotId = -1;
+     public boolean mouseReleased(double p_97812_, double p_97813_, int p_97814_) {
++        super.mouseReleased(p_97812_, p_97813_, p_97814_); //Forge, Call parent to release buttons
+         Slot slot = this.findSlot(p_97812_, p_97813_);
+         int i = this.leftPos;
+         int j = this.topPos;
+         boolean flag = this.hasClickedOutside(p_97812_, p_97813_, i, j, p_97814_);
++        if (slot != null) flag = false; // Forge, prevent dropping of items through slots outside of GUI boundaries
++        InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(p_97814_);
+         int k = -1;
          if (slot != null) {
-             slotId = slot.index;
-@@ -394,7 +_,7 @@
-                         if (target != null
-                             && target.mayPickup(this.minecraft.player)
-                             && target.hasItem()
--                            && target.container == slot.container
-+                            && target.isSameInventory(slot)
-                             && AbstractContainerMenu.canItemQuickReplace(target, this.lastQuickMoved, true)) {
-                             this.slotClicked(target, target.index, event.button(), ContainerInput.QUICK_MOVE);
+             k = slot.index;
+@@ -445,7 +_,7 @@
+                         if (slot2 != null
+                             && slot2.mayPickup(this.minecraft.player)
+                             && slot2.hasItem()
+-                            && slot2.container == slot.container
++                            && slot2.isSameInventory(slot)
+                             && AbstractContainerMenu.canItemQuickReplace(slot2, this.lastQuickMoved, true)) {
+                             this.slotClicked(slot2, slot2.index, p_97814_, ClickType.QUICK_MOVE);
                          }
-@@ -421,7 +_,7 @@
-             if (this.isQuickCrafting && !this.quickCraftSlots.isEmpty()) {
-                 this.quickCraftToSlots();
-             } else if (!this.menu.getCarried().isEmpty()) {
--                if (this.minecraft.options.keyPickItem.matchesMouse(event)) {
-+                if (this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey)) {
-                     this.slotClicked(slot, slotId, event.button(), ContainerInput.CLONE);
-                 } else {
-                     boolean quickKey = slotId != -999 && event.hasShiftDown();
-@@ -489,32 +_,38 @@
-             return true;
-         }
+@@ -509,7 +_,7 @@
  
--        if (this.minecraft.options.keyInventory.matches(event)) {
-+        var key = com.mojang.blaze3d.platform.InputConstants.getKey(event);
-+        if (this.minecraft.options.keyInventory.isActiveAndMatches(key)) {
+                 this.slotClicked(null, -999, AbstractContainerMenu.getQuickcraftMask(2, this.quickCraftingType), ClickType.QUICK_CRAFT);
+             } else if (!this.menu.getCarried().isEmpty()) {
+-                if (this.minecraft.options.keyPickItem.matchesMouse(p_97814_)) {
++                if (this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey)) {
+                     this.slotClicked(slot, k, p_97814_, ClickType.CLONE);
+                 } else {
+                     boolean flag1 = k != -999
+@@ -568,34 +_,39 @@
+ 
+     @Override
+     public boolean keyPressed(int p_97765_, int p_97766_, int p_97767_) {
++        InputConstants.Key mouseKey = InputConstants.getKey(p_97765_, p_97766_);
+         if (super.keyPressed(p_97765_, p_97766_, p_97767_)) {
+             return true;
+-        } else if (this.minecraft.options.keyInventory.matches(p_97765_, p_97766_)) {
++        } else if (this.minecraft.options.keyInventory.isActiveAndMatches(mouseKey)) {
              this.onClose();
              return true;
-         }
- 
--        this.checkHotbarKeyPressed(event);
-+        boolean handled = this.checkHotbarKeyPressed(event); // Forge MC-146650: Needs to return true when the key is handled
-         if (this.hoveredSlot != null && this.hoveredSlot.hasItem()) {
--            if (this.minecraft.options.keyPickItem.matches(event)) {
-+            if (this.minecraft.options.keyPickItem.isActiveAndMatches(key)) {
-                 this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.CLONE);
-+                handled = true;
-             } else if (this.minecraft.options.keyDrop.matches(event)) {
-                 this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, event.hasControlDown() ? 1 : 0, ContainerInput.THROW);
-+                handled = true;
+         } else {
+-            this.checkHotbarKeyPressed(p_97765_, p_97766_);
++            boolean handled = this.checkHotbarKeyPressed(p_97765_, p_97766_);// Forge MC-146650: Needs to return true when the key is handled
+             if (this.hoveredSlot != null && this.hoveredSlot.hasItem()) {
+-                if (this.minecraft.options.keyPickItem.matches(p_97765_, p_97766_)) {
++                if (this.minecraft.options.keyPickItem.isActiveAndMatches(mouseKey)) {
+                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ClickType.CLONE);
+-                } else if (this.minecraft.options.keyDrop.matches(p_97765_, p_97766_)) {
++                    handled = true;
++                } else if (this.minecraft.options.keyDrop.isActiveAndMatches(mouseKey)) {
+                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, hasControlDown() ? 1 : 0, ClickType.THROW);
++                    handled = true;
+                 }
++            } else if (this.minecraft.options.keyDrop.isActiveAndMatches(mouseKey)) {
++                 handled = true; // Forge MC-146650: Emulate MC bug, so we don't drop from hotbar when pressing drop without hovering over a item.
              }
-+        } else if (this.minecraft.options.keyDrop.isActiveAndMatches(key)) {
-+            handled = true; // Forge MC-146650: Emulate MC bug, so we don't drop from hotbar when pressing drop without hovering over a item.
-         }
  
--        return false;
-+        return handled;
+-            return true;
++            return handled;
+         }
      }
  
-     protected boolean checkHotbarKeyPressed(KeyEvent event) {
+     protected boolean checkHotbarKeyPressed(int p_97806_, int p_97807_) {
          if (this.menu.getCarried().isEmpty() && this.hoveredSlot != null) {
--            if (this.minecraft.options.keySwapOffhand.matches(event)) {
-+            var key = com.mojang.blaze3d.platform.InputConstants.getKey(event);
-+            if (this.minecraft.options.keySwapOffhand.isActiveAndMatches(key)) {
-                 this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 40, ContainerInput.SWAP);
+-            if (this.minecraft.options.keySwapOffhand.matches(p_97806_, p_97807_)) {
++            if (this.minecraft.options.keySwapOffhand.isActiveAndMatches(InputConstants.getKey(p_97806_, p_97807_))) {
+                 this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 40, ClickType.SWAP);
                  return true;
              }
  
              for (int i = 0; i < 9; i++) {
--                if (this.minecraft.options.keyHotbarSlots[i].matches(event)) {
-+                if (this.minecraft.options.keyHotbarSlots[i].isActiveAndMatches(key)) {
-                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, i, ContainerInput.SWAP);
+-                if (this.minecraft.options.keyHotbarSlots[i].matches(p_97806_, p_97807_)) {
++                if (this.minecraft.options.keyHotbarSlots[i].isActiveAndMatches(InputConstants.getKey(p_97806_, p_97807_))) {
+                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, i, ClickType.SWAP);
                      return true;
                  }
-@@ -576,6 +_,59 @@
+@@ -633,6 +_,18 @@
      @Override
      public T getMenu() {
          return this.menu;
 +    }
 +
-+    // Neo: Add getters for non-public fields
-+    @org.jspecify.annotations.Nullable
-+    public Slot getHoveredSlot() {
-+        return this.hoveredSlot;
-+    }
++    @org.jetbrains.annotations.Nullable
++    public Slot getSlotUnderMouse() { return this.hoveredSlot; }
++    public int getGuiLeft() { return leftPos; }
++    public int getGuiTop() { return topPos; }
++    public int getXSize() { return imageWidth; }
++    public int getYSize() { return imageHeight; }
 +
-+    public int getLeftPos() {
-+        return leftPos;
-+    }
-+
-+    public int getTopPos() {
-+        return topPos;
-+    }
-+
-+    public int getImageWidth() {
-+        return imageWidth;
-+    }
-+
-+    public int getImageHeight() {
-+        return imageHeight;
-+    }
-+
-+    /// @deprecated Neo: Use [#getHoveredSlot()] instead.
-+    @Deprecated(forRemoval = true, since = "26.1.2")
-+    @org.jspecify.annotations.Nullable
-+    public Slot getSlotUnderMouse() {
-+        return this.getHoveredSlot();
-+    }
-+
-+    /// @deprecated Neo: Use [#getLeftPos()] instead.
-+    @Deprecated(forRemoval = true, since = "26.1.2")
-+    public int getGuiLeft() {
-+        return this.getLeftPos();
-+    }
-+
-+    /// @deprecated Neo: Use [#getTopPos()] instead.
-+    @Deprecated(forRemoval = true, since = "26.1.2")
-+    public int getGuiTop() {
-+        return this.getTopPos();
-+    }
-+
-+    /// @deprecated Neo: Use [#getImageHeight()] instead.
-+    @Deprecated(forRemoval = true, since = "26.1.2")
-+    public int getXSize() {
-+        return this.getImageWidth();
-+    }
-+
-+    /// @deprecated Neo: Use [#getImageHeight()] instead.
-+    @Deprecated(forRemoval = true, since = "26.1.2")
-+    public int getYSize() {
-+        return this.getImageHeight();
++    protected int slotColor = -2130706433;
++    public int getSlotColor(int index) {
++        return slotColor;
      }
  
      @Override

@@ -5,26 +5,20 @@
 
 package net.neoforged.neoforge.common.extensions;
 
-import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface IFluidExtension {
     private Fluid self() {
@@ -78,7 +72,7 @@ public interface IFluidExtension {
      * @param pos   the location of the fluid
      * @return {@code true} if the fluid can create a source, {@code false} otherwise
      */
-    default boolean canConvertToSource(FluidState state, ServerLevel level, BlockPos pos) {
+    default boolean canConvertToSource(FluidState state, Level level, BlockPos pos) {
         return getFluidType().canConvertToSource(state, level, pos);
     }
 
@@ -89,7 +83,7 @@ public interface IFluidExtension {
      * @param boat  the boat trying to be used on the fluid
      * @return {@code true} if the boat can be used, {@code false} otherwise
      */
-    default boolean supportsBoating(FluidState state, AbstractBoat boat) {
+    default boolean supportsBoating(FluidState state, Boat boat) {
         return getFluidType().supportsBoating(state, boat);
     }
 
@@ -106,7 +100,7 @@ public interface IFluidExtension {
      * @return the path type of this fluid
      */
     @Nullable
-    default PathType getBlockPathType(FluidState state, BlockGetter level, BlockPos pos, @org.jspecify.annotations.Nullable Mob mob, boolean canFluidLog) {
+    default PathType getBlockPathType(FluidState state, BlockGetter level, BlockPos pos, @org.jetbrains.annotations.Nullable Mob mob, boolean canFluidLog) {
         return getFluidType().getBlockPathType(state, level, pos, mob, canFluidLog);
     }
 
@@ -124,7 +118,7 @@ public interface IFluidExtension {
      * @return the path type of this fluid
      */
     @Nullable
-    default PathType getAdjacentBlockPathType(FluidState state, BlockGetter level, BlockPos pos, @org.jspecify.annotations.Nullable Mob mob, PathType originalType) {
+    default PathType getAdjacentBlockPathType(FluidState state, BlockGetter level, BlockPos pos, @org.jetbrains.annotations.Nullable Mob mob, PathType originalType) {
         return getFluidType().getAdjacentBlockPathType(state, level, pos, mob, originalType);
     }
 
@@ -160,22 +154,4 @@ public interface IFluidExtension {
     default boolean canExtinguish(FluidState state, BlockGetter getter, BlockPos pos) {
         return getFluidType().canExtinguish(state, getter, pos);
     }
-
-    /**
-     * Adds additional tooltip components for the given {@link FluidStack}.
-     *
-     * <p>This method is invoked when building the fluid's tooltip and allows
-     * fluids to contribute custom informational lines (for example temperature,
-     * effects, or mod-specific data).</p>
-     *
-     * <p>Implementations should emit tooltip components via the provided
-     * {@code builder} consumer.</p>
-     *
-     * @param fluidStack  the fluid stack being rendered
-     * @param context     the tooltip context
-     * @param display     controls which tooltip elements should be displayed
-     * @param builder     consumer used to append tooltip components
-     * @param tooltipFlag controls tooltip verbosity and advanced information
-     */
-    default void appendHoverText(FluidStack fluidStack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag tooltipFlag) {}
 }

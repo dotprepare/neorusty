@@ -1,95 +1,73 @@
 --- a/net/minecraft/client/Camera.java
 +++ b/net/minecraft/client/Camera.java
-@@ -57,6 +_,7 @@
-     private final Vector3f left = new Vector3f(LEFT);
-     private float xRot;
-     private float yRot;
+@@ -42,6 +_,7 @@
+     private float eyeHeightOld;
+     private float partialTickTime;
+     public static final float FOG_DISTANCE_SCALE = 0.083333336F;
 +    private float roll;
-     private final Quaternionf rotation = new Quaternionf();
-     private boolean detached;
-     private float eyeHeight;
-@@ -142,6 +_,9 @@
-             cameraState.entityRenderState.hurtTime = livingEntity.hurtTime - cameraEntityPartialTicks;
-             cameraState.entityRenderState.deathTime = livingEntity.deathTime + cameraEntityPartialTicks;
-             cameraState.entityRenderState.hurtDuration = livingEntity.hurtDuration;
-+            // Neo: Prevent screen shake if the damage type is marked as "forge:no_flinch"
-+            var lastDamage = livingEntity.getLastDamageSource();
-+            cameraState.entityRenderState.preventFlinch = lastDamage != null && lastDamage.is(net.neoforged.neoforge.common.Tags.DamageTypes.NO_FLINCH);
-         } else {
-             cameraState.entityRenderState.isLiving = false;
-             cameraState.entityRenderState.isSleeping = false;
-@@ -243,6 +_,7 @@
-             fov *= Mth.lerp(effectScale, 1.0F, 0.85714287F);
-         }
  
-+        fov = net.neoforged.neoforge.client.ClientHooks.getFieldOfView(this.minecraft.gameRenderer, this, partialTicks, fov);
-         return fov;
-     }
- 
-@@ -258,7 +_,10 @@
-             this.setRotation(this.entity.getViewYRot(partialTicks), this.entity.getViewXRot(partialTicks));
-             this.setPosition(behavior.getCartLerpPosition(partialTicks).add(positionOffset));
-         } else {
--            this.setRotation(this.entity.getViewYRot(partialTicks), this.entity.getViewXRot(partialTicks));
-+            var cameraSetup = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.client.event.ViewportEvent.ComputeCameraAngles(
-+                    this, partialTicks, entity.getViewYRot(partialTicks), entity.getViewXRot(partialTicks), 0)
-+            );
-+            this.setRotation(cameraSetup.getYaw(), cameraSetup.getPitch(), cameraSetup.getRoll());
-             this.setPosition(
-                 Mth.lerp(partialTicks, this.entity.xo, this.entity.getX()),
-                 Mth.lerp(partialTicks, this.entity.yo, this.entity.getY()) + Mth.lerp(partialTicks, this.eyeHeightOld, this.eyeHeight),
-@@ -269,7 +_,7 @@
-         this.detached = !this.minecraft.options.getCameraType().isFirstPerson();
-         if (this.detached) {
-             if (this.minecraft.options.getCameraType().isMirrored()) {
+     public void setup(BlockGetter p_90576_, Entity p_90577_, boolean p_90578_, boolean p_90579_, float p_90580_) {
+         this.initialized = true;
+@@ -49,7 +_,10 @@
+         this.entity = p_90577_;
+         this.detached = p_90578_;
+         this.partialTickTime = p_90580_;
+-        this.setRotation(p_90577_.getViewYRot(p_90580_), p_90577_.getViewXRot(p_90580_));
++        var cameraSetup = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.client.event.ViewportEvent.ComputeCameraAngles(
++                this, p_90580_, p_90577_.getViewYRot(p_90580_), p_90577_.getViewXRot(p_90580_), 0)
++        );
++        this.setRotation(cameraSetup.getYaw(), cameraSetup.getPitch(), cameraSetup.getRoll());
+         this.setPosition(
+             Mth.lerp((double)p_90580_, p_90577_.xo, p_90577_.getX()),
+             Mth.lerp((double)p_90580_, p_90577_.yo, p_90577_.getY()) + (double)Mth.lerp(p_90580_, this.eyeHeightOld, this.eyeHeight),
+@@ -57,11 +_,11 @@
+         );
+         if (p_90578_) {
+             if (p_90579_) {
 -                this.setRotation(this.yRot + 180.0F, -this.xRot);
 +                this.setRotation(this.yRot + 180.0F, -this.xRot, -this.roll);
              }
  
-             float cameraDistance = 4.0F;
-@@ -286,7 +_,7 @@
-                 mountDistance = (float)mount.getAttributeValue(Attributes.CAMERA_DISTANCE);
-             }
- 
--            this.move(-this.getMaxZoom(Math.max(cameraScale * cameraDistance, mountScale * mountDistance)), 0.0F, 0.0F);
-+            this.move(-this.getMaxZoom(net.neoforged.neoforge.client.ClientHooks.getDetachedCameraDistance(this, this.minecraft.options.getCameraType().isMirrored(), cameraDistance, cameraScale, mountScale, mountDistance)), 0.0F, 0.0F);
-         } else if (this.entity instanceof LivingEntity && ((LivingEntity)this.entity).isSleeping()) {
-             Direction bedOrientation = ((LivingEntity)this.entity).getBedOrientation();
-             this.setRotation(bedOrientation != null ? bedOrientation.toYRot() - 180.0F : 0.0F, 0.0F);
-@@ -336,10 +_,17 @@
-         this.setPosition(new Vec3(this.position.x + offset.x, this.position.y + offset.y, this.position.z + offset.z));
+             float f = p_90577_ instanceof LivingEntity livingentity ? livingentity.getScale() : 1.0F;
+-            this.move(-this.getMaxZoom(4.0F * f), 0.0F, 0.0F);
++            this.move(-this.getMaxZoom(net.neoforged.neoforge.client.ClientHooks.getDetachedCameraDistance(this, p_90579_, f, 4.0F) * f), 0.0F, 0.0F);
+         } else if (p_90577_ instanceof LivingEntity && ((LivingEntity)p_90577_).isSleeping()) {
+             Direction direction = ((LivingEntity)p_90577_).getBedOrientation();
+             this.setRotation(direction != null ? direction.toYRot() - 180.0F : 0.0F, 0.0F);
+@@ -102,10 +_,17 @@
+         this.setPosition(new Vec3(this.position.x + (double)vector3f.x, this.position.y + (double)vector3f.y, this.position.z + (double)vector3f.z));
      }
  
 +    /** @deprecated Neo: call {@link #setRotation(float, float, float)} instead */
 +    @Deprecated
-     protected void setRotation(float yRot, float xRot) {
-+        setRotation(yRot, xRot, 0F);
+     protected void setRotation(float p_90573_, float p_90574_) {
++        setRotation(p_90573_, p_90574_, 0F);
 +    }
 +
-+    protected void setRotation(float yRot, float xRot, float roll) {
-         this.xRot = xRot;
-         this.yRot = yRot;
--        this.rotation.rotationYXZ((float) Math.PI - yRot * (float) (Math.PI / 180.0), -xRot * (float) (Math.PI / 180.0), 0.0F);
++    protected void setRotation(float p_90573_, float p_90574_, float roll) {
+         this.xRot = p_90574_;
+         this.yRot = p_90573_;
+-        this.rotation.rotationYXZ((float) Math.PI - p_90573_ * (float) (Math.PI / 180.0), -p_90574_ * (float) (Math.PI / 180.0), 0.0F);
 +        this.roll = roll;
-+        this.rotation.rotationYXZ((float) Math.PI - yRot * (float) (Math.PI / 180.0), -xRot * (float) (Math.PI / 180.0), -roll * (float) (Math.PI / 180.0));
++        this.rotation.rotationYXZ((float) Math.PI - p_90573_ * (float) (Math.PI / 180.0), -p_90574_ * (float) (Math.PI / 180.0), -roll * (float) (Math.PI / 180.0));
          FORWARDS.rotate(this.rotation, this.forwards);
          UP.rotate(this.rotation, this.up);
          LEFT.rotate(this.rotation, this.left);
-@@ -499,6 +_,17 @@
+@@ -221,6 +_,17 @@
  
-     public void disablePanoramicMode() {
-         this.isPanoramicMode = false;
+     public float getPartialTickTime() {
+         return this.partialTickTime;
 +    }
 +
 +    public float getRoll() {
 +        return this.roll;
 +    }
 +
-+    public BlockState getBlockAtCamera() {
-+        if (!this.initialized) {
-+            return Blocks.AIR.defaultBlockState();
-+        }
-+        return this.level.getBlockState(this.blockPosition).getStateAtViewpoint(this.level, this.blockPosition, this.position);
++    public net.minecraft.world.level.block.state.BlockState getBlockAtCamera() {
++        if (!this.initialized)
++            return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
++        else
++            return this.level.getBlockState(this.blockPosition).getStateAtViewpoint(this.level, this.blockPosition, this.position);
      }
  
-     public static class NearPlane {
+     @OnlyIn(Dist.CLIENT)

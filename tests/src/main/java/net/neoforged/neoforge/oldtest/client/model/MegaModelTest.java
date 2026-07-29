@@ -6,23 +6,20 @@
 package net.neoforged.neoforge.oldtest.client.model;
 
 import com.mojang.math.Transformation;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.client.renderer.block.BlockAndTintGetter;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
-import net.minecraft.client.resources.model.SimpleModelWrapper;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
-import net.minecraft.client.resources.model.geometry.QuadCollection;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -41,18 +38,18 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.model.DelegateBlockStateModel;
-import net.neoforged.neoforge.client.model.quad.QuadTransforms;
+import net.neoforged.neoforge.client.model.BakedModelWrapper;
+import net.neoforged.neoforge.client.model.QuadTransformers;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.model.data.ModelData;
-import net.neoforged.neoforge.model.data.ModelProperty;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Test mod that demos most Forge-provided model loaders in a single block + item, as well as in-JSON render states
@@ -78,10 +75,10 @@ public class MegaModelTest {
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, MOD_ID);
 
     private static final String REG_NAME = "test_block";
-    public static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.registerBlock(REG_NAME, TestBlock::new, props -> props.mapColor(MapColor.STONE));
+    public static final DeferredBlock<Block> TEST_BLOCK = BLOCKS.register(REG_NAME, TestBlock::new);
     public static final DeferredItem<BlockItem> TEST_BLOCK_ITEM = ITEMS.registerSimpleBlockItem(TEST_BLOCK);
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<?>> TEST_BLOCK_ENTITY = BLOCK_ENTITIES.register(REG_NAME, () -> new BlockEntityType<>(
-            TestBlock.Entity::new, Set.of(TEST_BLOCK.get())));
+            TestBlock.Entity::new, Set.of(TEST_BLOCK.get()), null));
 
     public MegaModelTest(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
@@ -99,15 +96,14 @@ public class MegaModelTest {
     public static class ClientEvents {
         @SubscribeEvent
         public static void onModelBakingCompleted(ModelEvent.ModifyBakingResult event) {
-            event.getBakingResult().blockStateModels().computeIfPresent(
-                    TEST_BLOCK.value().defaultBlockState(),
-                    (n, m) -> new TransformingModelWrapper(m));
+            var name = new ModelResourceLocation(ResourceLocation.fromNamespaceAndPath(MOD_ID, REG_NAME), "");
+            event.getModels().computeIfPresent(name, (n, m) -> new TransformingModelWrapper(m));
         }
     }
 
     private static class TestBlock extends Block implements EntityBlock {
-        public TestBlock(Properties props) {
-            super(props);
+        public TestBlock() {
+            super(Properties.of().mapColor(MapColor.STONE));
         }
 
         @Nullable
@@ -117,13 +113,13 @@ public class MegaModelTest {
         }
 
         @Override
-        protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
             var entity = level.getBlockEntity(pos);
             if (entity instanceof Entity e) {
                 e.y += Mth.sign(hit.getLocation().y - pos.getY() - 0.5);
                 e.requestModelDataUpdate();
                 level.sendBlockUpdated(pos, state, state, 8);
-                return InteractionResult.SUCCESS;
+                return ItemInteractionResult.sidedSuccess(level.isClientSide());
             }
             return super.useItemOn(stack, state, level, pos, player, hand, hit);
         }
@@ -140,7 +136,7 @@ public class MegaModelTest {
                 return ModelData.of(TestData.PROPERTY, new TestData(new Transformation(
                         new Vector3f(0, y * 0.2f, 0),
                         new Quaternionf(1f, 1f, 1f, 1f),
-                        Transformation.IDENTITY.scale(),
+                        Transformation.identity().getScale(),
                         new Quaternionf(1f, 1f, 1f, 1f))));
             }
         }
@@ -150,37 +146,17 @@ public class MegaModelTest {
         public static final ModelProperty<TestData> PROPERTY = new ModelProperty<>();
     }
 
-    private static class TransformingModelWrapper extends DelegateBlockStateModel {
-        private static final @Nullable Direction[] DIRECTIONS = Arrays.copyOfRange(Direction.values(), 0, 7);
-
-        public TransformingModelWrapper(BlockStateModel originalModel) {
+    private static class TransformingModelWrapper extends BakedModelWrapper<BakedModel> {
+        public TransformingModelWrapper(BakedModel originalModel) {
             super(originalModel);
         }
 
         @Override
-        public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
-            TestData data = level.getModelData(pos).get(TestData.PROPERTY);
-            if (data == null) {
-                super.collectParts(level, pos, state, random, parts);
-                return;
-            }
-
-            List<BlockStateModelPart> srcParts = new ObjectArrayList<>();
-            delegate.collectParts(level, pos, state, random, srcParts);
-            for (BlockStateModelPart part : srcParts) {
-                QuadCollection.Builder builder = new QuadCollection.Builder();
-                for (Direction side : DIRECTIONS) {
-                    for (BakedQuad quad : part.getQuads(side)) {
-                        quad = QuadTransforms.applyTransformation(quad, data.transform());
-                        if (side == null) {
-                            builder.addUnculledFace(quad);
-                        } else {
-                            builder.addCulledFace(side, quad);
-                        }
-                    }
-                }
-                parts.add(new SimpleModelWrapper(builder.build(), part.useAmbientOcclusion(), part.particleMaterial()));
-            }
+        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData data, @Nullable RenderType renderType) {
+            var quads = super.getQuads(state, side, rand, data, renderType);
+            if (!data.has(TestData.PROPERTY))
+                return quads;
+            return QuadTransformers.applying(data.get(TestData.PROPERTY).transform()).process(quads);
         }
     }
 }

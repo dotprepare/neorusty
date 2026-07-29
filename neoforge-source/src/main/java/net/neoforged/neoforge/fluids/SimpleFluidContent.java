@@ -52,7 +52,7 @@ public class SimpleFluidContent implements DataComponentHolder {
     }
 
     public Holder<Fluid> getFluidHolder() {
-        return fluidStack.typeHolder();
+        return fluidStack.getFluidHolder();
     }
 
     public boolean is(TagKey<Fluid> tag) {

@@ -13,10 +13,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkSource;
 import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.LightChunk;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.common.world.AuxiliaryLightManager;
-import net.neoforged.neoforge.model.data.ModelData;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface IBlockGetterExtension {
     /**
@@ -33,7 +33,7 @@ public interface IBlockGetterExtension {
     @Nullable
     @ApiStatus.NonExtendable
     default AuxiliaryLightManager getAuxLightManager(BlockPos pos) {
-        return getAuxLightManager(ChunkPos.containing(pos));
+        return getAuxLightManager(new ChunkPos(pos));
     }
 
     /**
@@ -50,7 +50,7 @@ public interface IBlockGetterExtension {
     @Nullable
     default AuxiliaryLightManager getAuxLightManager(ChunkPos pos) {
         if (this instanceof LevelAccessor level) {
-            LightChunk chunk = level.getChunkSource().getChunkForLighting(pos.x(), pos.z());
+            LightChunk chunk = level.getChunkSource().getChunkForLighting(pos.x, pos.z);
             return chunk != null ? chunk.getAuxLightManager(pos) : null;
         } else if (this instanceof ImposterProtoChunk chunk) {
             return chunk.getWrapped().getAuxLightManager(pos);

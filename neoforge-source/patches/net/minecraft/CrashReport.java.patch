@@ -1,44 +1,47 @@
 --- a/net/minecraft/CrashReport.java
 +++ b/net/minecraft/CrashReport.java
 @@ -58,14 +_,8 @@
-         if (this.uncategorizedStackTrace.length > 0) {
-             builder.append("-- Head --\n");
-             builder.append("Thread: ").append(Thread.currentThread().getName()).append("\n");
--            builder.append("Stacktrace:\n");
+         if (this.uncategorizedStackTrace != null && this.uncategorizedStackTrace.length > 0) {
+             p_127520_.append("-- Head --\n");
+             p_127520_.append("Thread: ").append(Thread.currentThread().getName()).append("\n");
+-            p_127520_.append("Stacktrace:\n");
 -
--            for (StackTraceElement element : this.uncategorizedStackTrace) {
--                builder.append("\t").append("at ").append(element);
--                builder.append("\n");
+-            for (StackTraceElement stacktraceelement : this.uncategorizedStackTrace) {
+-                p_127520_.append("\t").append("at ").append(stacktraceelement);
+-                p_127520_.append("\n");
 -            }
 -
--            builder.append("\n");
-+            builder.append("Stacktrace:");
-+            builder.append(net.neoforged.neoforge.logging.CrashReportExtender.generateEnhancedStackTrace(this.uncategorizedStackTrace));
+-            p_127520_.append("\n");
++            p_127520_.append("Stacktrace:");
++            p_127520_.append(net.neoforged.neoforge.logging.CrashReportExtender.generateEnhancedStackTrace(this.uncategorizedStackTrace));
          }
  
-         for (CrashReportCategory entry : this.details) {
+         for (CrashReportCategory crashreportcategory : this.details) {
 @@ -73,6 +_,7 @@
-             builder.append("\n\n");
+             p_127520_.append("\n\n");
          }
  
 +        net.neoforged.neoforge.logging.CrashReportExtender.extendSystemReport(systemReport);
-         this.systemReport.appendToCrashReportString(builder);
+         this.systemReport.appendToCrashReportString(p_127520_);
      }
  
-@@ -84,15 +_,7 @@
-             exception = replaceMessage(exception, this.title);
+@@ -92,18 +_,7 @@
+             throwable.setStackTrace(this.exception.getStackTrace());
          }
  
+-        String s;
 -        try {
--            writer = new StringWriter();
--            printWriter = new PrintWriter(writer);
--            exception.printStackTrace(printWriter);
--            return writer.toString();
+-            stringwriter = new StringWriter();
+-            printwriter = new PrintWriter(stringwriter);
+-            throwable.printStackTrace(printwriter);
+-            s = stringwriter.toString();
 -        } finally {
--            IOUtils.closeQuietly(writer);
--            IOUtils.closeQuietly(printWriter);
+-            IOUtils.closeQuietly((Writer)stringwriter);
+-            IOUtils.closeQuietly((Writer)printwriter);
 -        }
-+        return net.neoforged.neoforge.logging.CrashReportExtender.generateEnhancedStackTrace(exception);
+-
+-        return s;
++        return net.neoforged.neoforge.logging.CrashReportExtender.generateEnhancedStackTrace(throwable);
      }
  
-     private static Throwable copyProperties(Throwable original, Throwable copy) {
+     public String getFriendlyReport(ReportType p_350860_, List<String> p_350563_) {

@@ -1,9 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "group": "banner",
   "key": {
-    "#": "minecraft:light_blue_wool",
-    "|": "#c:rods/wooden"
+    "#": {
+      "item": "minecraft:light_blue_wool"
+    },
+    "|": {
+      "tag": "c:rods/wooden"
+    }
   },
   "pattern": [
     "###",
@@ -11,6 +16,7 @@
     " | "
   ],
   "result": {
+    "count": 1,
     "id": "minecraft:light_blue_banner"
   }
 }

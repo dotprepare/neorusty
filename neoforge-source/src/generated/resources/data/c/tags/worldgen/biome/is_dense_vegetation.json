@@ -2,6 +2,10 @@
   "values": [
     "#c:is_dense_vegetation/overworld",
     "#c:is_dense_vegetation/nether",
-    "#c:is_dense_vegetation/end"
+    "#c:is_dense_vegetation/end",
+    {
+      "id": "#forge:is_dense",
+      "required": false
+    }
   ]
 }

@@ -8,17 +8,12 @@ package net.neoforged.neoforge.items.wrapper;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.transfer.item.PlayerInventoryWrapper;
 
-/**
- * @deprecated Use {@link PlayerInventoryWrapper} instead, in particular {@link PlayerInventoryWrapper#getArmorSlots()} for the armor slots only.
- */
-@Deprecated(since = "1.21.9", forRemoval = true)
 public class PlayerArmorInvWrapper extends RangedWrapper {
     private final Inventory inventoryPlayer;
 
     public PlayerArmorInvWrapper(Inventory inv) {
-        super(new InvWrapper(inv), Inventory.INVENTORY_SIZE, Inventory.INVENTORY_SIZE + 4);
+        super(new InvWrapper(inv), inv.items.size(), inv.items.size() + inv.armor.size());
         inventoryPlayer = inv;
     }
 

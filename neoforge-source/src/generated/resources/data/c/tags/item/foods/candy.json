@@ -1,3 +1,8 @@
 {
-  "values": []
+  "values": [
+    {
+      "id": "#c:foods/candies",
+      "required": false
+    }
+  ]
 }

@@ -6,24 +6,22 @@
 package net.neoforged.neoforge.debug.entity.player;
 
 import java.util.Objects;
-import java.util.Optional;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.GlobalPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.players.ServerOpListEntry;
 import net.minecraft.stats.ServerStatsCounter;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -35,9 +33,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.portal.TeleportTransition;
-import net.minecraft.world.level.storage.LevelData;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.portal.DimensionTransition;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.event.StatAwardEvent;
 import net.neoforged.neoforge.event.entity.living.ArmorHurtEvent;
@@ -51,7 +47,6 @@ import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.gametest.GameTestPlayer;
 import net.neoforged.testframework.registration.RegistrationHelper;
 
@@ -62,7 +57,7 @@ public class PlayerEventTests {
     @TestHolder(description = "Tests if the player NameFormat event allows changing a player's name")
     static void playerNameEvent(final DynamicTest test) {
         test.eventListeners().forge().addListener((final PlayerEvent.NameFormat event) -> {
-            if (event.getEntity().getGameProfile().name().equals("test-mock-player")) {
+            if (event.getEntity().getGameProfile().getName().equals("test-mock-player")) {
                 event.setDisplayname(Component.literal("hello world"));
             }
             test.pass();
@@ -92,11 +87,11 @@ public class PlayerEventTests {
                 if (item instanceof BlockItem blockItem && blockItem.getBlock() == Blocks.DIRT) {
                     BlockPos placePos = context.getClickedPos().relative(context.getClickedFace());
                     if (level.getBlockState(placePos.below()).getBlock() == Blocks.DISPENSER) {
-                        if (!level.isClientSide()) {
-                            context.getPlayer().sendSystemMessage(Component.literal("Can't place dirt on dispenser"));
+                        if (!level.isClientSide) {
+                            context.getPlayer().displayClientMessage(Component.literal("Can't place dirt on dispenser"), false);
                         }
                         test.pass();
-                        event.cancelWithResult(InteractionResult.SUCCESS);
+                        event.cancelWithResult(ItemInteractionResult.sidedSuccess(level.isClientSide));
                     }
                 }
             }
@@ -118,17 +113,17 @@ public class PlayerEventTests {
     @TestHolder(description = "Tests if the on entity interact event is fired")
     static void entityInteractEvent(final DynamicTest test) {
         test.eventListeners().forge().addListener((final PlayerInteractEvent.EntityInteractSpecific event) -> {
-            if (event.getTarget().getType() == EntityTypes.ILLUSIONER) {
+            if (event.getTarget().getType() == EntityType.ILLUSIONER) {
                 String oldName = event.getTarget().getName().getString();
                 event.getTarget().setCustomName(Component.literal(oldName + " entityInteractEventTest"));
             }
         });
 
         test.onGameTest(helper -> {
-            Mob illusioner = helper.spawnWithNoFreeWill(EntityTypes.ILLUSIONER, 1, 1, 1);
+            Mob illusioner = helper.spawnWithNoFreeWill(EntityType.ILLUSIONER, 1, 1, 1);
             helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
-                    .thenExecute(player -> player.connection.handleInteract(new ServerboundInteractPacket(illusioner.getId(), InteractionHand.MAIN_HAND, helper.absoluteVec(Vec3.atCenterOf(new BlockPos(1, 1, 1))), player.isShiftKeyDown())))
-                    .thenExecute(_ -> helper.assertTrue(illusioner.getName().getString().contains("entityInteractEventTest"), "Illager name did not get changed on player interact"))
+                    .thenExecute(player -> player.connection.handleInteract(ServerboundInteractPacket.createInteractionPacket(illusioner, player.isShiftKeyDown(), InteractionHand.MAIN_HAND, helper.absoluteVec(new BlockPos(1, 1, 1).getCenter()))))
+                    .thenExecute(player -> helper.assertTrue(illusioner.getName().getString().contains("entityInteractEventTest"), "Illager name did not get changed on player interact"))
                     .thenSucceed();
         });
     }
@@ -199,22 +194,19 @@ public class PlayerEventTests {
     @TestHolder(description = "Tests if the PermissionsChangedEvent is fired, by preventing players from being de-op'd")
     static void permissionsChangedEvent(final DynamicTest test) {
         test.eventListeners().forge().addListener((final PermissionsChangedEvent event) -> {
-            if (Objects.equals(event.getEntity().getCustomName(), Component.literal("permschangedevent")) && event.getOldLevel() == LevelBasedPermissionSet.ADMIN) {
+            if (Objects.equals(event.getEntity().getCustomName(), Component.literal("permschangedevent")) && event.getOldLevel() == Commands.LEVEL_ADMINS) {
                 event.setCanceled(true);
                 test.pass();
             }
         });
 
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInLevel(GameType.CREATIVE).moveToCorner())
-                .thenExecute(player -> {
-                    player.setCustomName(Component.literal("permschangedevent"));
-                    // Make sure the player isn't OP by default
-                    var server = player.level().getServer();
-                    var playerList = server.getPlayerList();
-                    playerList.op(player.nameAndId(), Optional.of(LevelBasedPermissionSet.ADMIN), Optional.empty());
-                    playerList.deop(player.nameAndId());
-                    helper.assertTrue(server.getProfilePermissions(player.nameAndId()) == LevelBasedPermissionSet.ADMIN, "Player was de-op'd");
-                })
+                .thenExecute(player -> player.setCustomName(Component.literal("permschangedevent")))
+                // Make sure the player isn't OP by default
+                .thenExecute(player -> player.getServer().getPlayerList().getOps().add(new ServerOpListEntry(
+                        player.getGameProfile(), Commands.LEVEL_ADMINS, true)))
+                .thenExecute(player -> player.getServer().getPlayerList().deop(player.getGameProfile()))
+                .thenExecute(player -> helper.assertTrue(player.getServer().getProfilePermissions(player.getGameProfile()) == Commands.LEVEL_ADMINS, "Player was de-op'd"))
                 .thenSucceed());
     }
 
@@ -256,7 +248,7 @@ public class PlayerEventTests {
         });
 
         test.onGameTest(helper -> {
-            DamageSource source = new DamageSource(helper.getLevel().registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(DamageTypes.MOB_ATTACK));
+            DamageSource source = new DamageSource(helper.getLevel().registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(DamageTypes.MOB_ATTACK));
             helper.startSequence(() -> helper.makeMockPlayer(GameType.SURVIVAL))
                     .thenExecute(player -> player.invulnerableTime = 0)
                     .thenExecute(player -> player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)))
@@ -278,28 +270,22 @@ public class PlayerEventTests {
                 return;
             }
 
-            var oldTransition = event.getTeleportTransition();
-            var newTransition = new TeleportTransition(oldTransition.newLevel(),
+            var oldTransition = event.getDimensionTransition();
+            var newTransition = new DimensionTransition(oldTransition.newLevel(),
                     event.getEntity().position().relative(Direction.SOUTH, 1),
-                    oldTransition.deltaMovement(),
+                    oldTransition.speed(),
                     oldTransition.xRot(),
                     oldTransition.yRot(),
                     oldTransition.missingRespawnBlock(),
-                    oldTransition.asPassenger(),
-                    oldTransition.relatives(),
-                    oldTransition.postTeleportTransition());
-            event.setTeleportTransition(newTransition);
+                    oldTransition.postDimensionTransition());
+            event.setDimensionTransition(newTransition);
         });
 
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
                 .thenExecute(player -> player.setCustomName(Component.literal("respawn-position-test")))
-                .thenExecute(player -> {
-                    ServerPlayer.RespawnConfig oldConfig = player.getRespawnConfig();
-                    ResourceKey<Level> dimension = oldConfig != null ? oldConfig.respawnData().dimension() : Level.OVERWORLD;
-                    player.setRespawnPosition(new ServerPlayer.RespawnConfig(new LevelData.RespawnData(GlobalPos.of(dimension, helper.absolutePos(new BlockPos(0, 1, 0))), 0, 0), false), true);
-                })
-                .thenExecute(player -> Objects.requireNonNull(player.level().getServer()).getPlayerList().respawn(player, false, Entity.RemovalReason.KILLED))
-                .thenExecute(() -> helper.assertEntityPresent(EntityTypes.PLAYER, new BlockPos(0, 1, 1)))
+                .thenExecute(player -> player.setRespawnPosition(player.getRespawnDimension(), helper.absolutePos(new BlockPos(0, 1, 0)), 0, false, true))
+                .thenExecute(player -> Objects.requireNonNull(player.getServer()).getPlayerList().respawn(player, false, Entity.RemovalReason.KILLED))
+                .thenExecute(() -> helper.assertEntityPresent(EntityType.PLAYER, new BlockPos(0, 1, 1)))
                 .thenSucceed());
     }
 
@@ -312,13 +298,9 @@ public class PlayerEventTests {
         });
 
         test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
-                .thenExecute(player -> {
-                    ServerPlayer.RespawnConfig oldConfig = player.getRespawnConfig();
-                    ResourceKey<Level> dimension = oldConfig != null ? oldConfig.respawnData().dimension() : Level.OVERWORLD;
-                    player.setRespawnPosition(new ServerPlayer.RespawnConfig(new LevelData.RespawnData(GlobalPos.of(dimension, helper.absolutePos(new BlockPos(0, 1, 1))), 0, 0), true), true);
-                })
-                .thenExecute(player -> Objects.requireNonNull(player.level().getServer()).getPlayerList().respawn(player, false, Entity.RemovalReason.KILLED))
-                .thenExecute(() -> helper.assertEntityIsHolding(new BlockPos(0, 1, 1), EntityTypes.PLAYER, Items.APPLE))
+                .thenExecute(player -> player.setRespawnPosition(player.getRespawnDimension(), helper.absolutePos(new BlockPos(0, 1, 1)), 0, true, true))
+                .thenExecute(player -> Objects.requireNonNull(player.getServer()).getPlayerList().respawn(player, false, Entity.RemovalReason.KILLED))
+                .thenExecute(() -> helper.assertEntityIsHolding(new BlockPos(0, 1, 1), EntityType.PLAYER, Items.APPLE))
                 .thenSucceed());
     }
 }

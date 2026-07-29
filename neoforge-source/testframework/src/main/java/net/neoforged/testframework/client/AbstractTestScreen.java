@@ -7,6 +7,7 @@ package net.neoforged.testframework.client;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -20,27 +21,26 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.annotation.ParametersAreNonnullByDefault;
 import net.minecraft.ChatFormatting;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.MouseButtonInfo;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.testframework.Test;
 import net.neoforged.testframework.group.Group;
 import net.neoforged.testframework.impl.MutableTestFramework;
 import org.lwjgl.glfw.GLFW;
 
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public abstract class AbstractTestScreen extends Screen {
     protected final MutableTestFramework framework;
-    private final Screen outer = this;
 
     public AbstractTestScreen(Component title, MutableTestFramework framework) {
         super(title);
@@ -73,13 +73,12 @@ public abstract class AbstractTestScreen extends Screen {
         }
 
         @Override
-        protected boolean isValidClickButton(MouseButtonInfo buttonInfo) {
-            int button = buttonInfo.button();
+        protected boolean isValidMouseClick(int button) {
             return button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT || button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
         }
 
         @Override
-        protected int scrollBarX() {
+        protected int getScrollbarPosition() {
             return this.width / 2 + 144;
         }
 
@@ -89,16 +88,16 @@ public abstract class AbstractTestScreen extends Screen {
         }
 
         @Override
-        public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            super.extractWidgetRenderState(graphics, mouseX, mouseY, a);
-            renderTooltips(graphics, mouseX, mouseY);
+        public void renderWidget(GuiGraphics pPoseStack, int pMouseX, int pMouseY, float pPartialTick) {
+            super.renderWidget(pPoseStack, pMouseX, pMouseY, pPartialTick);
+            renderTooltips(pPoseStack, pMouseX, pMouseY);
         }
 
-        private void renderTooltips(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        private void renderTooltips(GuiGraphics poseStack, int mouseX, int mouseY) {
             if (this.isMouseOver(mouseX, mouseY)) {
                 Entry entry = this.getEntryAtPosition(mouseX, mouseY);
                 if (entry != null) {
-                    entry.renderTooltips(graphics, mouseX, mouseY);
+                    entry.renderTooltips(poseStack, mouseX, mouseY);
                 }
             }
         }
@@ -150,19 +149,19 @@ public abstract class AbstractTestScreen extends Screen {
             public abstract void reset();
 
             @Override
-            public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            public boolean mouseClicked(double pMouseX, double pMouseY, int pButton) {
+                if (pButton == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                     setSelected(this);
                     return true;
-                } else if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                } else if (pButton == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
                     enable(!isEnabled());
-                } else if (event.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                } else if (pButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
                     reset();
                 }
                 return false;
             }
 
-            protected void renderTooltips(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {}
+            protected void renderTooltips(GuiGraphics poseStack, int mouseX, int mouseY) {}
         }
 
         protected final class TestEntry extends Entry {
@@ -173,21 +172,24 @@ public abstract class AbstractTestScreen extends Screen {
             }
 
             @Override
-            public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float a) {
+            public void render(GuiGraphics pPoseStack, int pIndex, int pTop, int pLeft, int pWidth, int pHeight, int pMouseX, int pMouseY, boolean pIsMouseOver, float pPartialTick) {
+                pLeft += 2;
+                pTop += 2;
+
                 final Test.Status status = framework.tests().getStatus(test.id());
 
-                final int alpha = 0x73000000;
+                final float alpha = .45f;
                 final boolean renderTransparent = !isEnabled();
-
-                Identifier icon = TestsOverlay.ICON_BY_RESULT.get(status.result());
-                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, icon, getContentX(), getContentY(), 9, 9, renderTransparent ? (alpha | 0x00FFFFFF) : 0xFFFFFFFF);
-
+                RenderSystem.setShaderTexture(0, TestsOverlay.ICON_BY_RESULT.get(status.result()));
+                if (renderTransparent) RenderSystem.enableBlend();
+                ClientUtils.blitAlpha(pPoseStack, pLeft, pTop, 0, 0, 9, 9, 9, 9, renderTransparent ? alpha : 1f);
+                if (renderTransparent) RenderSystem.disableBlend();
                 final Component title = TestsOverlay.statusColoured(test.visuals().title(), status);
-                graphics.text(font, title, getContentX() + 11, getContentY(), renderTransparent ? (alpha | 0x00FFFFFF) : 0xFFFFFFFF);
+                pPoseStack.drawString(font, title, pLeft + 11, pTop, renderTransparent ? ((((int) (alpha * 255f)) << 24) | 0xffffff0) : 0xffffff);
             }
 
             @Override
-            protected void renderTooltips(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+            protected void renderTooltips(GuiGraphics poseStack, int mouseX, int mouseY) {
                 final List<FormattedCharSequence> tooltip = new ArrayList<>();
                 if (!isEnabled()) {
                     tooltip.add(Component.literal("DISABLED").withStyle(ChatFormatting.GRAY).getVisualOrderText());
@@ -203,7 +205,7 @@ public abstract class AbstractTestScreen extends Screen {
                 }
 
                 if (!tooltip.isEmpty()) {
-                    graphics.setTooltipForNextFrame(font, tooltip, mouseX, mouseY);
+                    poseStack.renderTooltip(font, tooltip, mouseX, mouseY);
                 }
             }
 
@@ -245,29 +247,31 @@ public abstract class AbstractTestScreen extends Screen {
             }
 
             @Override
-            public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float a) {
+            public void render(GuiGraphics pPoseStack, int pIndex, int pTop, int pLeft, int pWidth, int pHeight, int pMouseX, int pMouseY, boolean pIsMouseOver, float pPartialTick) {
                 if (isTitle) {
-                    graphics.centeredText(font, getTitle(), getContentXMiddle(), getContentY(), 0xffffffff);
+                    pPoseStack.drawCenteredString(font, getTitle(), pLeft + pWidth / 2, pTop + 2, 0xffffff);
                 } else {
-                    graphics.text(font, getTitle(), getX() + 11, getContentY(), 0xffffffff);
-                    this.browseButton.setX(getX() + getWidth() - 53);
-                    this.browseButton.setY(getY() - 1);
-                    // TODO 1.21.6: nextStratum instead? Was increasing z by 100 before.
-                    browseButton.extractRenderState(graphics, mouseX, mouseY, a);
+                    pPoseStack.drawString(font, getTitle(), pLeft + 11, pTop + 2, 0xffffff);
+                    this.browseButton.setX(pLeft + pWidth - 53);
+                    this.browseButton.setY(pTop - 1);
+                    pPoseStack.pose().pushPose();
+                    pPoseStack.pose().translate(0, 0, 100);
+                    browseButton.render(pPoseStack, pMouseX, pMouseY, pPartialTick);
+                    pPoseStack.pose().popPose();
                 }
             }
 
             @Override
-            protected void renderTooltips(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+            protected void renderTooltips(GuiGraphics poseStack, int mouseX, int mouseY) {
                 if (isTitle) return;
                 final List<Test> all = group.resolveAll();
                 final int enabledCount = (int) all.stream().filter(it -> framework.tests().isEnabled(it.id())).count();
                 if (enabledCount == all.size()) {
-                    graphics.setTooltipForNextFrame(font, Component.literal("All tests in group (" + all.size() + ") are enabled!").withStyle(ChatFormatting.GREEN), mouseX, mouseY);
+                    poseStack.renderTooltip(font, Component.literal("All tests in group are enabled!").withStyle(ChatFormatting.GREEN), mouseX, mouseY);
                 } else if (enabledCount == 0) {
-                    graphics.setTooltipForNextFrame(font, Component.literal("All tests in group (" + all.size() + ") are disabled!").withStyle(ChatFormatting.GRAY), mouseX, mouseY);
+                    poseStack.renderTooltip(font, Component.literal("All tests in group are disabled!").withStyle(ChatFormatting.GRAY), mouseX, mouseY);
                 } else {
-                    graphics.setTooltipForNextFrame(font, Component.literal(enabledCount + "/" + all.size() + " tests enabled!").withStyle(ChatFormatting.BLUE), mouseX, mouseY);
+                    poseStack.renderTooltip(font, Component.literal(enabledCount + "/" + all.size() + " tests enabled!").withStyle(ChatFormatting.BLUE), mouseX, mouseY);
                 }
             }
 
@@ -276,19 +280,19 @@ public abstract class AbstractTestScreen extends Screen {
             }
 
             @Override
-            public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+            public boolean mouseClicked(double pMouseX, double pMouseY, int pButton) {
                 if (isTitle) return false;
 
-                if (browseButton.isMouseOver(event.x(), event.y())) return browseButton.mouseClicked(event, doubleClick);
-                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && (event.hasShiftDown() || event.hasControlDown())) {
+                if (browseButton.isMouseOver(pMouseX, pMouseY)) return browseButton.mouseClicked(pMouseX, pMouseY, pButton);
+                if (pButton == GLFW.GLFW_MOUSE_BUTTON_LEFT && (Screen.hasShiftDown() || Screen.hasControlDown())) {
                     openBrowseGUI();
                     return false;
                 }
-                return super.mouseClicked(event, doubleClick);
+                return super.mouseClicked(pMouseX, pMouseY, pButton);
             }
 
             private void openBrowseGUI() {
-                Minecraft.getInstance().gui.setScreen(new TestScreen(
+                Minecraft.getInstance().pushGuiLayer(new TestScreen(
                         Component.literal("Tests of group ").append(getTitle()),
                         framework, List.of(group)) {
                     @Override
@@ -299,7 +303,7 @@ public abstract class AbstractTestScreen extends Screen {
                         showAsGroup.setValue(false);
                         groupableList.resetRows("");
 
-                        addRenderableWidget(Button.builder(CommonComponents.GUI_BACK, (button) -> minecraft.gui.setScreen(outer))
+                        addRenderableWidget(Button.builder(CommonComponents.GUI_BACK, (p_97691_) -> this.onClose())
                                 .size(60, 20)
                                 .pos(this.width - 20 - 60, this.height - 29)
                                 .build());

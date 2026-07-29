@@ -13,15 +13,13 @@ import java.util.Set;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderLookup.RegistryLookup;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.ItemTags;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -30,14 +28,21 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.animal.horse.Horse;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.monster.piglin.PiglinAi;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.AnimalArmorItem;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ArmorMaterial;
+import net.minecraft.world.item.ArmorMaterials;
+import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemInstance;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.context.UseOnContext;
@@ -47,14 +52,17 @@ import net.minecraft.world.item.enchantment.Enchantment.EnchantmentDefinition;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.FuelValues;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.common.ItemAbilities;
 import net.neoforged.neoforge.common.ItemAbility;
+import net.neoforged.neoforge.registries.datamaps.builtin.FurnaceFuel;
+import net.neoforged.neoforge.registries.datamaps.builtin.NeoForgeDataMaps;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
+// TODO systemic review of all extension functions. lots of unused -C
 public interface IItemExtension {
     private Item self() {
         return (Item) this;
@@ -63,11 +71,11 @@ public interface IItemExtension {
     /**
      * ItemStack sensitive version of getDefaultAttributeModifiers. Used when a stack has no {@link DataComponents#ATTRIBUTE_MODIFIERS} component.
      * 
-     * @see IItemStackExtension#getAttributeModifiers() IItemStackExtension#getAttributeModifiers() for querying effective attribute modifiers.
+     * @see {@link IItemStackExtension#getAttributeModifiers()} for querying effective attribute modifiers.
      */
     @SuppressWarnings("deprecation")
     default ItemAttributeModifiers getDefaultAttributeModifiers(ItemStack stack) {
-        return ItemAttributeModifiers.EMPTY;
+        return self().getDefaultAttributeModifiers();
     }
 
     /**
@@ -122,15 +130,15 @@ public interface IItemExtension {
      * @return True if piglins are neutral to players wearing this item in an armor slot
      */
     default boolean makesPiglinsNeutral(ItemStack stack, LivingEntity wearer) {
-        return stack.is(ItemTags.PIGLIN_SAFE_ARMOR);
+        return stack.getItem() instanceof ArmorItem && ((ArmorItem) stack.getItem()).getMaterial() == ArmorMaterials.GOLD;
     }
 
     /**
-     * Determines if an item is repairable by combining, used by Repair recipes and Grindstone.
+     * Called by CraftingManager to determine if an item is reparable.
      *
-     * @return True if repairable by combining
+     * @return True if reparable
      */
-    boolean isCombineRepairable(ItemStack stack);
+    boolean isRepairable(ItemStack stack);
 
     /**
      * Determines the amount of durability the mending enchantment
@@ -146,7 +154,7 @@ public interface IItemExtension {
      *
      * Note that if you break an item while using it (that is, it becomes empty without swapping the stack instance), this hook may not be called on the serverside as you are
      * technically still using the empty item (thus this hook is called on air instead). It is necessary to call {@link LivingEntity#stopUsingItem()} as part of your
-     * {@link ItemStack#hurtAndBreak(int, ServerLevel, LivingEntity, Consumer)} callback to prevent this issue.
+     * {@link ItemStack#hurtAndBreak(int, LivingEntity, Consumer)} callback to prevent this issue.
      *
      * For most uses, you likely want one of the following:
      * <ul>
@@ -175,14 +183,29 @@ public interface IItemExtension {
     }
 
     /**
-     * ItemStack sensitive version of {@link Item#getCraftingRemainder()} ()}.
+     * ItemStack sensitive version of {@link Item#getCraftingRemainingItem()}.
      * Returns a full ItemStack instance of the result.
      *
-     * @param instance The current ItemStack
+     * @param itemStack The current ItemStack
      * @return The resulting ItemStack
      */
-    default @Nullable ItemStackTemplate getCraftingRemainder(ItemInstance instance) {
-        return self().getCraftingRemainder();
+    @SuppressWarnings("deprecation")
+    default ItemStack getCraftingRemainingItem(ItemStack itemStack) {
+        if (!hasCraftingRemainingItem(itemStack)) {
+            return ItemStack.EMPTY;
+        }
+        return new ItemStack(self().getCraftingRemainingItem());
+    }
+
+    /**
+     * ItemStack sensitive version of {@link Item#hasCraftingRemainingItem()}.
+     *
+     * @param stack The current item stack
+     * @return True if this item has a crafting remaining item
+     */
+    @SuppressWarnings("deprecation")
+    default boolean hasCraftingRemainingItem(ItemStack stack) {
+        return self().hasCraftingRemainingItem();
     }
 
     /**
@@ -262,7 +285,7 @@ public interface IItemExtension {
      * @return True if the given ItemStack can be inserted in the slot
      */
     default boolean canEquip(ItemStack stack, EquipmentSlot armorType, LivingEntity entity) {
-        return entity.isEquippableInSlot(stack, armorType);
+        return entity.getEquipmentSlotForItem(stack) == armorType;
     }
 
     /**
@@ -281,13 +304,56 @@ public interface IItemExtension {
     }
 
     /**
+     * Allow or forbid the specific book/item combination as an anvil enchant
+     *
+     * @param stack The item
+     * @param book  The book
+     * @return if the enchantment is allowed
+     */
+    default boolean isBookEnchantable(ItemStack stack, ItemStack book) {
+        return true;
+    }
+
+    /**
+     * Called by RenderBiped and RenderPlayer to determine the armor texture that
+     * should be use for the currently equipped item. This will only be called on
+     * instances of ItemArmor.
+     *
+     * Returning null from this function will use the default value.
+     *
+     * @param stack      ItemStack for the equipped armor
+     * @param entity     The entity wearing the armor
+     * @param slot       The slot the armor is in
+     * @param layer      The armor layer
+     * @param innerModel Whether the inner model is used
+     * @return Path of texture to bind, or null to use default
+     */
+    @Nullable
+    default ResourceLocation getArmorTexture(ItemStack stack, Entity entity, EquipmentSlot slot, ArmorMaterial.Layer layer, boolean innerModel) {
+        return null;
+    }
+
+    /**
+     * Called when a entity tries to play the 'swing' animation.
+     *
+     * @param entity The entity swinging the item.
+     * @return True to cancel any further processing by {@link LivingEntity}
+     * @deprecated To be replaced with hand sensitive version in 21.2
+     * @see #onEntitySwing(ItemStack, LivingEntity, InteractionHand)
+     */
+    @Deprecated(forRemoval = true, since = "21.1")
+    default boolean onEntitySwing(ItemStack stack, LivingEntity entity) {
+        return false;
+    }
+
+    /**
      * Called when a entity tries to play the 'swing' animation.
      *
      * @param entity The entity swinging the item.
      * @return True to cancel any further processing by {@link LivingEntity}
      */
     default boolean onEntitySwing(ItemStack stack, LivingEntity entity, InteractionHand hand) {
-        return false;
+        return onEntitySwing(stack, entity);
     }
 
     /**
@@ -342,10 +408,7 @@ public interface IItemExtension {
      * @param itemAbility The action being queried
      * @return True if the stack can perform the action
      */
-    default boolean canPerformAction(ItemInstance stack, ItemAbility itemAbility) {
-        if (itemAbility == ItemAbilities.SWORD_SWEEP) {
-            return stack.is(ItemTags.SWORDS);
-        }
+    default boolean canPerformAction(ItemStack stack, ItemAbility itemAbility) {
         return false;
     }
 
@@ -357,6 +420,16 @@ public interface IItemExtension {
      */
     default int getMaxStackSize(ItemStack stack) {
         return stack.getOrDefault(DataComponents.MAX_STACK_SIZE, 1);
+    }
+
+    /**
+     * ItemStack sensitive version of {@link Item#getEnchantmentValue()}.
+     *
+     * @param stack The ItemStack
+     * @return the enchantment value
+     */
+    default int getEnchantmentValue(ItemStack stack) {
+        return self().getEnchantmentValue();
     }
 
     /**
@@ -417,7 +490,7 @@ public interface IItemExtension {
      * @apiNote Call via {@link IItemStackExtension#getEnchantmentLevel}.
      */
     @ApiStatus.OverrideOnly
-    default int getEnchantmentLevel(ItemInstance stack, Holder<Enchantment> enchantment) {
+    default int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment) {
         ItemEnchantments itemenchantments = stack.getTagEnchantments();
         return itemenchantments.getLevel(enchantment);
     }
@@ -449,7 +522,7 @@ public interface IItemExtension {
      * @return True to play the item change animation
      */
     default boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
-        return oldStack != newStack;
+        return !oldStack.equals(newStack); // !ItemStack.areItemStacksEqual(oldStack, newStack);
     }
 
     /**
@@ -519,22 +592,39 @@ public interface IItemExtension {
      *         associated mod and {@link net.minecraft.core.Registry#getKey(Object)} would return null.
      */
     @Nullable
-    default String getCreatorModId(HolderLookup.Provider registries, ItemStack itemStack) {
-        return CommonHooks.getDefaultCreatorModId(registries, itemStack);
+    default String getCreatorModId(ItemStack itemStack) {
+        return CommonHooks.getDefaultCreatorModId(itemStack);
     }
 
     /**
-     * @return the fuel burn time for this item stack in a furnace. Return 0 to make it not act as a fuel.
+     * Can this Item disable a shield
+     *
+     * @param stack    The ItemStack
+     * @param shield   The shield in question
+     * @param entity   The LivingEntity holding the shield
+     * @param attacker The LivingEntity holding the ItemStack
+     * @return True if this ItemStack can disable the shield in question.
+     */
+    default boolean canDisableShield(ItemStack stack, ItemStack shield, LivingEntity entity, LivingEntity attacker) {
+        return this instanceof AxeItem;
+    }
+
+    /**
+     * @return the fuel burn time for this item stack in a furnace. Return 0 to make
+     *         it not act as a fuel. Return -1 to let the default vanilla logic decide.
      * @apiNote This method takes precedence over the {@link net.neoforged.neoforge.registries.datamaps.builtin.NeoForgeDataMaps#FURNACE_FUELS data map}.
      *          However, you should use the data map unless necessary (i.e. NBT-based burn times) so that users can configure burn times.
      */
     @ApiStatus.OverrideOnly
-    default int getBurnTime(ItemStack itemStack, @Nullable RecipeType<?> recipeType, FuelValues fuelValues) {
-        return fuelValues.burnDuration(itemStack);
+    default int getBurnTime(ItemStack itemStack, @Nullable RecipeType<?> recipeType) {
+        FurnaceFuel furnaceFuel = self().builtInRegistryHolder().getData(NeoForgeDataMaps.FURNACE_FUELS);
+        return furnaceFuel == null ? 0 : furnaceFuel.burnTime();
     }
 
     /**
-     * Called every tick when this item is equipped {@linkplain DataComponents#EQUIPPABLE as an armor item} by an animal.
+     * Called every tick when this item is equipped {@linkplain Mob#isBodyArmorItem(ItemStack) as an armor item} by a horse {@linkplain Mob#canWearBodyArmor() that can wear armor}.
+     * <p>
+     * In vanilla, only {@linkplain Horse horses} and {@linkplain Wolf wolves} can wear armor, and they can only equip items that extend {@link AnimalArmorItem}.
      *
      * @param stack The armor stack
      * @param level The level the horse is in
@@ -569,15 +659,43 @@ public interface IItemExtension {
     }
 
     /**
-     * Whether this {@link Item} can be used to hide player's gaze from Endermen and Creakings.
+     * Whether this Item can be used to hide player head for enderman.
      *
-     * @param stack  the ItemStack
-     * @param player The player watching the entity
-     * @param entity The entity the player is looking at, may be null
-     * @return true if this {@link Item} hides the player's gaze from the given entity
+     * @param stack          the ItemStack
+     * @param player         The player watching the enderman
+     * @param endermanEntity The enderman that the player look
+     * @return true if this Item can be used to hide player head for enderman
      */
-    default boolean isGazeDisguise(ItemStack stack, Player player, @Nullable LivingEntity entity) {
-        return stack.is(ItemTags.GAZE_DISGUISE_EQUIPMENT);
+    default boolean isEnderMask(ItemStack stack, Player player, EnderMan endermanEntity) {
+        return stack.getItem() == Blocks.CARVED_PUMPKIN.asItem();
+    }
+
+    /**
+     * Used to determine if the player can use Elytra flight.
+     * This is called Client and Server side.
+     *
+     * @param stack  The ItemStack in the Chest slot of the entity.
+     * @param entity The entity trying to fly.
+     * @return True if the entity can use Elytra flight.
+     */
+    default boolean canElytraFly(ItemStack stack, LivingEntity entity) {
+        return false;
+    }
+
+    /**
+     * Used to determine if the player can continue Elytra flight,
+     * this is called each tick, and can be used to apply ItemStack damage,
+     * consume Energy, or what have you.
+     * For example the Vanilla implementation of this, applies damage to the
+     * ItemStack every 20 ticks.
+     *
+     * @param stack       ItemStack in the Chest slot of the entity.
+     * @param entity      The entity currently in Elytra flight.
+     * @param flightTicks The number of ticks the entity has been Elytra flying for.
+     * @return True if the entity should continue Elytra flight or False to stop.
+     */
+    default boolean elytraFlightTick(ItemStack stack, LivingEntity entity, int flightTicks) {
+        return false;
     }
 
     /**
@@ -614,6 +732,22 @@ public interface IItemExtension {
 
     default AABB getSweepHitBox(ItemStack stack, Player player, Entity target) {
         return target.getBoundingBox().inflate(1.0D, 0.25D, 1.0D);
+    }
+
+    /**
+     * Get the food properties for this item.
+     * Use this instead of the {@link Item#getFoodProperties()} method, for ItemStack sensitivity.
+     *
+     * The @Nullable annotation was only added, due to the default method, also being @Nullable.
+     * Use this with a grain of salt, as if you return null here and true at {@link Item#isEdible()}, NPEs will occur!
+     *
+     * @param stack  The ItemStack the entity wants to eat.
+     * @param entity The entity which wants to eat the food. Be aware that this can be null!
+     * @return The current FoodProperties for the item.
+     */
+    @Nullable // read javadoc to find a potential problem
+    default FoodProperties getFoodProperties(ItemStack stack, @Nullable LivingEntity entity) {
+        return stack.get(DataComponents.FOOD);
     }
 
     /**
@@ -658,7 +792,7 @@ public interface IItemExtension {
         }
 
         for (EnchantmentInstance inst : enchantments) {
-            stack.enchant(inst.enchantment(), inst.level());
+            stack.enchant(inst.enchantment, inst.level);
         }
 
         return stack;
@@ -673,19 +807,5 @@ public interface IItemExtension {
      */
     default boolean canFitInsideContainerItems(ItemStack stack) {
         return self().canFitInsideContainerItems();
-    }
-
-    /// Called to damage an item providing the [gliding flight attribute][net.neoforged.neoforge.common.NeoForgeMod#GLIDING_FLIGHT].
-    /// The default vanilla implementation is to damage the item by 1.
-    ///
-    /// If an entity has multiple items equipped that provide the gliding flight attribute, one of those items will be randomly selected
-    /// to be called with this method.
-    ///
-    /// @param stack the stack of the item providing the gliding flight attribute
-    /// @param wearer the entity wearing the item
-    /// @param slot the equipment slot occupied by the item
-    /// @see IItemStackExtension#onGlideDamage(LivingEntity, EquipmentSlot)
-    default void onGlideDamage(ItemStack stack, LivingEntity wearer, EquipmentSlot slot) {
-        stack.hurtAndBreak(1, wearer, slot);
     }
 }

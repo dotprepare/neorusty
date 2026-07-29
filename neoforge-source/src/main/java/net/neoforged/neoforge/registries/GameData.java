@@ -5,6 +5,7 @@
 
 package net.neoforged.neoforge.registries;
 
+import com.google.common.collect.ImmutableMap;
 import com.mojang.logging.LogUtils;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -16,19 +17,20 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.gamerules.GameRuleCategory;
 import net.neoforged.fml.ModLoader;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
+import net.neoforged.neoforge.client.extensions.common.ClientExtensionsManager;
 import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.common.CreativeModeTabRegistry;
-import net.neoforged.neoforge.common.tooltip.ItemTooltipHandler;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BlockEntityTypeAddBlocksEvent;
 import org.jetbrains.annotations.ApiStatus;
 import org.slf4j.Logger;
@@ -60,33 +62,32 @@ public class GameData {
 
     public static void unfreezeData() {
         LOGGER.debug(REGISTRIES, "Unfreezing registries");
-        BuiltInRegistries.REGISTRY.stream().filter(r -> r instanceof BaseMappedRegistry).forEach(r -> ((BaseMappedRegistry<?>) r).unfreeze(true));
+        BuiltInRegistries.REGISTRY.stream().filter(r -> r instanceof BaseMappedRegistry).forEach(r -> ((BaseMappedRegistry<?>) r).unfreeze());
     }
 
     public static void freezeData() {
         LOGGER.debug(REGISTRIES, "Freezing registries");
-        BuiltInRegistries.REGISTRY.stream().filter(r -> r instanceof MappedRegistry).forEach(r -> {
-            // HolderSet.Named may be used for registry objects, vanilla binds these tags so freeze doesn't throw for unbound tags
-            ((MappedRegistry<?>) r).bindAllTagsToEmpty();
-            ((MappedRegistry<?>) r).freeze();
-        });
+        BuiltInRegistries.REGISTRY.stream().filter(r -> r instanceof MappedRegistry).forEach(r -> ((MappedRegistry<?>) r).freeze());
 
         RegistryManager.takeFrozenSnapshot();
+
+        // the id mapping is finalized, no ids actually changed but this is a good place to tell everyone to 'bake' their stuff.
+        fireRemapEvent(ImmutableMap.of(), true);
 
         LOGGER.debug(REGISTRIES, "All registries frozen");
     }
 
     public static void postRegisterEvents() {
-        Set<Identifier> ordered = GameData.getRegistrationOrder();
+        Set<ResourceLocation> ordered = GameData.getRegistrationOrder();
 
         RuntimeException aggregate = new RuntimeException();
-        for (Identifier rootRegistryName : ordered) {
+        for (ResourceLocation rootRegistryName : ordered) {
             try {
                 ResourceKey<? extends Registry<?>> registryKey = ResourceKey.createRegistryKey(rootRegistryName);
-                Registry<?> registry = Objects.requireNonNull(BuiltInRegistries.REGISTRY.getValue(rootRegistryName));
+                Registry<?> registry = Objects.requireNonNull(BuiltInRegistries.REGISTRY.get(rootRegistryName));
                 RegisterEvent registerEvent = new RegisterEvent(registryKey, registry);
 
-                StartupNotificationManager.modLoaderMessage("REGISTERING " + registryKey.identifier());
+                StartupNotificationManager.modLoaderMessage("REGISTERING " + registryKey.location());
 
                 ModLoader.postEventWrapContainerInModOrder(registerEvent);
             } catch (Throwable t) {
@@ -103,9 +104,14 @@ public class GameData {
             SpawnPlacements.fireSpawnPlacementEvent();
             ModLoader.postEvent(new BlockEntityTypeAddBlocksEvent());
             CreativeModeTabRegistry.sortTabs();
-            GameRuleCategory.registerModdedCategories();
-            ItemTooltipHandler.init();
+            if (FMLEnvironment.dist.isClient()) {
+                ClientExtensionsManager.earlyInit();
+            }
         }
+    }
+
+    static void fireRemapEvent(final Map<ResourceLocation, Map<ResourceLocation, IdMappingEvent.IdRemapping>> remaps, final boolean isFreezing) {
+        NeoForge.EVENT_BUS.post(new IdMappingEvent(remaps, isFreezing));
     }
 
     /**
@@ -117,13 +123,13 @@ public class GameData {
      * 
      * @return A {@link LinkedHashSet} containing the registration order.
      */
-    public static Set<Identifier> getRegistrationOrder() {
-        Set<Identifier> ordered = new LinkedHashSet<>();
-        ordered.add(Registries.ATTRIBUTE.identifier()); // Vanilla order is incorrect, both Item and MobEffect depend on Attribute at construction time.
-        ordered.add(Registries.DATA_COMPONENT_TYPE.identifier()); // Vanilla order is incorrect, Item depends on data components at construction time.
-        ordered.add(Registries.PARTICLE_TYPE.identifier()); // Vanilla order is incorrect, both Block and MobEffect depend on ParticleType at construction time.
+    public static Set<ResourceLocation> getRegistrationOrder() {
+        Set<ResourceLocation> ordered = new LinkedHashSet<>();
+        ordered.add(Registries.ATTRIBUTE.location()); // Vanilla order is incorrect, both Item and MobEffect depend on Attribute at construction time.
+        ordered.add(Registries.DATA_COMPONENT_TYPE.location()); // Vanilla order is incorrect, Item depends on data components at construction time.
+        ordered.add(Registries.ARMOR_MATERIAL.location()); // Vanilla order is incorrect, ArmorItem depends on armor materials at construction time.
         ordered.addAll(BuiltInRegistries.getVanillaRegistrationOrder());
-        ordered.addAll(BuiltInRegistries.REGISTRY.keySet().stream().sorted(Identifier::compareNamespaced).toList());
+        ordered.addAll(BuiltInRegistries.REGISTRY.keySet().stream().sorted(ResourceLocation::compareNamespaced).toList());
         return ordered;
     }
 }

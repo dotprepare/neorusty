@@ -12,6 +12,10 @@
     "minecraft:windswept_savanna",
     "minecraft:stony_peaks",
     "minecraft:mushroom_fields",
-    "minecraft:warm_ocean"
+    "minecraft:warm_ocean",
+    {
+      "id": "#forge:is_hot/overworld",
+      "required": false
+    }
   ]
 }

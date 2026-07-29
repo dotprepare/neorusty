@@ -5,7 +5,6 @@
 
 package net.neoforged.neoforge.common.data.internal;
 
-import com.google.common.collect.ImmutableMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.Arrays;
 import java.util.List;
@@ -18,33 +17,29 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.tags.TagKey;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.util.random.Weight;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.behavior.GiveGiftToHero;
 import net.minecraft.world.entity.ai.behavior.WorkAtComposter;
-import net.minecraft.world.entity.ai.sensing.VillagerHostilesSensor;
-import net.minecraft.world.entity.animal.parrot.Parrot;
-import net.minecraft.world.entity.npc.villager.VillagerProfession;
-import net.minecraft.world.entity.npc.villager.VillagerType;
-import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.entity.animal.Parrot;
+import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.VillagerType;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoneycombItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ToolMaterial;
-import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.Tier;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ComposterBlock;
 import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
-import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.gameevent.vibrations.VibrationSystem;
 import net.minecraft.world.level.levelgen.feature.MonsterRoomFeature;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.common.data.DataMapProvider;
-import net.neoforged.neoforge.registries.datamaps.builtin.AcceptableVillagerDistance;
 import net.neoforged.neoforge.registries.datamaps.builtin.BiomeVillagerType;
 import net.neoforged.neoforge.registries.datamaps.builtin.Compostable;
 import net.neoforged.neoforge.registries.datamaps.builtin.FurnaceFuel;
@@ -63,21 +58,20 @@ public class NeoForgeDataMapsProvider extends DataMapProvider {
     }
 
     @Override
-    protected void gather(HolderLookup.Provider provider) {
-        final var biomeVillagers = builder(NeoForgeDataMaps.VILLAGER_TYPES);
-        ObfuscationReflectionHelper.<Map<ResourceKey<Biome>, ResourceKey<VillagerType>>, VillagerType>getPrivateValue(VillagerType.class, null, "BY_BIOME")
-                .forEach((biome, type) -> biomeVillagers.add(biome, new BiomeVillagerType(type), false));
-
+    protected void gather() {
         final var compostables = builder(NeoForgeDataMaps.COMPOSTABLES);
         final List<Item> villagerCompostables = ObfuscationReflectionHelper.getPrivateValue(WorkAtComposter.class, null, "COMPOSTABLE_ITEMS");
         ComposterBlock.COMPOSTABLES.forEach((item, chance) -> compostables.add(item.asItem().builtInRegistryHolder(), new Compostable(chance, villagerCompostables.contains(item.asItem())), false));
 
-        final var acceptableVillagerDistances = builder(NeoForgeDataMaps.ACCEPTABLE_VILLAGER_DISTANCES);
-        ObfuscationReflectionHelper.<ImmutableMap<EntityType<?>, Float>, VillagerHostilesSensor>getPrivateValue(VillagerHostilesSensor.class, null, "ACCEPTABLE_DISTANCE_FROM_HOSTILES")
-                .forEach((entityType, distance) -> acceptableVillagerDistances.add(BuiltInRegistries.ENTITY_TYPE.getKey(entityType), new AcceptableVillagerDistance(distance), false));
+        final var biomeVillagers = builder(NeoForgeDataMaps.VILLAGER_TYPES);
+        ObfuscationReflectionHelper.<Map<ResourceKey<Biome>, VillagerType>, VillagerType>getPrivateValue(VillagerType.class, null, "BY_BIOME")
+                .forEach((biome, type) -> biomeVillagers.add(biome, new BiomeVillagerType(type), false));
 
         final var fuels = builder(NeoForgeDataMaps.FURNACE_FUELS);
-        FuelValues.vanillaBurnTimes(new FuelValuesDataMapBuilder(provider, fuels), AbstractFurnaceBlockEntity.BURN_TIME_STANDARD);
+        AbstractFurnaceBlockEntity.buildFuels((value, time) -> value.ifLeft(item -> fuels.add(item.builtInRegistryHolder(), new FurnaceFuel(time), false))
+                .ifRight(tag -> fuels.add(tag, new FurnaceFuel(time), false)));
+        // Mojang decided to use an exclusion tag for nether wood
+        fuels.remove(ItemTags.NON_FLAMMABLE_WOOD);
 
         final var vibrationFrequencies = builder(NeoForgeDataMaps.VIBRATION_FREQUENCIES);
         ((Reference2IntMap<ResourceKey<GameEvent>>) VibrationSystem.VIBRATION_FREQUENCY_FOR_EVENT)
@@ -88,8 +82,8 @@ public class NeoForgeDataMapsProvider extends DataMapProvider {
                 .forEach((type, sound) -> imitations.add(type.builtInRegistryHolder(), new ParrotImitation(sound), false));
 
         final var raidHeroGifts = builder(NeoForgeDataMaps.RAID_HERO_GIFTS);
-        ObfuscationReflectionHelper.<Map<ResourceKey<VillagerProfession>, ResourceKey<LootTable>>, GiveGiftToHero>getPrivateValue(GiveGiftToHero.class, null, "GIFTS")
-                .forEach((type, lootTable) -> raidHeroGifts.add(BuiltInRegistries.VILLAGER_PROFESSION.getOrThrow(type), new RaidHeroGift(lootTable), false));
+        ObfuscationReflectionHelper.<Map<VillagerProfession, ResourceKey<LootTable>>, GiveGiftToHero>getPrivateValue(GiveGiftToHero.class, null, "GIFTS")
+                .forEach((type, lootTable) -> raidHeroGifts.add(BuiltInRegistries.VILLAGER_PROFESSION.wrapAsHolder(type), new RaidHeroGift(lootTable), false));
 
         final var strippables = builder(NeoForgeDataMaps.STRIPPABLES);
         StrippablesAccess.getStrippables().forEach((block, stripped) -> strippables.add(block.builtInRegistryHolder(), new Strippable(stripped), false));
@@ -97,7 +91,7 @@ public class NeoForgeDataMapsProvider extends DataMapProvider {
         final var monsterRoomMobs = builder(NeoForgeDataMaps.MONSTER_ROOM_MOBS);
         Arrays.stream(ObfuscationReflectionHelper.<EntityType<?>[], MonsterRoomFeature>getPrivateValue(MonsterRoomFeature.class, null, "MOBS"))
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-                .forEach((type, weight) -> monsterRoomMobs.add(BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(type), new MonsterRoomMob((int) (weight * 100)), false));
+                .forEach((type, weight) -> monsterRoomMobs.add(BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(type), new MonsterRoomMob(Weight.of((int) (weight * 100))), false));
 
         final var oxidizables = builder(NeoForgeDataMaps.OXIDIZABLES);
         WeatheringCopper.NEXT_BY_BLOCK.get().forEach((now, after) -> {
@@ -111,39 +105,12 @@ public class NeoForgeDataMapsProvider extends DataMapProvider {
     }
 
     private static class StrippablesAccess extends AxeItem {
-        private StrippablesAccess(ToolMaterial material, float attackDamage, float attackSpeed, Properties properties) {
-            super(material, attackDamage, attackSpeed, properties);
+        private StrippablesAccess(Tier tier, Properties properties) {
+            super(tier, properties);
         }
 
         public static Map<Block, Block> getStrippables() {
             return STRIPPABLES;
-        }
-    }
-
-    private static class FuelValuesDataMapBuilder extends FuelValues.Builder {
-        private final Builder<FurnaceFuel, Item> builder;
-
-        public FuelValuesDataMapBuilder(HolderLookup.Provider lookupProvider, DataMapProvider.Builder<FurnaceFuel, Item> builder) {
-            super(lookupProvider, FeatureFlags.DEFAULT_FLAGS);
-            this.builder = builder;
-        }
-
-        @Override
-        public FuelValuesDataMapBuilder add(TagKey<Item> tagKey, int burnTime) {
-            this.builder.add(tagKey, new FurnaceFuel(burnTime), false);
-            return this;
-        }
-
-        @Override
-        public FuelValuesDataMapBuilder add(ItemLike item, int burnTime) {
-            this.builder.add(item.asItem().builtInRegistryHolder(), new FurnaceFuel(burnTime), false);
-            return this;
-        }
-
-        @Override
-        public FuelValuesDataMapBuilder remove(TagKey<Item> tagKey) {
-            this.builder.remove(tagKey);
-            return this;
         }
     }
 }

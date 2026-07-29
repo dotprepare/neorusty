@@ -18,7 +18,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.common.loot.LootModifier;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fired when a block is broken and the drops have been determined, but before they have been added to the world. This event can be used to manipulate the dropped items and experience.

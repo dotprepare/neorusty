@@ -5,11 +5,13 @@
 
 package net.neoforged.neoforge.oldtest.client.rendering;
 
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.Tesselator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.QuadParticleGroup;
 import net.minecraft.client.particle.TerrainParticle;
+import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.api.distmarker.Dist;
@@ -17,7 +19,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterParticleGroupsEvent;
 
 @Mod(CustomParticleTypeTest.MOD_ID)
 public class CustomParticleTypeTest {
@@ -28,8 +29,30 @@ public class CustomParticleTypeTest {
 
     @EventBusSubscriber(modid = CustomParticleTypeTest.MOD_ID, value = Dist.CLIENT)
     public static class ClientEvents {
-        private static final ParticleRenderType CUSTOM_TYPE = new ParticleRenderType("CUSTOM_TYPE", "CT1");
-        private static final ParticleRenderType CUSTOM_TYPE_TWO = new ParticleRenderType("CUSTOM_TYPE_TWO", "CT2");
+        private static final ParticleRenderType CUSTOM_TYPE = new ParticleRenderType() {
+            @Override
+            public BufferBuilder begin(Tesselator tesselator, TextureManager texMgr) {
+                Minecraft.getInstance().gameRenderer.lightTexture().turnOnLightLayer();
+                return ParticleRenderType.TERRAIN_SHEET.begin(tesselator, texMgr);
+            }
+
+            @Override
+            public String toString() {
+                return "CUSTOM_TYPE";
+            }
+        };
+        private static final ParticleRenderType CUSTOM_TYPE_TWO = new ParticleRenderType() {
+            @Override
+            public BufferBuilder begin(Tesselator tesselator, TextureManager texMgr) {
+                Minecraft.getInstance().gameRenderer.lightTexture().turnOnLightLayer();
+                return ParticleRenderType.TERRAIN_SHEET.begin(tesselator, texMgr);
+            }
+
+            @Override
+            public String toString() {
+                return "CUSTOM_TYPE_TWO";
+            }
+        };
 
         private static class CustomParticle extends TerrainParticle {
             public CustomParticle(ClientLevel level, double x, double y, double z) {
@@ -37,7 +60,7 @@ public class CustomParticleTypeTest {
             }
 
             @Override
-            public ParticleRenderType getGroup() {
+            public ParticleRenderType getRenderType() {
                 return CUSTOM_TYPE;
             }
         }
@@ -48,17 +71,9 @@ public class CustomParticleTypeTest {
             }
 
             @Override
-            public ParticleRenderType getGroup() {
+            public ParticleRenderType getRenderType() {
                 return CUSTOM_TYPE_TWO;
             }
-        }
-
-        @SubscribeEvent
-        public static void onRegisterParticleGroups(RegisterParticleGroupsEvent event) {
-            if (!ENABLED) return;
-
-            event.register(CUSTOM_TYPE, pe -> new QuadParticleGroup(pe, CUSTOM_TYPE));
-            event.register(CUSTOM_TYPE_TWO, pe -> new QuadParticleGroup(pe, CUSTOM_TYPE_TWO));
         }
 
         @SubscribeEvent

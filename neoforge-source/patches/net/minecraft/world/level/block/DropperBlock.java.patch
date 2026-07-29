@@ -1,22 +1,11 @@
 --- a/net/minecraft/world/level/block/DropperBlock.java
 +++ b/net/minecraft/world/level/block/DropperBlock.java
-@@ -58,12 +_,16 @@
-                 ItemStack itemStack = blockEntity.getItem(slot);
-                 if (!itemStack.isEmpty()) {
-                     Direction direction = level.getBlockState(pos).getValue(FACING);
--                    Container into = HopperBlockEntity.getContainerAt(level, pos.relative(direction));
-+                    var into = HopperBlockEntity.getContainerOrHandlerAt(level, pos.relative(direction), direction.getOpposite());
-                     ItemStack remaining;
--                    if (into == null) {
-+                    if (into.isEmpty()) {
-                         remaining = DISPENSE_BEHAVIOUR.dispense(source, itemStack);
-                     } else {
--                        remaining = HopperBlockEntity.addItem(blockEntity, into, itemStack.copyWithCount(1), direction.getOpposite());
-+                        if (into.container() != null) {
-+                            remaining = HopperBlockEntity.addItem(blockEntity, into.container(), itemStack.copyWithCount(1), direction.getOpposite());
-+                        } else {
-+                            remaining = net.neoforged.neoforge.transfer.item.ItemUtil.insertItemReturnRemaining(into.itemHandler(), itemStack.copyWithCount(1), false, null);
-+                        }
-                         if (remaining.isEmpty()) {
-                             remaining = itemStack.copy();
-                             remaining.shrink(1);
+@@ -56,7 +_,7 @@
+                 p_52944_.levelEvent(1001, p_52945_, 0);
+             } else {
+                 ItemStack itemstack = dispenserblockentity.getItem(i);
+-                if (!itemstack.isEmpty()) {
++                if (!itemstack.isEmpty() && net.neoforged.neoforge.items.VanillaInventoryCodeHooks.dropperInsertHook(p_52944_, p_52945_, dispenserblockentity, i, itemstack)) {
+                     Direction direction = p_52944_.getBlockState(p_52945_).getValue(FACING);
+                     Container container = HopperBlockEntity.getContainerAt(p_52944_, p_52945_.relative(direction));
+                     ItemStack itemstack1;

@@ -7,6 +7,10 @@
     {
       "id": "minecraft:flowing_milk",
       "required": false
+    },
+    {
+      "id": "#forge:milk",
+      "required": false
     }
   ]
 }

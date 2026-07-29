@@ -10,30 +10,29 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Item.TooltipContext;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.maps.MapId;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Extended {@link TooltipContext} used when generating attribute tooltips.
  */
 public interface AttributeTooltipContext extends Item.TooltipContext {
     /**
-     * {@return the tooltip display}
+     * {@return the player for whom tooltips are being generated for, if known}
      */
-    TooltipDisplay tooltipDisplay();
+    @Nullable
+    Player player();
 
     /**
      * {@return the current tooltip flag}
      */
     TooltipFlag flag();
 
-    public static AttributeTooltipContext of(@Nullable Player player, Item.TooltipContext itemCtx, TooltipDisplay tooltipDisplay, TooltipFlag flag) {
+    public static AttributeTooltipContext of(@Nullable Player player, Item.TooltipContext itemCtx, TooltipFlag flag) {
         return new AttributeTooltipContext() {
             @Override
-            @Nullable
             public Provider registries() {
                 return itemCtx.registries();
             }
@@ -44,31 +43,19 @@ public interface AttributeTooltipContext extends Item.TooltipContext {
             }
 
             @Override
-            @Nullable
             public MapItemSavedData mapData(MapId id) {
                 return itemCtx.mapData(id);
             }
 
             @Override
-            @Nullable
             public Level level() {
                 return itemCtx.level();
-            }
-
-            @Override
-            public boolean isPeaceful() {
-                return itemCtx.isPeaceful();
             }
 
             @Nullable
             @Override
             public Player player() {
                 return player;
-            }
-
-            @Override
-            public TooltipDisplay tooltipDisplay() {
-                return tooltipDisplay;
             }
 
             @Override

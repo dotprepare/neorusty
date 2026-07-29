@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.Resource;
@@ -41,12 +41,12 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.fml.loading.toposort.TopologicalSort;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 public final class CreativeModeTabRegistry {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Identifier CREATIVE_MODE_TAB_ORDERING_JSON = Identifier.fromNamespaceAndPath("neoforge", "creative_mode_tab_ordering.json");
+    private static final ResourceLocation CREATIVE_MODE_TAB_ORDERING_JSON = ResourceLocation.fromNamespaceAndPath("neoforge", "creative_mode_tab_ordering.json");
     private static final List<CreativeModeTab> SORTED_TABS = new ArrayList<>();
     private static final List<CreativeModeTab> SORTED_TABS_VIEW = Collections.unmodifiableList(SORTED_TABS);
     private static final List<CreativeModeTab> DEFAULT_TABS = new ArrayList<>();
@@ -68,8 +68,8 @@ public final class CreativeModeTabRegistry {
      * @param name the name to look up
      */
     @Nullable
-    public static CreativeModeTab getTab(Identifier name) {
-        return BuiltInRegistries.CREATIVE_MODE_TAB.getValue(name);
+    public static CreativeModeTab getTab(ResourceLocation name) {
+        return BuiltInRegistries.CREATIVE_MODE_TAB.get(name);
     }
 
     /**
@@ -78,11 +78,11 @@ public final class CreativeModeTabRegistry {
      * @param tab the tab to look up
      */
     @Nullable
-    public static Identifier getName(CreativeModeTab tab) {
+    public static ResourceLocation getName(CreativeModeTab tab) {
         return BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
     }
 
-    private static final Multimap<Identifier, Identifier> edges = HashMultimap.create();
+    private static final Multimap<ResourceLocation, ResourceLocation> edges = HashMultimap.create();
 
     static PreparableReloadListener getReloadListener() {
         return new SimplePreparableReloadListener<JsonObject>() {
@@ -109,7 +109,7 @@ public final class CreativeModeTabRegistry {
                         JsonArray order = GsonHelper.getAsJsonArray(data, "order");
                         List<CreativeModeTab> customOrder = new ArrayList<>();
                         for (JsonElement entry : order) {
-                            Identifier id = Identifier.parse(entry.getAsString());
+                            ResourceLocation id = ResourceLocation.parse(entry.getAsString());
                             CreativeModeTab CreativeModeTab = getTab(id);
                             if (CreativeModeTab == null)
                                 throw new IllegalStateException("CreativeModeTab not found with name " + id);
@@ -173,37 +173,37 @@ public final class CreativeModeTabRegistry {
     public static void sortTabs() {
         edges.clear();
 
-        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.getValue(CreativeModeTabs.HOTBAR));
-        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.getValue(CreativeModeTabs.SEARCH));
-        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.getValue(CreativeModeTabs.OP_BLOCKS));
-        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.getValue(CreativeModeTabs.INVENTORY));
+        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.get(CreativeModeTabs.HOTBAR));
+        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.get(CreativeModeTabs.SEARCH));
+        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.get(CreativeModeTabs.OP_BLOCKS));
+        DEFAULT_TABS.add(BuiltInRegistries.CREATIVE_MODE_TAB.get(CreativeModeTabs.INVENTORY));
 
         final List<Holder<CreativeModeTab>> indexed = new ArrayList<>();
-        BuiltInRegistries.CREATIVE_MODE_TAB.listElements().filter(c -> !DEFAULT_TABS.contains(c.value())).forEach(indexed::add);
+        BuiltInRegistries.CREATIVE_MODE_TAB.holders().filter(c -> !DEFAULT_TABS.contains(c.value())).forEach(indexed::add);
         int vanillaTabs = 10;
 
         for (int i = 0; i < vanillaTabs; i++) // Vanilla ordering
         {
             final Holder<CreativeModeTab> value = indexed.get(i);
             final CreativeModeTab tab = value.value();
-            final Identifier name = value.unwrapKey().orElseThrow().identifier();
+            final ResourceLocation name = value.unwrapKey().orElseThrow().location();
 
             if (!tab.tabsBefore.isEmpty() || !tab.tabsAfter.isEmpty())
                 addTabOrder(tab, name);
             else {
                 // If there is no order specified ensure vanilla ordering by specifying the previous and next indexed tab as edges
                 if (i != 0)
-                    edges.put(indexed.get(i - 1).unwrapKey().orElseThrow().identifier(), name);
+                    edges.put(indexed.get(i - 1).unwrapKey().orElseThrow().location(), name);
                 if (i + 1 < indexed.size())
-                    edges.put(name, indexed.get(i + 1).unwrapKey().orElseThrow().identifier());
+                    edges.put(name, indexed.get(i + 1).unwrapKey().orElseThrow().location());
             }
         }
 
-        Identifier lastVanilla = indexed.get(vanillaTabs - 1).unwrapKey().orElseThrow().identifier();
+        ResourceLocation lastVanilla = indexed.get(vanillaTabs - 1).unwrapKey().orElseThrow().location();
         for (int i = vanillaTabs; i < indexed.size(); i++) {
             final Holder<CreativeModeTab> value = indexed.get(i);
             final CreativeModeTab tab = value.value();
-            final Identifier name = value.unwrapKey().orElseThrow().identifier();
+            final ResourceLocation name = value.unwrapKey().orElseThrow().location();
 
             if (!tab.tabsBefore.isEmpty() || !tab.tabsAfter.isEmpty())
                 addTabOrder(tab, name);
@@ -214,12 +214,12 @@ public final class CreativeModeTabRegistry {
         recalculateItemCreativeModeTabs();
     }
 
-    private static void addTabOrder(CreativeModeTab tab, Identifier name) {
-        for (final Identifier after : tab.tabsAfter) {
+    private static void addTabOrder(CreativeModeTab tab, ResourceLocation name) {
+        for (final ResourceLocation after : tab.tabsAfter) {
             edges.put(name, after);
         }
 
-        for (final Identifier before : tab.tabsBefore) {
+        for (final ResourceLocation before : tab.tabsBefore) {
             edges.put(before, name);
         }
     }

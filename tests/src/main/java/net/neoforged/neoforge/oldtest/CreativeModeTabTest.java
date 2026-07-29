@@ -10,11 +10,13 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTab.TabVisibility;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
@@ -24,16 +26,15 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
-import org.jspecify.annotations.Nullable;
 
 @Mod(CreativeModeTabTest.MOD_ID)
 public class CreativeModeTabTest {
     public static final String MOD_ID = "creative_mode_tab_test";
     private static final boolean ENABLED = true;
 
-    private static final ResourceKey<CreativeModeTab> LOGS = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "logs"));
-    private static final ResourceKey<CreativeModeTab> STONE = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "stone"));
-    private static final ResourceKey<CreativeModeTab> DAMAGED_SWORDS = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "damaged_swords"));
+    private static final ResourceKey<CreativeModeTab> LOGS = ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(MOD_ID, "logs"));
+    private static final ResourceKey<CreativeModeTab> STONE = ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(MOD_ID, "stone"));
+    private static final ResourceKey<CreativeModeTab> DAMAGED_SWORDS = ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(MOD_ID, "damaged_swords"));
 
     public CreativeModeTabTest(IEventBus modEventBus) {
         if (!ENABLED)
@@ -48,7 +49,7 @@ public class CreativeModeTabTest {
             helper.register(LOGS, CreativeModeTab.builder().icon(() -> new ItemStack(Blocks.ACACIA_LOG))
                     .title(Component.literal("Logs"))
                     .withLabelColor(0x00FF00)
-                    .displayItems((_, output) -> {
+                    .displayItems((params, output) -> {
                         output.accept(new ItemStack(Blocks.ACACIA_LOG));
                         output.accept(new ItemStack(Blocks.BIRCH_LOG));
                         output.accept(new ItemStack(Blocks.DARK_OAK_LOG));
@@ -60,7 +61,7 @@ public class CreativeModeTabTest {
             helper.register(STONE, CreativeModeTab.builder().icon(() -> new ItemStack(Blocks.STONE))
                     .title(Component.literal("Stone"))
                     .withLabelColor(0x0000FF)
-                    .displayItems((_, output) -> {
+                    .displayItems((params, output) -> {
                         output.accept(new ItemStack(Blocks.STONE));
                         output.accept(new ItemStack(Blocks.GRANITE));
                         output.accept(new ItemStack(Blocks.DIORITE));
@@ -69,14 +70,18 @@ public class CreativeModeTabTest {
                     .withTabsAfter(CreativeModeTabs.BUILDING_BLOCKS)
                     .build());
 
-            helper.register(Identifier.fromNamespaceAndPath(MOD_ID, "colors"), CreativeModeTab.builder().title(Component.literal("Colors"))
-                    .displayItems((_, output) -> Items.DYE.forEach(output::accept))
+            helper.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "colors"), CreativeModeTab.builder().title(Component.literal("Colors"))
+                    .displayItems((params, output) -> {
+                        for (DyeColor color : DyeColor.values()) {
+                            output.accept(DyeItem.byColor(color));
+                        }
+                    })
                     .withTabFactory(CreativeModeColorTab::new)
                     .withTabsBefore(CreativeModeTabs.COLORED_BLOCKS)
                     .build());
 
             helper.register(DAMAGED_SWORDS, CreativeModeTab.builder().title(Component.literal("Damaged Wooden Swords"))
-                    .displayItems((_, output) -> {
+                    .displayItems((params, output) -> {
                         output.accept(new ItemStack(Items.WOODEN_SWORD));
                         output.accept(new ItemStack(Items.WOODEN_SWORD), TabVisibility.SEARCH_TAB_ONLY); // Should still be added
                         for (int i = 1; i <= 59; i++) {
@@ -90,18 +95,18 @@ public class CreativeModeTabTest {
             List<Block> blocks = List.of(Blocks.GRANITE, Blocks.DIORITE, Blocks.ANDESITE, Blocks.COBBLESTONE);
             for (int i = 0; i < blocks.size(); i++) {
                 Block block = blocks.get(i);
-                helper.register(Identifier.fromNamespaceAndPath(MOD_ID, "dummy" + i), CreativeModeTab.builder()
+                helper.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "dummy" + i), CreativeModeTab.builder()
                         .title(Component.literal("Dummy " + i))
                         .icon(() -> new ItemStack(block))
-                        .displayItems((_, output) -> output.accept(block))
+                        .displayItems((params, output) -> output.accept(block))
                         .build());
             }
 
-            final Identifier custom_tabs_image = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/container/creative_inventory/custom_tabs.png");
-            helper.register(Identifier.fromNamespaceAndPath(MOD_ID, "with_tabs_image"), CreativeModeTab.builder()
+            final ResourceLocation custom_tabs_image = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/container/creative_inventory/custom_tabs.png");
+            helper.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "with_tabs_image"), CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.with_tabs_image"))
                     .icon(() -> new ItemStack(Blocks.BRICKS))
-                    .displayItems((_, output) -> output.accept(Blocks.BRICKS))
+                    .displayItems((params, output) -> output.accept(Blocks.BRICKS))
                     .withTabsImage(custom_tabs_image)
                     .build());
         });
@@ -138,20 +143,20 @@ public class CreativeModeTabTest {
     }
 
     private static class CreativeModeColorTab extends CreativeModeTab {
-        private ItemStack @Nullable [] iconItems;
+        private final ItemStack[] iconItems;
 
         public CreativeModeColorTab(CreativeModeTab.Builder builder) {
             super(builder);
+
+            DyeColor[] colors = DyeColor.values();
+            iconItems = new ItemStack[colors.length];
+            for (int i = 0; i < colors.length; i++) {
+                iconItems[i] = new ItemStack(DyeItem.byColor(colors[i]));
+            }
         }
 
         @Override
         public ItemStack getIconItem() {
-            if (iconItems == null) {
-                iconItems = Items.DYE.asList().stream()
-                        .map(ItemStack::new)
-                        .toArray(ItemStack[]::new);
-            }
-
             int idx = (int) (System.currentTimeMillis() / 1200) % iconItems.length;
             return iconItems[idx];
         }

@@ -1,17 +1,17 @@
 --- a/net/minecraft/server/commands/TeleportCommand.java
 +++ b/net/minecraft/server/commands/TeleportCommand.java
-@@ -244,6 +_,14 @@
-         float xRot,
-         @Nullable LookAt lookAt
+@@ -270,6 +_,14 @@
+         float p_139023_,
+         @Nullable TeleportCommand.LookAt p_139024_
      ) throws CommandSyntaxException {
-+        net.neoforged.neoforge.event.entity.EntityTeleportEvent.TeleportCommand event = net.neoforged.neoforge.event.EventHooks.onEntityTeleportCommand(victim, level,x, y, z);
++        net.neoforged.neoforge.event.entity.EntityTeleportEvent.TeleportCommand event = net.neoforged.neoforge.event.EventHooks.onEntityTeleportCommand(p_139016_, p_139018_, p_139019_, p_139020_);
 +        if (event.isCanceled()) {
 +             return;
 +        }
-+        x = event.getTargetX();
-+        y = event.getTargetY();
-+        z = event.getTargetZ();
++        p_139018_ = event.getTargetX();
++        p_139019_ = event.getTargetY();
++        p_139020_ = event.getTargetZ();
 +
-         BlockPos blockPos = BlockPos.containing(x, y, z);
-         if (!Level.isInSpawnableBounds(blockPos)) {
+         BlockPos blockpos = BlockPos.containing(p_139018_, p_139019_, p_139020_);
+         if (!Level.isInSpawnableBounds(blockpos)) {
              throw INVALID_POSITION.create();

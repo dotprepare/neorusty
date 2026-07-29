@@ -10,7 +10,7 @@ import static net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ComposterBlock;
@@ -19,13 +19,10 @@ import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
-import net.neoforged.testframework.gametest.GameTest;
 import org.apache.commons.lang3.mutable.MutableInt;
 
 @ForEachTest(groups = "capabilities.vanillahandlers")
@@ -38,7 +35,7 @@ public class VanillaHandlersTests {
 
         MutableInt invalidationCount = new MutableInt();
         var capCache = BlockCapabilityCache.create(
-                Capabilities.Item.BLOCK,
+                Capabilities.ItemHandler.BLOCK,
                 helper.getLevel(),
                 helper.absolutePos(composterPos),
                 Direction.UP,
@@ -96,11 +93,10 @@ public class VanillaHandlersTests {
 
         // Of particular note to be tested here is the 'null' side; see #2572
         // "IItemHandler for null side of Composter allows items without compost value to be inserted"
-        // TODO: change test back to null + all directions once supported by the ComposterWrapper
-        var sides = new Direction[] { Direction.UP, Direction.DOWN };
+        var sides = new Direction[] { null, Direction.UP, Direction.DOWN, Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST };
 
         for (Direction side : sides) {
-            var capability = IItemHandler.of(helper.requireCapability(Capabilities.Item.BLOCK, composterPos, side));
+            var capability = helper.requireCapability(Capabilities.ItemHandler.BLOCK, composterPos, side);
             var result = capability.insertItem(0, nonCompostable, false);
             if (result.isEmpty())
                 helper.fail("Expected failure to insert non-compostable item for side " + side);
@@ -117,7 +113,7 @@ public class VanillaHandlersTests {
 
         MutableInt invalidationCount = new MutableInt();
         var capCache = BlockCapabilityCache.create(
-                Capabilities.Fluid.BLOCK,
+                Capabilities.FluidHandler.BLOCK,
                 helper.getLevel(),
                 helper.absolutePos(cauldronPos),
                 Direction.UP,
@@ -129,10 +125,8 @@ public class VanillaHandlersTests {
 
         // Should invalidate once when setting the block
         helper.setBlock(cauldronPos, Blocks.CAULDRON);
-        var fluidHandler = capCache.getCapability();
-        helper.assertNotNull(fluidHandler, "Expected fluid handler");
-        // Note: this uses the legacy wrappers, testing the wrappers and that the new CauldronWrapper matches the old one.
-        var wrapper = IFluidHandler.of(fluidHandler);
+        var wrapper = capCache.getCapability();
+        helper.assertNotNull(wrapper, "Expected fluid handler");
         helper.assertTrue(invalidationCount.intValue() == 1, "Expected 1 invalidation only");
 
         helper.assertTrue(wrapper.getTanks() == 1, "Got %d tanks".formatted(wrapper.getTanks()));
@@ -147,7 +141,7 @@ public class VanillaHandlersTests {
         // Action!
         fillResult = wrapper.fill(new FluidStack(Fluids.WATER, 2000), EXECUTE);
         helper.assertTrue(fillResult == 1000, "Filled " + fillResult);
-        helper.assertBlockState(cauldronPos, state -> state.is(Blocks.WATER_CAULDRON) && state.getValue(LayeredCauldronBlock.LEVEL) == 3, $ -> Component.literal("Expected level 3 cauldron"));
+        helper.assertBlockState(cauldronPos, state -> state.is(Blocks.WATER_CAULDRON) && state.getValue(LayeredCauldronBlock.LEVEL) == 3, () -> "Expected level 3 cauldron");
 
         helper.assertTrue(FluidStack.matches(wrapper.getFluidInTank(0), new FluidStack(Fluids.WATER, 1000)), "Expected 1000 water");
 

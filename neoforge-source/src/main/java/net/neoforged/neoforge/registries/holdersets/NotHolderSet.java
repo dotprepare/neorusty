@@ -28,7 +28,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.RandomSource;
 import net.neoforged.neoforge.common.NeoForgeMod;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * <p>Holderset that represents all elements of a registry not present in another holderset.
@@ -67,11 +67,6 @@ public class NotHolderSet<T> implements ICustomHolderSet<T> {
     @Override
     public HolderSetType type() {
         return NeoForgeMod.NOT_HOLDER_SET.value();
-    }
-
-    @Override
-    public boolean isImmediatelyResolvable() {
-        return value.isImmediatelyResolvable();
     }
 
     @Override
@@ -152,11 +147,6 @@ public class NotHolderSet<T> implements ICustomHolderSet<T> {
         for (Runnable runnable : this.owners) {
             runnable.run();
         }
-    }
-
-    @Override
-    public boolean isBound() {
-        return value.isBound();
     }
 
     public static class Type implements HolderSetType {

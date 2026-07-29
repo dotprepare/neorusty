@@ -1,37 +1,37 @@
 --- a/net/minecraft/client/gui/screens/worldselection/CreateWorldScreen.java
 +++ b/net/minecraft/client/gui/screens/worldselection/CreateWorldScreen.java
-@@ -169,6 +_,7 @@
-         queueLoadScreen(minecraft, PREPARING_WORLD_DATA);
-         long start = Util.getMillis();
-         PackRepository vanillaOnlyPackRepository = new PackRepository(new ServerPacksSource(minecraft.directoryValidator()));
-+        net.neoforged.neoforge.resource.ResourcePackLoader.populatePackRepository(vanillaOnlyPackRepository, net.minecraft.server.packs.PackType.SERVER_DATA, false);
-         WorldDataConfiguration dataConfig = SharedConstants.IS_RUNNING_IN_IDE
-             ? new WorldDataConfiguration(new DataPackConfig(List.of("vanilla", "tests"), List.of()), FeatureFlags.DEFAULT_FLAGS)
-             : WorldDataConfiguration.DEFAULT;
-@@ -329,6 +_,10 @@
-             SystemToast.onPackCopyFailure(this.minecraft, worldFolder);
-             return false;
-         } else {
-+            if (worldDataAndGenSettings.data().worldGenSettingsLifecycle() != Lifecycle.stable()) {
+@@ -118,6 +_,7 @@
+     public static void openFresh(Minecraft p_232897_, @Nullable Screen p_232898_) {
+         queueLoadScreen(p_232897_, PREPARING_WORLD_DATA);
+         PackRepository packrepository = new PackRepository(new ServerPacksSource(p_232897_.directoryValidator()));
++        net.neoforged.neoforge.resource.ResourcePackLoader.populatePackRepository(packrepository, net.minecraft.server.packs.PackType.SERVER_DATA, false);
+         WorldLoader.InitConfig worldloader$initconfig = createDefaultLoadConfig(packrepository, WorldDataConfiguration.DEFAULT);
+         CompletableFuture<WorldCreationContext> completablefuture = WorldLoader.load(
+             worldloader$initconfig,
+@@ -243,6 +_,10 @@
+             WorldCreationContext worldcreationcontext = this.uiState.getSettings();
+             LevelSettings levelsettings = this.createLevelSettings(flag);
+             WorldData worlddata = new PrimaryLevelData(levelsettings, worldcreationcontext.options(), p_250577_, p_249994_);
++            if(worlddata.worldGenSettingsLifecycle() != Lifecycle.stable()) {
 +                // Neo: set experimental settings confirmation flag so user is not shown warning on next open
-+                ((PrimaryLevelData) worldDataAndGenSettings.data()).withConfirmedWarning(true);
++                ((PrimaryLevelData)worlddata).withConfirmedWarning(true);
 +            }
              this.minecraft
                  .createWorldOpenFlows()
-                 .createLevelFromExistingSettings(newWorldAccess.get(), context.dataPackResources(), finalLayers, worldDataAndGenSettings, gameRules);
-@@ -504,7 +_,7 @@
-                                         if (retry) {
-                                             onAbort.accept(this.uiState.getSettings().dataConfiguration());
+                 .createLevelFromExistingSettings(optional.get(), worldcreationcontext.dataPackResources(), p_249152_, worlddata);
+@@ -428,7 +_,7 @@
+                                         if (p_269627_) {
+                                             p_270552_.accept(this.uiState.getSettings().dataConfiguration());
                                          } else {
--                                            onAbort.accept(WorldDataConfiguration.DEFAULT);
-+                                            onAbort.accept(new WorldDataConfiguration(new DataPackConfig(ImmutableList.of("vanilla"), ImmutableList.of()), FeatureFlags.VANILLA_SET)); // FORGE: Revert to *actual* vanilla data
+-                                            p_270552_.accept(WorldDataConfiguration.DEFAULT);
++                                            p_270552_.accept(new WorldDataConfiguration(new DataPackConfig(ImmutableList.of("vanilla"), ImmutableList.of()), FeatureFlags.VANILLA_SET)); // FORGE: Revert to *actual* vanilla data
                                          }
                                      },
                                      Component.translatable("dataPack.validation.failed"),
-@@ -613,6 +_,7 @@
-         if (dataPackDir != null) {
+@@ -547,6 +_,7 @@
+         if (path != null) {
              if (this.tempDataPackRepository == null) {
-                 this.tempDataPackRepository = ServerPacksSource.createPackRepository(dataPackDir, this.packValidator);
+                 this.tempDataPackRepository = ServerPacksSource.createPackRepository(path, this.packValidator);
 +                net.neoforged.neoforge.resource.ResourcePackLoader.populatePackRepository(this.tempDataPackRepository, net.minecraft.server.packs.PackType.SERVER_DATA, false);
                  this.tempDataPackRepository.reload();
              }

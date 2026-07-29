@@ -1,13 +1,5 @@
 package net.neoforged.neodev;
 
-import java.io.File;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.function.Consumer;
 import net.neoforged.minecraftdependencies.MinecraftDependenciesPlugin;
 import net.neoforged.moddevgradle.internal.NeoDevFacade;
 import net.neoforged.moddevgradle.tasks.JarJar;
@@ -37,14 +29,19 @@ import org.gradle.api.plugins.BasePluginExtension;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
-import org.gradle.api.tasks.Copy;
-import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.Sync;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
-import org.gradle.language.jvm.tasks.ProcessResources;
+
+import java.io.File;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 public class NeoDevPlugin implements Plugin<Project> {
     static final String GROUP = "neoforge development";
@@ -59,6 +56,7 @@ public class NeoDevPlugin implements Plugin<Project> {
         var neoDevBuildDir = project.getLayout().getBuildDirectory().dir("neodev");
 
         var rawNeoFormVersion = project.getProviders().gradleProperty("neoform_version");
+        var fmlVersion = project.getProviders().gradleProperty("fancy_mod_loader_version");
         var minecraftVersion = project.getProviders().gradleProperty("minecraft_version");
         var neoForgeVersion = project.provider(() -> project.getVersion().toString());
         var mcAndNeoFormVersion = minecraftVersion.zip(rawNeoFormVersion, (mc, nf) -> mc + "-" + nf);
@@ -66,57 +64,45 @@ public class NeoDevPlugin implements Plugin<Project> {
         var extension = project.getExtensions().create(NeoDevExtension.NAME, NeoDevExtension.class);
         var configurations = NeoDevConfigurations.createAndSetup(project);
 
-        // Pre-create the "client" source set
-        project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().create("client");
-
         /*
          * MINECRAFT SOURCES SETUP
          */
         // 1. Obtain decompiled Minecraft sources jar using NeoForm.
-        var decompilationSetup = configureMinecraftDecompilation(project);
+        var createSourceArtifacts = configureMinecraftDecompilation(project);
         // Task must run on sync to have MC resources available for IDEA nondelegated builds.
-        NeoDevFacade.runTaskOnProjectSync(project, decompilationSetup.vanillaResources());
+        NeoDevFacade.runTaskOnProjectSync(project, createSourceArtifacts);
 
-        // Remove resources which the "sources" result actually contains
-        var vanillaSources = tasks.register("vanillaSources", Zip.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getDestinationDirectory().set(neoDevBuildDir.map(d -> d.dir("artifacts")));
-            task.getArchiveFileName().set("base-sources-only.jar");
-            task.from(project.zipTree(decompilationSetup.createArtifacts().flatMap(CreateMinecraftArtifacts::getGameSourcesArtifact)));
-            task.include("**/*.java");
-        });
-
-        // Obtain clean binary artifacts, needed to be able to generate ATs and binary patches
+        // Obtain clean binary artifacts, needed to be able to generate ATs
         var createCleanArtifacts = tasks.register("createCleanArtifacts", CreateCleanArtifacts.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.setDescription("This task retrieves various files for the Minecraft version without applying NeoForge patches to them");
             var cleanArtifactsDir = neoDevBuildDir.map(dir -> dir.dir("artifacts/clean"));
             task.getRawClientJar().set(cleanArtifactsDir.map(dir -> dir.file("raw-client.jar")));
+            task.getCleanClientJar().set(cleanArtifactsDir.map(dir -> dir.file("client.jar")));
             task.getRawServerJar().set(cleanArtifactsDir.map(dir -> dir.file("raw-server.jar")));
+            task.getCleanServerJar().set(cleanArtifactsDir.map(dir -> dir.file("server.jar")));
             task.getCleanJoinedJar().set(cleanArtifactsDir.map(dir -> dir.file("joined.jar")));
+            task.getMergedMappings().set(cleanArtifactsDir.map(dir -> dir.file("merged-mappings.txt")));
             task.getNeoFormArtifact().set(mcAndNeoFormVersion.map(version -> "net.neoforged:neoform:" + version + "@zip"));
-        });
-
-        var genAts = project.getRootProject().file("src/main/resources/META-INF/accesstransformergenerated.cfg");
-
-        var genAtsTask = tasks.register("generateAccessTransformers", GenerateAccessTransformers.class, task -> {
-            task.setGroup(GROUP);
-            task.setDescription("Generate access transformers based on a set of rules defined in the buildscript");
-            task.getInput().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getCleanJoinedJar));
-            task.getAccessTransformer().set(genAts);
         });
 
         // 2. Apply AT to the source jar from 1.
         var atFiles = List.of(
-                project.getRootProject().file("src/main/resources/META-INF/accesstransformer.cfg"),
-                genAts);
+                project.getRootProject().file("src/main/resources/META-INF/accesstransformer.cfg")
+        );
         var applyAt = configureAccessTransformer(
                 project,
-                vanillaSources.flatMap(Zip::getArchiveFile),
+                createSourceArtifacts,
                 neoDevBuildDir,
                 atFiles);
 
-        applyAt.configure(task -> task.mustRunAfter(genAtsTask));
+        tasks.withType(TransformSources.class, task -> {
+            task.setGroup(INTERNAL_GROUP);
+            task.classpath(configurations.getExecutableTool(Tools.JST));
+
+            task.getLibraries().from(configurations.neoFormClasspath);
+            task.getLibrariesFile().set(neoDevBuildDir.map(dir -> dir.file("minecraft-libraries-for-" + task.getName() + ".txt")));
+        });
 
         // 3. Apply interface injections after the ATs
         // this jar is only used for the patches in the repo
@@ -144,28 +130,12 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getRejectsFolder().set(project.getRootProject().file("rejects"));
         });
 
-        // 5. Split source jar from 4. into client and server.
-        var splitPatchedSources = tasks.register("splitPatchedSources", SplitMergedSources.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getOriginalResourcesJar().set(decompilationSetup.vanillaResources.flatMap(Zip::getArchiveFile));
-            task.getMergedJar().set(applyPatches.flatMap(ApplyPatches::getPatchedJar));
-            task.getCommonJar().set(neoDevBuildDir.map(dir -> dir.file("artifacts/common-patched-sources.jar")));
-            task.getClientJar().set(neoDevBuildDir.map(dir -> dir.file("artifacts/client-patched-sources.jar")));
-        });
-
-        // 6. Unpack jars from 5.
-        var setupCommon = tasks.register("setupCommon", Sync.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.from(project.zipTree(splitPatchedSources.flatMap(SplitMergedSources::getCommonJar)));
-            task.into(project.file("src/main/java"));
-        });
-        var setupClient = tasks.register("setupClient", Sync.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.from(project.zipTree(splitPatchedSources.flatMap(SplitMergedSources::getClientJar)));
-            task.into(project.file("src/client/java"));
-        });
-        tasks.register("setup", task -> {
-            task.dependsOn(setupCommon, setupClient);
+        // 5. Unpack jar from 4.
+        var mcSourcesPath = project.file("src/main/java");
+        tasks.register("setup", Sync.class, task -> {
+            task.setGroup(GROUP);
+            task.from(project.zipTree(applyPatches.flatMap(ApplyPatches::getPatchedJar)));
+            task.into(mcSourcesPath);
         });
 
         /*
@@ -176,12 +146,18 @@ public class NeoDevPlugin implements Plugin<Project> {
         var writeUserDevConfig = tasks.register("writeUserDevConfig", CreateUserDevConfig.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getUserDevConfig().set(neoDevBuildDir.map(dir -> dir.file("userdev-config.json")));
+            task.getFmlVersion().set(fmlVersion);
             task.getMinecraftVersion().set(minecraftVersion);
             task.getNeoForgeVersion().set(neoForgeVersion);
             task.getRawNeoFormVersion().set(rawNeoFormVersion);
             task.getLibraries().addAll(DependencyUtils.configurationToGavList(configurations.userdevClasspath));
+            task.getModules().addAll(DependencyUtils.configurationToGavList(configurations.modulePath));
             task.getTestLibraries().addAll(DependencyUtils.configurationToGavList(configurations.userdevTestClasspath));
             task.getTestLibraries().add(neoForgeVersion.map(v -> "net.neoforged:testframework:" + v));
+            task.getIgnoreList().addAll(configurations.userdevCompileOnlyClasspath.getIncoming().getArtifacts().getResolvedArtifacts().map(results -> {
+                return results.stream().map(r -> r.getFile().getName()).toList();
+            }));
+            task.getIgnoreList().addAll("client-extra", "neoforge-");
             task.getBinpatcherGav().set(Tools.BINPATCHER.asGav(project));
         });
 
@@ -196,77 +172,47 @@ public class NeoDevPlugin implements Plugin<Project> {
         var runtimeClasspath = project.getConfigurations().getByName(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME);
         runtimeClasspath.getDependencies().add(
                 dependencyFactory.create(
-                        project.files(decompilationSetup.vanillaResources())));
+                        project.files(createSourceArtifacts.flatMap(CreateMinecraftArtifacts::getResourcesArtifact))
+                )
+        );
         // 3. Let MDG do the rest of the setup. :)
         NeoDevFacade.setupRuns(
                 project,
                 neoDevBuildDir,
                 extension.getRuns(),
                 writeUserDevConfig,
-                modulePath -> {},
-                legacyClasspath -> {},
+                modulePath -> {
+                    modulePath.extendsFrom(configurations.moduleLibraries);
+                },
+                legacyClassPath -> {
+                    legacyClassPath.getDependencies().addLater(mcAndNeoFormVersion.map(v -> dependencyFactory.create("net.neoforged:neoform:" + v).capabilities(caps -> {
+                        caps.requireCapability("net.neoforged:neoform-dependencies");
+                    })));
+                    legacyClassPath.extendsFrom(configurations.libraries, configurations.moduleLibraries, configurations.userdevCompileOnly);
+                },
                 downloadAssets.flatMap(DownloadAssets::getAssetPropertiesFile),
-                mcAndNeoFormVersion);
+                mcAndNeoFormVersion
+        );
         // TODO: Gradle run tasks should be moved to gradle group GROUP
 
         /*
          * OTHER TASKS
          */
 
-        var generateAdditionalMinecraftJarResources = tasks.register("generateMinecraftModsToml", ProcessResources.class, task -> {
-            task.getInputs().property("minecraft_version", minecraftVersion.get());
-            task.setGroup(INTERNAL_GROUP);
-            task.from(new File(project.getRootDir(), "src/main/templates/minecraft.neoforge.mods.toml"), spec -> {
-                spec.rename("(.*)", "META-INF/neoforge.mods.toml");
-                spec.expand(Map.of("minecraft_version", minecraftVersion.get()));
-            });
-            task.into(neoDevBuildDir.map(d -> d.dir("additional-minecraft-resources")).get());
-        });
-        var additionalMinecraftResourcesDir = project.getLayout().dir(generateAdditionalMinecraftJarResources.map(Copy::getDestinationDir));
-
-        // Task to create a jar with both common and client classes.
-        // We cannot add the client classes to the default `jar` task because it might be used
-        // as a dependency for the compilation of the client classes, leading to a circular dependency.
-        var joinedJar = tasks.register("joinedJar", Jar.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getArchiveClassifier().set("joined");
-            task.from(project.zipTree(tasks.named("jar", Jar.class).flatMap(AbstractArchiveTask::getArchiveFile)));
-            task.from(project.zipTree(tasks.named("clientJar", Jar.class).flatMap(AbstractArchiveTask::getArchiveFile)));
-        });
-
-        var mergeSources = tasks.register("mergePatchedSources", Zip.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.from(project.files("src/main/java", "src/client/java"));
-            task.getDestinationDirectory().set(neoDevBuildDir.map(dir -> dir.dir("artifacts/merged-sources")));
-            task.getArchiveFileName().set("merged-patched-sources.jar");
-        });
-
-        var commonSources = tasks.register("commonPatchedSources", Zip.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.from(project.files("src/main/java"));
-            task.getDestinationDirectory().set(neoDevBuildDir.map(dir -> dir.dir("artifacts/common-sources")));
-            task.getArchiveFileName().set("common-patched-sources.jar");
-        });
-
         // Generate source patches into a patch archive, based on the jar with injected interfaces.
         var genSourcePatches = tasks.register("generateSourcePatches", GenerateSourcePatches.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getOriginalJar().set(applyInterfaceInjection.flatMap(TransformSources::getOutputJar));
-            task.getModifiedSources().set(mergeSources.flatMap(AbstractArchiveTask::getArchiveFile));
+            task.getModifiedSources().set(project.file("src/main/java"));
             task.getPatchesJar().set(neoDevBuildDir.map(dir -> dir.file("source-patches.zip")));
         });
 
         // Generate source patches that are based on the production environment (without separate interface injection)
-        var genProductionSourcePatches = tasks.register("generateProductionSourcePatches", GenerateSourcePatches.class, task -> {
+        var genProductionPatches = tasks.register("generateProductionSourcePatches", GenerateSourcePatches.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getOriginalJar().set(applyAt.flatMap(TransformSources::getOutputJar));
-            task.getModifiedSources().set(mergeSources.flatMap(AbstractArchiveTask::getArchiveFile));
+            task.getModifiedSources().set(project.file("src/main/java"));
             task.getPatchesFolder().set(neoDevBuildDir.map(dir -> dir.dir("production-source-patches")));
-        });
-        var genProductionResourcePatches = tasks.register("generateProductionResourcePatches", GenerateResourcePatches.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getAdditionalResourcesDir().set(additionalMinecraftResourcesDir);
-            task.getPatchesFolder().set(neoDevBuildDir.map(dir -> dir.dir("production-resource-patches")));
         });
 
         // Update the patch/ folder with the current patches.
@@ -276,35 +222,39 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.into(project.getRootProject().file("patches"));
         });
 
-        // Even the jar built only for local usage in other tasks needs the MANIFEST.MF used to tell FML it's the
-        // NeoForge resource jar.
-        tasks.named("jar", Jar.class).configure(task -> {
-            task.getManifest().attributes(Map.of("FML-System-Mods", "neoforge"));
-        });
-
-        var binaryPatchOutputs = configureBinaryPatchCreation(
-                project,
-                configurations,
-                createCleanArtifacts,
-                neoDevBuildDir,
-                additionalMinecraftResourcesDir);
-
         // Universal jar = the jar that contains NeoForge classes
         // TODO: signing?
         var universalJar = tasks.register("universalJar", Jar.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getArchiveClassifier().set("universal");
-            task.manifest(manifest -> {
-                manifest.attributes(Map.of("FML-System-Mods", "neoforge"));
-            });
 
-            task.from(project.zipTree(joinedJar.flatMap(AbstractArchiveTask::getArchiveFile)));
+            task.from(project.zipTree(
+                    tasks.named("jar", Jar.class).flatMap(AbstractArchiveTask::getArchiveFile)));
             task.exclude("net/minecraft/**");
             task.exclude("com/**");
             task.exclude("mcp/**");
-            task.from(binaryPatchOutputs, spec -> {
-                spec.into("net/neoforged/neoforge/common/");
-                spec.rename(s -> "patches.lzma");
+
+            task.manifest(manifest -> {
+                manifest.attributes(Map.of("FML-System-Mods", "neoforge"));
+                // These attributes are used from NeoForgeVersion.java to find the NF version without command line arguments.
+                manifest.attributes(
+                        Map.of(
+                                "Specification-Title", "NeoForge",
+                                "Specification-Vendor", "NeoForge",
+                                "Specification-Version", project.getVersion().toString().substring(0, project.getVersion().toString().lastIndexOf(".")),
+                                "Implementation-Title", project.getGroup(),
+                                "Implementation-Version", project.getVersion(),
+                                "Implementation-Vendor", "NeoForged"),
+                        "net/neoforged/neoforge/internal/versions/neoforge/");
+                manifest.attributes(
+                        Map.of(
+                                "Specification-Title", "Minecraft",
+                                "Specification-Vendor", "Mojang",
+                                "Specification-Version", minecraftVersion,
+                                "Implementation-Title", "MCP",
+                                "Implementation-Version", mcAndNeoFormVersion,
+                                "Implementation-Vendor", "NeoForged"),
+                        "net/neoforged/neoforge/versions/neoform/");
             });
         });
 
@@ -312,16 +262,27 @@ public class NeoDevPlugin implements Plugin<Project> {
         jarJarTask.configure(task -> task.setGroup(INTERNAL_GROUP));
         universalJar.configure(task -> task.from(jarJarTask));
 
+        var binaryPatchOutputs = configureBinaryPatchCreation(
+                project,
+                configurations,
+                createCleanArtifacts,
+                neoDevBuildDir,
+                genProductionPatches.flatMap(GenerateSourcePatches::getPatchesFolder)
+        );
+
         var installerRepositoryUrls = getInstallerRepositoryUrls(project);
         // Launcher profile = the version.json file used by the Minecraft launcher.
         var createLauncherProfile = tasks.register("createLauncherProfile", CreateLauncherProfile.class, task -> {
             task.setGroup(INTERNAL_GROUP);
+            task.getFmlVersion().set(fmlVersion);
             task.getMinecraftVersion().set(minecraftVersion);
             task.getNeoForgeVersion().set(neoForgeVersion);
             task.getRawNeoFormVersion().set(rawNeoFormVersion);
             task.setLibraries(configurations.launcherProfileClasspath);
-            task.setMinecraftLibraries(configurations.minecraftClientClasspath);
             task.getRepositoryURLs().set(installerRepositoryUrls);
+            // ${version_name}.jar will be filled out by the launcher. It corresponds to the raw SRG Minecraft client jar.
+            task.getIgnoreList().addAll("client-extra", "${version_name}.jar");
+            task.setModules(configurations.modulePath);
             task.getLauncherProfile().set(neoDevBuildDir.map(dir -> dir.file("launcher-profile.json")));
         });
 
@@ -331,14 +292,12 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getMinecraftVersion().set(minecraftVersion);
             task.getNeoForgeVersion().set(neoForgeVersion);
             task.getMcAndNeoFormVersion().set(mcAndNeoFormVersion);
-            task.getIcon().set(project.getRootProject().file("docs/assets/installer_profile_icon.png"));
+            task.getIcon().set(project.getRootProject().file("docs/assets/neoforged.ico"));
             // Anything that is on the launcher classpath should be downloaded by the installer.
             // (At least on the server side).
             task.addLibraries(configurations.launcherProfileClasspath);
-            // Note: to properly support that, we need to know which libraries are part of the Vanilla server jar
-            // to *not* download them before it is unpacked.
-            task.addMinecraftServerLibraries(configurations.minecraftServerClasspath);
-            task.addMinecraftClientLibraries(configurations.minecraftClientClasspath);
+            // We need the NeoForm zip for the SRG mappings.
+            task.addLibraries(configurations.neoFormDataOnly);
             task.getRepositoryURLs().set(installerRepositoryUrls);
             task.getUniversalJar().set(universalJar.flatMap(AbstractArchiveTask::getArchiveFile));
             task.getInstallerProfile().set(neoDevBuildDir.map(dir -> dir.file("installer-profile.json")));
@@ -355,11 +314,11 @@ public class NeoDevPlugin implements Plugin<Project> {
         });
 
         var createWindowsServerArgsFile = tasks.register("createWindowsServerArgsFile", CreateArgsFile.class, task -> {
-            task.setLibraries(";", configurations.launcherProfileClasspath);
+            task.setLibraries(";", configurations.launcherProfileClasspath, configurations.modulePath);
             task.getArgsFile().set(neoDevBuildDir.map(dir -> dir.file("windows-server-args.txt")));
         });
         var createUnixServerArgsFile = tasks.register("createUnixServerArgsFile", CreateArgsFile.class, task -> {
-            task.setLibraries(":", configurations.launcherProfileClasspath);
+            task.setLibraries(":", configurations.launcherProfileClasspath, configurations.modulePath);
             task.getArgsFile().set(neoDevBuildDir.map(dir -> dir.file("unix-server-args.txt")));
         });
 
@@ -367,9 +326,16 @@ public class NeoDevPlugin implements Plugin<Project> {
             taskProvider.configure(task -> {
                 task.setGroup(INTERNAL_GROUP);
                 task.getTemplate().set(project.getRootProject().file("server_files/args.txt"));
+                task.getFmlVersion().set(fmlVersion);
                 task.getMinecraftVersion().set(minecraftVersion);
                 task.getNeoForgeVersion().set(neoForgeVersion);
                 task.getRawNeoFormVersion().set(rawNeoFormVersion);
+                // In theory, new BootstrapLauncher shouldn't need the module path in the ignore list anymore.
+                // However, in server installs libraries are passed as relative paths here.
+                // Module path detection doesn't currently work with relative paths (BootstrapLauncher #20).
+                task.getIgnoreList().set(configurations.modulePath.getIncoming().getArtifacts().getResolvedArtifacts().map(results -> {
+                    return results.stream().map(r -> r.getFile().getName()).toList();
+                }));
                 task.getRawServerJar().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawServerJar));
             });
         }
@@ -407,9 +373,13 @@ public class NeoDevPlugin implements Plugin<Project> {
                 spec.into("data");
                 spec.rename(s -> "win_args.txt");
             });
-            task.from(binaryPatchOutputs, spec -> {
+            task.from(binaryPatchOutputs.binaryPatchesForClient(), spec -> {
                 spec.into("data");
                 spec.rename(s -> "client.lzma");
+            });
+            task.from(binaryPatchOutputs.binaryPatchesForServer(), spec -> {
+                spec.into("data");
+                spec.rename(s -> "server.lzma");
             });
             var mavenPath = neoForgeVersion.map(v -> "net/neoforged/neoforge/" + v);
             task.getInputs().property("mavenPath", mavenPath);
@@ -422,7 +392,7 @@ public class NeoDevPlugin implements Plugin<Project> {
             });
 
             // This is true by default (see gradle.properties), and needs to be disabled explicitly when building (see release.yml).
-            String installerDebugProperty = "include_artifacts_in_installer";
+            String installerDebugProperty = "neogradle.runtime.platform.installer.debug";
             if (project.getProperties().containsKey(installerDebugProperty) && Boolean.parseBoolean(project.getProperties().get(installerDebugProperty).toString())) {
                 task.from(universalJar.flatMap(AbstractArchiveTask::getArchiveFile), spec -> {
                     spec.into(String.format("/maven/net/neoforged/neoforge/%s/", neoForgeVersion.get()));
@@ -441,13 +411,10 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.from(atFiles, spec -> {
                 spec.into("ats/");
             });
-            task.from(binaryPatchOutputs, spec -> {
-                spec.rename(s -> "patches.lzma");
+            task.from(binaryPatchOutputs.binaryPatchesForMerged(), spec -> {
+                spec.rename(s -> "joined.lzma");
             });
-            task.from(genProductionSourcePatches.flatMap(GenerateSourcePatches::getPatchesFolder), spec -> {
-                spec.into("patches/");
-            });
-            task.from(genProductionResourcePatches.flatMap(GenerateResourcePatches::getPatchesFolder), spec -> {
+            task.from(project.fileTree(genProductionPatches.flatMap(GenerateSourcePatches::getPatchesFolder)), spec -> {
                 spec.into("patches/");
             });
         });
@@ -475,7 +442,8 @@ public class NeoDevPlugin implements Plugin<Project> {
                 installerJar,
                 minecraftVersion,
                 neoForgeVersion,
-                createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawClientJar));
+                createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawClientJar)
+        );
         setupProductionServerTest(project, installerJar);
     }
 
@@ -505,69 +473,90 @@ public class NeoDevPlugin implements Plugin<Project> {
 
     private static TaskProvider<TransformSources> configureAccessTransformer(
             Project project,
-            Provider<RegularFile> sourceArtifact,
+            TaskProvider<CreateMinecraftArtifacts> createSourceArtifacts,
             Provider<Directory> neoDevBuildDir,
             List<File> atFiles) {
+
         // Pass -PvalidateAccessTransformers to validate ATs.
         var validateAts = project.getProviders().gradleProperty("validateAccessTransformers").map(p -> true).orElse(false);
         return project.getTasks().register("applyAccessTransformer", TransformSources.class, task -> {
-            task.getInputJar().set(sourceArtifact);
+            task.getInputJar().set(createSourceArtifacts.flatMap(CreateMinecraftArtifacts::getSourcesArtifact));
             task.getAccessTransformers().from(atFiles);
             task.getValidateAccessTransformers().set(validateAts);
             task.getOutputJar().set(neoDevBuildDir.map(dir -> dir.file("artifacts/access-transformed-sources.jar")));
         });
     }
 
-    private static Provider<RegularFile> configureBinaryPatchCreation(
-            Project project,
-            NeoDevConfigurations neoDevConfigurations,
-            TaskProvider<CreateCleanArtifacts> createCleanArtifacts,
-            Provider<Directory> neoDevBuildDir,
-            Provider<Directory> additionalMinecraftResources) {
+    private static BinaryPatchOutputs configureBinaryPatchCreation(Project project,
+                                                                   NeoDevConfigurations configurations,
+                                                                   TaskProvider<CreateCleanArtifacts> createCleanArtifacts,
+                                                                   Provider<Directory> neoDevBuildDir,
+                                                                   Provider<Directory> sourcesPatchesFolder) {
         var tasks = project.getTasks();
 
-        var clientBaseJar = setupBinaryPatchBaseJar(project, neoDevBuildDir, BinaryPatchBaseType.CLIENT, neoDevConfigurations, createCleanArtifacts);
-        var serverBaseJar = setupBinaryPatchBaseJar(project, neoDevBuildDir, BinaryPatchBaseType.SERVER, neoDevConfigurations, createCleanArtifacts);
-        var joinedBaseJar = setupBinaryPatchBaseJar(project, neoDevBuildDir, BinaryPatchBaseType.JOINED, neoDevConfigurations, createCleanArtifacts);
-        var clientModifiedJar = setupBinaryPatchModifiedJar(project, neoDevBuildDir, BinaryPatchBaseType.CLIENT, additionalMinecraftResources);
-        var serverModifiedJar = setupBinaryPatchModifiedJar(project, neoDevBuildDir, BinaryPatchBaseType.SERVER, additionalMinecraftResources);
-
-        var binpatcherConfig = neoDevConfigurations.getExecutableTool(Tools.BINPATCHER);
-        var generatePatchBundles = tasks.register("generatePatchBundle", GenerateBinaryPatches.class, task -> {
-            task.setDescription("Generates the binary patches.");
-            task.setGroup(INTERNAL_GROUP);
-            task.classpath(binpatcherConfig);
-
-            task.getBaseClientJar().set(clientBaseJar);
-            task.getModifiedClientJar().set(clientModifiedJar);
-            task.getBaseServerJar().set(serverBaseJar);
-            task.getModifiedServerJar().set(serverModifiedJar);
-            task.getBaseJoinedJar().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getCleanJoinedJar));
-            // Since we're filtering by *.class, the modified jar for client and joined is identical. They differ in manifest only.
-            task.getModifiedJoinedJar().set(clientModifiedJar);
-            task.getInclude().add("**/*.class");
-            task.getInclude().add("META-INF/neoforge.mods.toml");
-
-            task.getOutputFile().set(neoDevBuildDir.map(dir -> dir.file("patches.lzma")));
+        var artConfig = configurations.getExecutableTool(Tools.AUTO_RENAMING_TOOL);
+        var remapClientJar = tasks.register("remapClientJar", RemapJar.class, task -> {
+            task.setDescription("Creates a Minecraft client jar with the official mappings applied. Used as the base for generating binary patches for the client.");
+            task.getInputJar().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getCleanClientJar));
+            task.getOutputJar().set(neoDevBuildDir.map(dir -> dir.file("remapped-client.jar")));
         });
-
-        var patchBundle = generatePatchBundles.flatMap(GenerateBinaryPatches::getOutputFile);
-
-        tasks.register("listPatchBundleContent", ListBinaryPatches.class, task -> {
-            task.setDescription("Lists the content of the created binary patch bundle.");
-            task.setGroup(INTERNAL_GROUP);
-            task.classpath(binpatcherConfig);
-            task.getPatchBundle().set(patchBundle);
-            task.getOutputFile().set(neoDevBuildDir.map(dir -> dir.file("patches-content.txt")));
+        var remapServerJar = tasks.register("remapServerJar", RemapJar.class, task -> {
+            task.setDescription("Creates a Minecraft dedicated server jar with the official mappings applied. Used as the base for generating binary patches for the client.");
+            task.getInputJar().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getCleanServerJar));
+            task.getOutputJar().set(neoDevBuildDir.map(dir -> dir.file("remapped-server.jar")));
         });
+        for (var remapTask : List.of(remapClientJar, remapServerJar)) {
+            remapTask.configure(task -> {
+                task.setGroup(INTERNAL_GROUP);
+                task.classpath(artConfig);
+                task.getMappings().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getMergedMappings));
+            });
+        }
 
-        return patchBundle;
+        var binpatcherConfig = configurations.getExecutableTool(Tools.BINPATCHER);
+        var generateMergedBinPatches = tasks.register("generateMergedBinPatches", GenerateBinaryPatches.class, task -> {
+            task.setDescription("Creates binary patch files by diffing a merged client/server jar-file and the compiled Minecraft classes in this project.");
+            task.getCleanJar().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getCleanJoinedJar));
+            task.getOutputFile().set(neoDevBuildDir.map(dir -> dir.file("merged-binpatches.lzma")));
+        });
+        var generateClientBinPatches = tasks.register("generateClientBinPatches", GenerateBinaryPatches.class, task -> {
+            task.setDescription("Creates binary patch files by diffing a merged client jar-file and the compiled Minecraft classes in this project.");
+            task.getCleanJar().set(remapClientJar.flatMap(RemapJar::getOutputJar));
+            task.getOutputFile().set(neoDevBuildDir.map(dir -> dir.file("client-binpatches.lzma")));
+        });
+        var generateServerBinPatches = tasks.register("generateServerBinPatches", GenerateBinaryPatches.class, task -> {
+            task.setDescription("Creates binary patch files by diffing a merged server jar-file and the compiled Minecraft classes in this project.");
+            task.getCleanJar().set(remapServerJar.flatMap(RemapJar::getOutputJar));
+            task.getOutputFile().set(neoDevBuildDir.map(dir -> dir.file("server-binpatches.lzma")));
+        });
+        for (var generateBinPatchesTask : List.of(generateMergedBinPatches, generateClientBinPatches, generateServerBinPatches)) {
+            generateBinPatchesTask.configure(task -> {
+                task.setGroup(INTERNAL_GROUP);
+                task.classpath(binpatcherConfig);
+                task.getPatchedJar().set(tasks.named("jar", Jar.class).flatMap(Jar::getArchiveFile));
+                task.getSourcePatchesFolder().set(sourcesPatchesFolder);
+                task.getMappings().set(createCleanArtifacts.flatMap(CreateCleanArtifacts::getMergedMappings));
+            });
+        }
+
+        return new BinaryPatchOutputs(
+                generateMergedBinPatches.flatMap(GenerateBinaryPatches::getOutputFile),
+                generateClientBinPatches.flatMap(GenerateBinaryPatches::getOutputFile),
+                generateServerBinPatches.flatMap(GenerateBinaryPatches::getOutputFile)
+        );
+    }
+
+    private record BinaryPatchOutputs(
+            Provider<RegularFile> binaryPatchesForMerged,
+            Provider<RegularFile> binaryPatchesForClient,
+            Provider<RegularFile> binaryPatchesForServer
+    ) {
     }
 
     /**
      * Sets up NFRT, and creates the sources and resources artifacts.
      */
-    static DecompilationSetup configureMinecraftDecompilation(Project project) {
+    static TaskProvider<CreateMinecraftArtifacts> configureMinecraftDecompilation(Project project) {
         project.getPlugins().apply(NeoFormRuntimePlugin.class);
 
         var configurations = project.getConfigurations();
@@ -606,110 +595,23 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.addArtifactsToManifest(neoFormRuntimeMinecraftDependencies);
         });
 
-        var minecraftArtifactsDir = neoDevBuildDir.map(dir -> dir.dir("artifacts"));
-        var createSources = tasks.register("createSourceArtifacts", CreateMinecraftArtifacts.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getGameSourcesArtifact().set(minecraftArtifactsDir.map(dir -> dir.file("base-sources.jar")));
+        return tasks.register("createSourceArtifacts", CreateMinecraftArtifacts.class, task -> {
+            var minecraftArtifactsDir = neoDevBuildDir.map(dir -> dir.dir("artifacts"));
+            task.getSourcesArtifact().set(minecraftArtifactsDir.map(dir -> dir.file("base-sources.jar")));
+            task.getResourcesArtifact().set(minecraftArtifactsDir.map(dir -> dir.file("minecraft-resources.jar")));
             task.getNeoFormArtifact().set(mcAndNeoFormVersion.map(version -> "net.neoforged:neoform:" + version + "@zip"));
         });
-
-        var vanillaResources = tasks.register("vanillaResources", Zip.class, task -> {
-            task.setGroup(INTERNAL_GROUP);
-            task.getDestinationDirectory().set(minecraftArtifactsDir);
-            task.getArchiveFileName().set("minecraft-resources.jar");
-            task.from(project.zipTree(createSources.flatMap(CreateMinecraftArtifacts::getGameSourcesArtifact)));
-            task.exclude("**/*.java");
-        });
-
-        return new DecompilationSetup(createSources, vanillaResources);
     }
 
-    record DecompilationSetup(TaskProvider<CreateMinecraftArtifacts> createArtifacts, TaskProvider<Zip> vanillaResources) {}
+    private void setupProductionClientTest(Project project,
+                                      NeoDevConfigurations configurations,
+                                      TaskProvider<? extends DownloadAssets> downloadAssets,
+                                      TaskProvider<? extends AbstractArchiveTask> installer,
+                                      Provider<String> minecraftVersion,
+                                           Provider<String> neoForgeVersion,
+                                           Provider<RegularFile> originalClientJar
+    ) {
 
-    enum BinaryPatchBaseType {
-        CLIENT,
-        SERVER,
-        JOINED;
-
-        public String taskName(String prefix) {
-            return prefix + Character.toUpperCase(toString().charAt(0)) + toString().substring(1);
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
-    }
-
-    private static Provider<RegularFile> setupBinaryPatchBaseJar(
-            Project project,
-            Provider<Directory> neoDevBuildDir,
-            BinaryPatchBaseType type,
-            NeoDevConfigurations neoDevConfigurations,
-            TaskProvider<CreateCleanArtifacts> createCleanArtifacts) {
-        var tasks = project.getTasks();
-
-        var binpatchesDir = neoDevBuildDir.map(dir -> dir.dir("artifacts/binpatches"));
-
-        var installerToolsConfig = neoDevConfigurations.getExecutableTool(Tools.INSTALLERTOOLS);
-        var baseJar = tasks.register(type.taskName("createBaseJar"), GenerateBaseJar.class, task -> {
-            task.setDescription("Generates the base jar for creating binary patches of the " + type + " distribution");
-            task.setGroup(INTERNAL_GROUP);
-            if (type == BinaryPatchBaseType.CLIENT || type == BinaryPatchBaseType.JOINED) {
-                task.getMinecraft().from(createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawClientJar));
-            }
-            if (type == BinaryPatchBaseType.SERVER || type == BinaryPatchBaseType.JOINED) {
-                task.getMinecraft().from(createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawServerJar));
-            }
-            task.getOutput().set(binpatchesDir.map(dir -> dir.file(type + "-base.jar")));
-            task.classpath(installerToolsConfig);
-        });
-
-        return baseJar.flatMap(GenerateBaseJar::getOutput);
-    }
-
-    private static Provider<RegularFile> setupBinaryPatchModifiedJar(
-            Project project,
-            Provider<Directory> neoDevBuildDir,
-            BinaryPatchBaseType type,
-            Provider<Directory> extraResourcesDir) {
-        var tasks = project.getTasks();
-
-        var binpatchesDir = neoDevBuildDir.map(dir -> dir.dir("artifacts/binpatches"));
-
-        // Create the jar file in its target state. We will create binary patches to convert the base-jar to this jar.
-        var sourceSets = project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets();
-        var modifiedJar = tasks.register(type.taskName("createModifiedJar"), Jar.class, task -> {
-            task.setDescription("Create the jar file for " + type + " in the state that we want to create binpatches from. This jar only contains classes since we don't modify original resources at the moment.");
-            task.setGroup(INTERNAL_GROUP);
-            task.getDestinationDirectory().set(binpatchesDir);
-            task.getArchiveFileName().set(type + "-modified-classes.jar");
-
-            // Copy only the unmodified+modified Minecraft classes, excluding NeoForges own classes
-            var mainSourceSet = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
-            task.from(mainSourceSet.getJava().getClassesDirectory(), spec -> {
-                spec.exclude("net/neoforged/**");
-            });
-            if (type == BinaryPatchBaseType.CLIENT || type == BinaryPatchBaseType.JOINED) {
-                var clientSourceSet = sourceSets.getByName("client");
-                task.from(clientSourceSet.getJava().getClassesDirectory(), spec -> {
-                    spec.exclude("net/neoforged/**");
-                });
-            }
-            task.from(extraResourcesDir);
-        });
-
-        return modifiedJar.flatMap(AbstractArchiveTask::getArchiveFile);
-    }
-
-    private void setupProductionClientTest(
-            Project project,
-            NeoDevConfigurations configurations,
-            TaskProvider<? extends DownloadAssets> downloadAssets,
-            TaskProvider<? extends AbstractArchiveTask> installer,
-            Provider<String> minecraftVersion,
-            Provider<String> neoForgeVersion,
-            Provider<RegularFile> originalClientJar) {
         var installClient = project.getTasks().register("installProductionClient", InstallProductionClient.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.setDescription("Runs the installer produced by this build and installs a production client.");
@@ -727,15 +629,14 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getNeoForgeVersion().set(neoForgeVersion);
             task.getInstallationDir().set(installClient.flatMap(InstallProductionClient::getInstallationDir));
             task.getOriginalClientJar().set(originalClientJar);
-            task.getJavaRuntimeVersion().set(project.getProviders().gradleProperty("java_version").map(Integer::parseInt));
         };
         project.getTasks().register("runProductionClient", RunProductionClient.class, task -> {
-            task.setGroup(GROUP);
+            task.setGroup(INTERNAL_GROUP);
             task.setDescription("Runs the production client installed by installProductionClient.");
             configureRunProductionClient.accept(task);
         });
         project.getTasks().register("testProductionClient", TestProductionClient.class, task -> {
-            task.setGroup(GROUP);
+            task.setGroup(INTERNAL_GROUP);
             task.setDescription("Tests the production client installed by installProductionClient.");
             configureRunProductionClient.accept(task);
         });
@@ -752,17 +653,15 @@ public class NeoDevPlugin implements Plugin<Project> {
         });
 
         project.getTasks().register("runProductionServer", RunProductionServer.class, task -> {
-            task.setGroup(GROUP);
+            task.setGroup(INTERNAL_GROUP);
             task.setDescription("Runs the production server installed by installProductionServer.");
             task.getInstallationDir().set(installServer.flatMap(InstallProductionServer::getInstallationDir));
-            task.getJavaRuntimeVersion().set(project.getProviders().gradleProperty("java_version").map(Integer::parseInt));
         });
 
         project.getTasks().register("testProductionServer", TestProductionServer.class, task -> {
-            task.setGroup(GROUP);
+            task.setGroup(INTERNAL_GROUP);
             task.setDescription("Tests the production server installed by installProductionServer.");
             task.getInstallationDir().set(installServer.flatMap(InstallProductionServer::getInstallationDir));
-            task.getJavaRuntimeVersion().set(project.getProviders().gradleProperty("java_version").map(Integer::parseInt));
         });
     }
 }

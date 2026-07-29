@@ -10,12 +10,13 @@ import com.mojang.serialization.Codec;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
@@ -32,10 +33,9 @@ import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
-import net.neoforged.testframework.gametest.GameTest;
 import net.neoforged.testframework.registration.RegistrationHelper;
 import org.apache.commons.lang3.mutable.MutableInt;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 @ForEachTest(groups = "attachment.sync")
 public class AttachmentSyncTests {
@@ -43,9 +43,9 @@ public class AttachmentSyncTests {
     @TestHolder(description = "Tests that attachment values properly sync to clients")
     static void testAttachmentSyncManual(DynamicTest test, RegistrationHelper reg) {
         var attachment = reg.attachments().register("value", () -> AttachmentType.builder(() -> 0)
-                .serialize(Codec.INT.fieldOf("value")).sync(ByteBufCodecs.VAR_INT).build());
+                .serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
 
-        var packetType = new CustomPacketPayload.Type(Identifier.fromNamespaceAndPath(reg.modId(), "expect_attachment"));
+        var packetType = new CustomPacketPayload.Type(ResourceLocation.fromNamespaceAndPath(reg.modId(), "expect_attachment"));
 
         class ExpectAttachmentValuePayload implements CustomPacketPayload {
             private final int value;
@@ -92,11 +92,11 @@ public class AttachmentSyncTests {
     @TestHolder(description = "Gametest that tests if attachments sync properly in different scenarios")
     static void testAttachmentSync(DynamicTest test, RegistrationHelper reg) {
         var blacklistedPlayer = reg.attachments().register("sync_blacklist", () -> AttachmentType.builder(() -> false)
-                .serialize(Codec.BOOL.fieldOf("value")).build());
+                .serialize(Codec.BOOL).build());
         var intAttachment = reg.attachments().register("int", () -> AttachmentType.builder(() -> 0)
-                .serialize(Codec.INT.fieldOf("value")).sync(ByteBufCodecs.VAR_INT).build());
+                .serialize(Codec.INT).sync(ByteBufCodecs.VAR_INT).build());
         var mutableIntAttachment = reg.attachments().register("mutable_int", () -> AttachmentType.builder(() -> new MutableInt(23))
-                .serialize(Codec.INT.fieldOf("value").xmap(MutableInt::new, MutableInt::getValue))
+                .serialize(Codec.INT.xmap(MutableInt::new, MutableInt::getValue))
                 .sync((h, p) -> !Boolean.TRUE.equals(p.getExistingDataOrNull(blacklistedPlayer)), ByteBufCodecs.VAR_INT.map(MutableInt::new, MutableInt::getValue)).build());
 
         class TestHelper extends ExtendedGameTestHelper {
@@ -119,7 +119,7 @@ public class AttachmentSyncTests {
                 return new Holder();
             }
 
-            class Holder extends AttachmentHolder {
+            public class Holder extends AttachmentHolder {
                 public void readFrom(SyncAttachmentsPayload payload) {
                     AttachmentSync.receiveSyncedDataAttachments(
                             this,
@@ -176,26 +176,21 @@ public class AttachmentSyncTests {
                     })
                     // Test that players receive updates for changes to block entities in tracked chunks
                     .thenExecute(() -> {
-                        var testValue = 12345;
+                        var testValue = helper.randomInt();
                         helper.setBlock(feetPos, Blocks.FURNACE);
                         var be = helper.getBlockEntity(feetPos, FurnaceBlockEntity.class);
                         be.setData(intAttachment, testValue);
-                    })
-                    // Wait for the BE to get synced
-                    .thenIdle(1)
-                    // Resume flushing after idling else packets won't get sent immediately
-                    .thenExecute(() -> player.connection.resumeFlushing())
-                    .thenExecute(() -> {
+
                         var payload = player.requireOutboundPayload(SyncAttachmentsPayload.class);
                         helper.expectTarget(payload, new SyncAttachmentsPayload.BlockEntityTarget(helper.absolutePos(feetPos)));
 
                         var holder = helper.holder();
                         holder.readFrom(payload);
-                        holder.assertEqual(intAttachment, 12345);
+                        holder.assertEqual(intAttachment, testValue);
 
                         player.clearOutboundPackets();
                     })
-                    .thenMap(() -> helper.spawnWithNoFreeWill(EntityTypes.PIG, helper.relativePos(player.blockPosition())))
+                    .thenMap(() -> helper.spawnWithNoFreeWill(EntityType.PIG, helper.relativePos(player.blockPosition())))
                     // Test that players receive updates for entities in tracked chunks
                     .thenExecute(entity -> {
                         var testValue = helper.randomInt();

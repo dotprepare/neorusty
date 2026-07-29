@@ -1,12 +1,11 @@
 --- a/net/minecraft/world/item/component/BundleContents.java
 +++ b/net/minecraft/world/item/component/BundleContents.java
-@@ -77,7 +_,8 @@
-     }
+@@ -141,7 +_,7 @@
+         }
  
-     public static boolean canItemBeInBundle(ItemStack itemToAdd) {
--        return !itemToAdd.isEmpty() && itemToAdd.getItem().canFitInsideContainerItems();
-+        // Neo: stack-aware placeability check
-+        return !itemToAdd.isEmpty() && itemToAdd.canFitInsideContainerItems();
-     }
- 
-     public int getNumberOfItemsToShow() {
+         public int tryInsert(ItemStack p_331789_) {
+-            if (!p_331789_.isEmpty() && p_331789_.getItem().canFitInsideContainerItems()) {
++            if (!p_331789_.isEmpty() && p_331789_.canFitInsideContainerItems()) { // Neo: stack-aware placeability check
+                 int i = Math.min(p_331789_.getCount(), this.getMaxAmountToAdd(p_331789_));
+                 if (i == 0) {
+                     return 0;

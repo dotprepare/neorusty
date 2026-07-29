@@ -1,26 +1,27 @@
 --- a/net/minecraft/world/level/block/entity/trialspawner/TrialSpawner.java
 +++ b/net/minecraft/world/level/block/entity/trialspawner/TrialSpawner.java
-@@ -212,9 +_,9 @@
-                 }
+@@ -229,9 +_,9 @@
+                                 }
  
-                 boolean hasNoConfiguration = nextSpawnData.getEntityToSpawn().size() == 1 && nextSpawnData.getEntityToSpawn().getString("id").isPresent();
--                if (hasNoConfiguration) {
--                    mob.finalizeSpawn(level, level.getCurrentDifficultyAt(mob.blockPosition()), EntitySpawnReason.TRIAL_SPAWNER, null);
--                }
-+                // Neo: Patch in FinalizeSpawn for spawners so it may be fired unconditionally, instead of only when vanilla would normally call it.
-+                // The local flag is the conditions under which the spawner will normally call Mob#finalizeSpawn.
-+                net.neoforged.neoforge.event.EventHooks.finalizeMobSpawnSpawner(mob, level, level.getCurrentDifficultyAt(mob.blockPosition()), EntitySpawnReason.TRIAL_SPAWNER, null, this, hasNoConfiguration);
+                                 boolean flag = spawndata.getEntityToSpawn().size() == 1 && spawndata.getEntityToSpawn().contains("id", 8);
+-                                if (flag) {
+-                                    mob.finalizeSpawn(p_312582_, p_312582_.getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.TRIAL_SPAWNER, null);
+-                                }
++                                // Neo: Patch in FinalizeSpawn for spawners so it may be fired unconditionally, instead of only when vanilla would normally call it.
++                                // The local flag is the conditions under which the spawner will normally call Mob#finalizeSpawn.
++                                net.neoforged.neoforge.event.EventHooks.finalizeMobSpawnSpawner(mob, p_312582_, p_312582_.getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.TRIAL_SPAWNER, null, this, flag);
  
-                 mob.setPersistenceRequired();
-                 nextSpawnData.getEquipment().ifPresent(mob::equip);
-@@ -408,5 +_,13 @@
+                                 mob.setPersistenceRequired();
+                                 spawndata.getEquipment().ifPresent(mob::equip);
+@@ -405,5 +_,14 @@
          TrialSpawnerState getState();
  
          void markUpdated();
 +    }
 +
 +    @Override
-+    public com.mojang.datafixers.util.@org.jspecify.annotations.Nullable Either<net.minecraft.world.level.block.entity.BlockEntity, Entity> getOwner() {
++    @org.jetbrains.annotations.Nullable
++    public com.mojang.datafixers.util.Either<net.minecraft.world.level.block.entity.BlockEntity, Entity> getOwner() {
 +        if (this.stateAccessor instanceof net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity be) {
 +            return com.mojang.datafixers.util.Either.left(be);
 +        }

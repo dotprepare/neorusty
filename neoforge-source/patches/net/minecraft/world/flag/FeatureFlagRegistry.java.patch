@@ -1,14 +1,14 @@
 --- a/net/minecraft/world/flag/FeatureFlagRegistry.java
 +++ b/net/minecraft/world/flag/FeatureFlagRegistry.java
 @@ -75,6 +_,18 @@
-         }, set -> List.copyOf(this.toNames(set)));
+         }, p_249796_ -> List.copyOf(this.toNames(p_249796_)));
      }
  
-+    public FeatureFlag getFlag(Identifier name) {
++    public FeatureFlag getFlag(ResourceLocation name) {
 +        return com.google.common.base.Preconditions.checkNotNull(this.names.get(name), "Flag %s was not registered", name);
 +    }
 +
-+    public Map<Identifier, FeatureFlag> getAllFlags() {
++    public Map<ResourceLocation, FeatureFlag> getAllFlags() {
 +        return this.names;
 +    }
 +
@@ -19,31 +19,26 @@
      public static class Builder {
          private final FeatureFlagUniverse universe;
          private int id;
-@@ -88,14 +_,23 @@
-             return this.create(Identifier.withDefaultNamespace(name));
+@@ -88,11 +_,20 @@
+             return this.create(ResourceLocation.withDefaultNamespace(p_251782_));
          }
  
 +        /**
-+         * @deprecated Neo: use {@link #create(Identifier, boolean)} instead
++         * @deprecated Neo: use {@link #create(ResourceLocation, boolean)} instead
 +         */
 +        @Deprecated
-         public FeatureFlag create(Identifier name) {
+         public FeatureFlag create(ResourceLocation p_250098_) {
 -            if (this.id >= 64) {
-+            return create(name, false);
++            return create(p_250098_, false);
 +        }
 +
-+        public FeatureFlag create(Identifier p_250098_, boolean modded) {
++        public FeatureFlag create(ResourceLocation p_250098_, boolean modded) {
 +            if (this.id >= 64 && false) {
                  throw new IllegalStateException("Too many feature flags");
              } else {
--                FeatureFlag result = new FeatureFlag(this.universe, this.id++);
--                FeatureFlag previous = this.flags.put(name, result);
-+                FeatureFlag result = new FeatureFlag(this.universe, this.id % FeatureFlagSet.MAX_CONTAINER_SIZE, this.id / FeatureFlagSet.MAX_CONTAINER_SIZE, modded);
+-                FeatureFlag featureflag = new FeatureFlag(this.universe, this.id++);
++                FeatureFlag featureflag = new FeatureFlag(this.universe, this.id % FeatureFlagSet.MAX_CONTAINER_SIZE, this.id / FeatureFlagSet.MAX_CONTAINER_SIZE, modded);
 +                this.id++;
-+                FeatureFlag previous = this.flags.put(p_250098_, result);
-                 if (previous != null) {
--                    throw new IllegalStateException("Duplicate feature flag " + name);
-+                    throw new IllegalStateException("Duplicate feature flag " + p_250098_);
-                 } else {
-                     return result;
-                 }
+                 FeatureFlag featureflag1 = this.flags.put(p_250098_, featureflag);
+                 if (featureflag1 != null) {
+                     throw new IllegalStateException("Duplicate feature flag " + p_250098_);

@@ -1,47 +1,53 @@
 --- a/net/minecraft/client/KeyboardHandler.java
 +++ b/net/minecraft/client/KeyboardHandler.java
-@@ -478,7 +_,11 @@
-                 if (screen != null) {
-                     try {
-                         if (action != 1 && action != 2) {
--                            if (action == 0 && screen.keyReleased(event)) {
-+                            if (action == 0 && (
-+                                net.neoforged.neoforge.client.ClientHooks.onScreenKeyReleasedPre(screen, event) ||
-+                                screen.keyReleased(event) ||
-+                                net.neoforged.neoforge.client.ClientHooks.onScreenKeyReleasedPost(screen, event))
-+                            ) {
-                                 if (options.keyDebugModifier.matches(event)) {
-                                     this.usedDebugKeyAsModifier = false;
-                                 }
-@@ -487,7 +_,11 @@
-                             }
-                         } else {
-                             screen.afterKeyboardAction();
--                            if (screen.keyPressed(event)) {
-+                            if (
-+                                net.neoforged.neoforge.client.ClientHooks.onScreenKeyPressedPre(screen, event) ||
-+                                screen.keyPressed(event) ||
-+                                net.neoforged.neoforge.client.ClientHooks.onScreenKeyPressedPost(screen, event)
-+                            ) {
-                                 if (this.minecraft.gui.screen() == null) {
-                                     InputConstants.Key key = InputConstants.getKey(event);
-                                     KeyMapping.set(key, false);
-@@ -562,6 +_,7 @@
+@@ -407,9 +_,13 @@
+                 Screen.wrapScreenError(() -> {
+                     if (p_90897_ == 1 || p_90897_ == 2) {
+                         screen.afterKeyboardAction();
+-                        aboolean[0] = screen.keyPressed(p_90895_, p_90896_, p_90898_);
++                        aboolean[0] = net.neoforged.neoforge.client.ClientHooks.onScreenKeyPressedPre(screen, p_90895_, p_90896_, p_90898_);
++                        if (!aboolean[0]) aboolean[0] = screen.keyPressed(p_90895_, p_90896_, p_90898_);
++                        if (!aboolean[0]) aboolean[0] = net.neoforged.neoforge.client.ClientHooks.onScreenKeyPressedPost(screen, p_90895_, p_90896_, p_90898_);
+                     } else if (p_90897_ == 0) {
+-                        aboolean[0] = screen.keyReleased(p_90895_, p_90896_, p_90898_);
++                        aboolean[0] = net.neoforged.neoforge.client.ClientHooks.onScreenKeyReleasedPre(screen, p_90895_, p_90896_, p_90898_);
++                        if (!aboolean[0]) aboolean[0] = screen.keyReleased(p_90895_, p_90896_, p_90898_);
++                        if (!aboolean[0]) aboolean[0] = net.neoforged.neoforge.client.ClientHooks.onScreenKeyReleasedPost(screen, p_90895_, p_90896_, p_90898_);
+                     }
+                 }, "keyPressed event handler", screen.getClass().getCanonicalName());
+                 if (aboolean[0]) {
+@@ -478,22 +_,27 @@
                      }
                  }
              }
-+            net.neoforged.neoforge.client.ClientHooks.onKeyInput(event, action);
++            net.neoforged.neoforge.client.ClientHooks.onKeyInput(p_90895_, p_90896_, p_90897_, p_90898_);
          }
      }
  
-@@ -570,7 +_,9 @@
-             Screen screen = this.minecraft.gui.screen();
-             if (screen != null && this.minecraft.gui.overlay() == null) {
-                 try {
--                    screen.charTyped(event);
-+                    if (net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPre(screen, event)) return;
-+                    if (screen.charTyped(event)) return;
-+                    net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPost(screen, event);
-                 } catch (Throwable t) {
-                     CrashReport report = CrashReport.forThrowable(t, "charTyped event handler");
-                     screen.fillCrashDetails(report);
+     private void charTyped(long p_90890_, int p_90891_, int p_90892_) {
+         if (p_90890_ == this.minecraft.getWindow().getWindow()) {
+-            GuiEventListener guieventlistener = this.minecraft.screen;
++            Screen guieventlistener = this.minecraft.screen;
+             if (guieventlistener != null && this.minecraft.getOverlay() == null) {
+                 if (Character.charCount(p_90891_) == 1) {
+-                    Screen.wrapScreenError(
+-                        () -> guieventlistener.charTyped((char)p_90891_, p_90892_), "charTyped event handler", guieventlistener.getClass().getCanonicalName()
+-                    );
++                    Screen.wrapScreenError(() -> {
++                        if (net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPre(guieventlistener, (char)p_90891_, p_90892_)) return;
++                        if (guieventlistener.charTyped((char)p_90891_, p_90892_)) return;
++                        net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPost(guieventlistener, (char)p_90891_, p_90892_);
++                    }, "charTyped event handler", guieventlistener.getClass().getCanonicalName());
+                 } else {
+                     for (char c0 : Character.toChars(p_90891_)) {
+-                        Screen.wrapScreenError(
+-                            () -> guieventlistener.charTyped(c0, p_90892_), "charTyped event handler", guieventlistener.getClass().getCanonicalName()
+-                        );
++                        Screen.wrapScreenError(() -> {
++                            if (net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPre(guieventlistener, c0, p_90892_)) return;
++                            if (guieventlistener.charTyped(c0, p_90892_)) return;
++                            net.neoforged.neoforge.client.ClientHooks.onScreenCharTypedPost(guieventlistener, c0, p_90892_);
++                        }, "charTyped event handler", guieventlistener.getClass().getCanonicalName());
+                     }
+                 }
+             }

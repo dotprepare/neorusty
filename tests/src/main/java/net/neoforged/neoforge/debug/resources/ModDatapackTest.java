@@ -9,16 +9,13 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementRewards;
-import net.minecraft.advancements.predicates.ItemPredicate;
-import net.minecraft.advancements.triggers.CriteriaTriggers;
-import net.minecraft.advancements.triggers.InventoryChangeTrigger;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.data.advancements.AdvancementProvider;
-import net.minecraft.data.advancements.AdvancementSubProvider;
+import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.advancements.critereon.InventoryChangeTrigger;
+import net.minecraft.advancements.critereon.ItemPredicate;
 import net.minecraft.data.recipes.RecipeBuilder;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.common.data.AdvancementProvider;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
@@ -31,18 +28,18 @@ public class ModDatapackTest {
     @SuppressWarnings("removal")
     @TestHolder(description = "Tests that mod datapacks are loaded properly on initial load and reload", enabledByDefault = true)
     static void modDatapack(final DynamicTest test) {
-        final Identifier testAdvancement = Identifier.fromNamespaceAndPath(test.createModId(), "recipes/misc/test_advancement");
+        final ResourceLocation testAdvancement = ResourceLocation.fromNamespaceAndPath(test.createModId(), "recipes/misc/test_advancement");
 
-        test.registrationHelper().addClientProvider(event -> {
-            List<AdvancementSubProvider> generators = List.of((registries, saver) -> Advancement.Builder.recipeAdvancement()
+        test.registrationHelper().addProvider(event -> {
+            List<AdvancementProvider.AdvancementGenerator> generators = List.of((registries, saver, existingFileHelper) -> Advancement.Builder.recipeAdvancement()
                     .parent(RecipeBuilder.ROOT_RECIPE_ADVANCEMENT)
                     .addCriterion("has_scute", CriteriaTriggers.INVENTORY_CHANGED.createCriterion(
                             new InventoryChangeTrigger.TriggerInstance(
                                     Optional.empty(), InventoryChangeTrigger.TriggerInstance.Slots.ANY, List.of(
-                                            ItemPredicate.Builder.item().of(registries.lookupOrThrow(Registries.ITEM), Items.TURTLE_SCUTE).build()))))
-                    .rewards(AdvancementRewards.Builder.recipe(ResourceKey.create(Registries.RECIPE, Identifier.fromNamespaceAndPath("minecraft", "turtle_helmet"))))
-                    .save(saver, testAdvancement));
-            return new AdvancementProvider(event.getGenerator().getPackOutput(), event.getLookupProvider(), generators);
+                                            ItemPredicate.Builder.item().of(Items.TURTLE_SCUTE).build()))))
+                    .rewards(AdvancementRewards.Builder.recipe(ResourceLocation.fromNamespaceAndPath("minecraft", "turtle_helmet")))
+                    .save(saver, testAdvancement, existingFileHelper));
+            return new AdvancementProvider(event.getGenerator().getPackOutput(), event.getLookupProvider(), event.getExistingFileHelper(), generators);
         });
 
         test.eventListeners().forge().addListener((OnDatapackSyncEvent event) -> {

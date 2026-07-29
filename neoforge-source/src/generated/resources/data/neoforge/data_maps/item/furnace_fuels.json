@@ -42,9 +42,6 @@
     "#minecraft:wooden_pressure_plates": {
       "burn_time": 300
     },
-    "#minecraft:wooden_shelves": {
-      "burn_time": 300
-    },
     "#minecraft:wooden_slabs": {
       "burn_time": 150
     },
@@ -144,9 +141,6 @@
     "minecraft:lava_bucket": {
       "burn_time": 20000
     },
-    "minecraft:leaf_litter": {
-      "burn_time": 100
-    },
     "minecraft:lectern": {
       "burn_time": 300
     },
@@ -162,16 +156,10 @@
     "minecraft:scaffolding": {
       "burn_time": 50
     },
-    "minecraft:short_dry_grass": {
-      "burn_time": 100
-    },
     "minecraft:smithing_table": {
       "burn_time": 300
     },
     "minecraft:stick": {
-      "burn_time": 100
-    },
-    "minecraft:tall_dry_grass": {
       "burn_time": 100
     },
     "minecraft:trapped_chest": {
@@ -187,9 +175,6 @@
       "burn_time": 200
     },
     "minecraft:wooden_shovel": {
-      "burn_time": 200
-    },
-    "minecraft:wooden_spear": {
       "burn_time": 200
     },
     "minecraft:wooden_sword": {
