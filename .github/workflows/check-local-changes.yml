@@ -11,6 +11,9 @@ on:
 jobs:
   check-local-changes:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./neoforge-source
     steps:
       - name: Checkout repository
         uses: neoforged/actions/checkout@main
