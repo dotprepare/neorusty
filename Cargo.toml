@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "plugin-system",
+    "api",
+    "neorusty",
+    "neorusty-cli",
+    "server-core",
+    "neorusty-macros",
+    "bridge",
+    "examples/example_mod",
+    "neorusty-installer",
+]

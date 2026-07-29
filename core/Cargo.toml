@@ -1,0 +1,10 @@
+[package]
+name = "neorusty-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dashmap = "6"
+parking_lot = "0.12"
+rayon = "1"
+regex = "1"

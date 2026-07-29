@@ -1,0 +1,8 @@
+[package]
+name = "neorusty-server-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+neorusty-core = { path = "../core" }
+getrandom = "0.2"

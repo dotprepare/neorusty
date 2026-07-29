@@ -1,0 +1,13 @@
+[package]
+name = "neorusty-plugin-system"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+neorusty-core = { path = "../core" }
+neorusty-macros = { path = "../neorusty-macros" }
+dashmap = "6"
+parking_lot = "0.12"
+libloading = "0.8"
+notify = { version = "7", optional = true }
+tracing = "0.1"
