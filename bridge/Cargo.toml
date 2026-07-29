@@ -1,0 +1,10 @@
+[package]
+name = "neorusty-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jni = { version = "0.22", features = ["invocation"] }
+libloading = "0.8"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+neorusty-core = { path = "../core" }
