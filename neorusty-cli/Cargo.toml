@@ -1,0 +1,14 @@
+[package]
+name = "neorusty-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+neorusty-core = { path = "../core" }
+neorusty-api = { path = "../api" }
+neorusty-plugin-system = { path = "../plugin-system" }
+neorusty-server-core = { path = "../server-core" }
+neorusty-bridge = { path = "../bridge" }
+jni = { version = "0.22", features = ["invocation"] }
+ctrlc = { version = "3" }

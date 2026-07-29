@@ -1,0 +1,9 @@
+[package]
+name = "neorusty-installer"
+version = "0.1.0"
+edition = "2021"
+description = "NeoRusty installer — downloads and installs the neorusty CLI from GitHub"
+
+[[bin]]
+name = "neorusty-installer"
+path = "src/main.rs"
