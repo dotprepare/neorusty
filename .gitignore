@@ -1,2 +1,26 @@
 # macOS
 .DS_Store
+
+# IDE
+.idea/
+
+# Embedded git repos
+opencode-skills/
+
+# Unrelated projects
+Pumpkin-master/
+
+# Planning docs
+plans.md
+
+# Build artifacts (NeoForge leftovers — canonical source in neoforge-source/)
+build/
+buildSrc/
+coremods/
+patches/
+src/
+tests/
+testframework/
+
+# Rust
+target/
