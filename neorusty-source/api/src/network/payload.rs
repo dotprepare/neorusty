@@ -51,6 +51,7 @@ pub struct PayloadRegistrar {
     registrations: HashMap<ResourceLocation, Box<dyn AnyRegistration + Send + Sync>>,
 }
 
+#[allow(dead_code)]
 trait AnyRegistration: Send + Sync {
     fn id(&self) -> &ResourceLocation;
     fn direction(&self) -> PacketFlow;

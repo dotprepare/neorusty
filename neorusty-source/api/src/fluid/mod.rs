@@ -62,6 +62,7 @@ impl FluidStack {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FluidType {
     id: ResourceLocation,
     density: i32,

@@ -22,5 +22,8 @@ src/
 tests/
 testframework/
 
+# Allow neorusty source tree
+!neorusty-source/**/src/
+
 # Rust
 target/
