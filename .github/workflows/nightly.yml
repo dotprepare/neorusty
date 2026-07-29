@@ -37,7 +37,7 @@ jobs:
         run: ./gradlew setup -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
 
       - name: Build with Gradle
-        run: ./gradlew assemble checkFormatting -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
+        run: ./gradlew assemble checkFormatting -x createChangelog -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
 
       - name: Run tests
         run: ./gradlew :tests:runUnitTests -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
