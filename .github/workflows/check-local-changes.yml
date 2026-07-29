@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: neoforged/actions/checkout@main
 
-      - name: Setup JDK 25
+      - name: Setup JDK
         uses: neoforged/actions/setup-java@main
         with:
-          java-version: 25
+          java-version: 21
           problem-matcher: false
 
       - name: Setup Gradle
