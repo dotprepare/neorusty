@@ -317,6 +317,15 @@ configurations {
     }
 }
 
+tasks.matching { it.name == 'createChangelog' }.configureEach {
+    doFirst {
+        outputFile.get().asFile.parentFile.mkdirs()
+        if (!outputFile.get().asFile.exists()) {
+            outputFile.get().asFile.text = "Changelog unavailable"
+        }
+    }
+}
+
 processResources {
     inputs.property("version", project.version)
     final version = project.version
