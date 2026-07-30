@@ -19,10 +19,11 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 ### Current
 - [x] Minecraft server (powered by PumpkinMC)
 - [x] Multithreaded server architecture (via PumpkinMC)
+- [x] Native Rust mod API
+- [ ] 
 
 ### Planned
 - [ ] NeoForge-compatible mod loading
-- [ ] Native Rust mod API
 - [ ] Java NeoForge mod compatibility layer
 - [ ] Automatic mod metadata conversion
 - [ ] Dependency resolution
@@ -36,8 +37,8 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 
 ### Phase 1
 - [x] Integrate PumpkinMC
-- [ ] Basic mod discovery
-- [ ] Load Rust mods
+- [x] Basic mod discovery
+- [x] Load Rust mods
 
 ### Phase 2
 - [ ] NeoForge metadata parser
