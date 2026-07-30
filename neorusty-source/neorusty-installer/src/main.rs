@@ -14,10 +14,10 @@ fn main() {
     println!("  Version:  {version}");
     println!("  Target:   {}", target_dir.display());
 
-    let (tag, asset_version) = if version == "nightly" {
-        ("nightly", VERSION)
+    let (tag, asset_version): (String, &str) = if version == "nightly" {
+        ("nightly".to_string(), VERSION)
     } else {
-        (&format!("v{version}"), version)
+        (format!("v{version}"), version)
     };
     let url = format!(
         "https://github.com/neorusty/neorusty/releases/download/{tag}/neorusty-{asset_version}-{platform}.tar.gz",
