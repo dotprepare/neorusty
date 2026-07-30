@@ -5,11 +5,6 @@
 .idea/
 .vscode/
 
-# Embedded git repos
-opencode-skills/
-
-# Unrelated projects
-
 # Planning docs
 plans.md
 
