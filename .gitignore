@@ -16,9 +16,15 @@ plans.md
 /src/
 /tests/
 /testframework/
+patched-neoforge/src/main/java/
+patched-neoforge/src/generated/
 
 # Allow neorusty source tree
 !neorusty-source/**/src/
 
 # Rust
 target/
+
+# AI Stuff
+ai-skills/
+logs-ai/
