@@ -53,19 +53,24 @@ jobs:
           path: neorusty-source/target/release/
 
   create-release:
+    permissions:
+      contents: write
     needs: [build-neoforge, build-neorusty]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v8
         with:
+          pattern: "*"
+          path: dist/
           merge-multiple: true
-      - name: Create nightly release
-        shell: bash
+      - name: Generate release notes
         run: |
-          TAG="nightly-$(date +'%Y%m%d')"
-          NOTES=$(cat <<EOF
-          **Nightly Build** from \`${{ github.ref_name }}\` (${{ github.sha }})
+          cat > dist/RELEASE.md <<EOF
+          **Nightly Build** — $(date -u +"%Y-%m-%d %H:%M") UTC
+
+          From commit: ${{ github.sha }}
+          Branch: \`${{ github.ref_name }}\`
 
           ### NeoForge
           - Java build artifacts (patched-neoforge/)
@@ -74,18 +79,19 @@ jobs:
           - Rust binary and libraries (neorusty-source/)
 
           ---
-          _Automated build_ — $(date -u)
+          _Automated build_
           EOF
-          )
-
-          gh release delete "$TAG" --yes 2>/dev/null || true
-          git tag -d "$TAG" 2>/dev/null || true
-          git push origin ":refs/tags/$TAG" 2>/dev/null || true
-
-          gh release create "$TAG" \
-            --title "Nightly Build $(date +'%Y-%m-%d')" \
-            --notes "$NOTES" \
-            --target "${{ github.sha }}" \
-            ./* 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Update nightly tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag --force nightly
+          git push --force origin tag nightly
+      - name: Draft nightly release
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: true
+          files: dist/*
+          tag_name: nightly
+          name: Nightly Build
+          body_path: dist/RELEASE.md
