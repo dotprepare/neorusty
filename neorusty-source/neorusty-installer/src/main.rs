@@ -66,9 +66,12 @@ fn main() {
             eprintln!("Error: failed to install binary: {e}");
             std::process::exit(1);
         });
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&bin_dst, std::fs::Permissions::from_mode(0o755))
-            .unwrap_or_else(|e| eprintln!("Warning: could not set executable bit: {e}"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&bin_dst, std::fs::Permissions::from_mode(0o755))
+                .unwrap_or_else(|e| eprintln!("Warning: could not set executable bit: {e}"));
+        }
     }
 
     // Cleanup
