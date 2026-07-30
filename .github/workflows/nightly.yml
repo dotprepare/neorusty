@@ -30,7 +30,7 @@ jobs:
           cache-read-only: false
       - run: ./gradlew :neoforge:setup -PvalidateAccessTransformers -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d') || true
       - run: ./gradlew assemble -x createChangelog -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d') || true
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: neoforge-build
@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo build --release
       - run: cargo test --release || true
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: neorusty-build
@@ -57,35 +57,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
       - name: Create nightly release
+        shell: bash
         run: |
           TAG="nightly-$(date +'%Y%m%d')"
+          NOTES=$(cat <<EOF
+          **Nightly Build** from \`${{ github.ref_name }}\` (${{ github.sha }})
 
-          # Remove previous nightly release with same tag if exists
-          gh release delete "$TAG" --yes --repo ${{ github.repository }} 2>/dev/null || true
+          ### NeoForge
+          - Java build artifacts (patched-neoforge/)
 
-          # Remove previous git tag if exists
+          ### Neorusty
+          - Rust binary and libraries (neorusty-source/)
+
+          ---
+          _Automated build_ — $(date -u)
+          EOF
+          )
+
+          gh release delete "$TAG" --yes 2>/dev/null || true
           git tag -d "$TAG" 2>/dev/null || true
           git push origin ":refs/tags/$TAG" 2>/dev/null || true
 
-          # Create new release with all build artifacts
           gh release create "$TAG" \
             --title "Nightly Build $(date +'%Y-%m-%d')" \
-            --notes "**Nightly Build** from \`${{ github.ref_name }}\` (${{ github.sha }})
-
-        ### NeoForge
-        - Java build artifacts
-        - Minecraft $(cat patched-neoforge/build/libs/*.jar 2>/dev/null | head -1 || echo "latest")
-
-        ### Neorusty
-        - Rust binary and libraries
-        - Built from neorusty-source/
-
-        ---
-        _Automated build_ — $(date -u)" \
+            --notes "$NOTES" \
             --target "${{ github.sha }}" \
             ./* 2>/dev/null || true
         env:
