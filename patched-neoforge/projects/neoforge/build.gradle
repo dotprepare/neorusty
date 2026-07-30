@@ -25,7 +25,7 @@ changelog {
 sourceSets {
     main {
         java {
-            srcDirs rootProject.file('src/main/java')
+            srcDirs rootProject.file('src/main/java'), rootProject.file('../neorusty-source/bridge/java/src/main/java')
         }
         resources {
             srcDirs rootProject.file('src/main/resources'), rootProject.file('src/generated/resources')

@@ -37,6 +37,9 @@ jobs:
         with:
           cache-read-only: false
 
+      - name: Restore NeoForge source files
+        run: bash setup-sources.sh
+
       - name: Setup with Gradle
         run: ./gradlew :neoforge:setup -PvalidateAccessTransformers
 

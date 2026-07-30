@@ -28,6 +28,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
+      - name: Restore NeoForge source files
+        run: bash setup-sources.sh
+
       - run: ./gradlew :neoforge:setup -PvalidateAccessTransformers -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
       - run: ./gradlew assemble -x createChangelog -Poverride_version=0.0.0-nightly-$(date +'%Y%m%d')
       - uses: actions/upload-artifact@v7
