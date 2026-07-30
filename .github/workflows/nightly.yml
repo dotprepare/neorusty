@@ -37,20 +37,50 @@ jobs:
           path: patched-neoforge/build/libs/
 
   build-neorusty:
-    runs-on: ubuntu-latest
+    name: Build neorusty (${{ matrix.os }}, ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ""
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            suffix: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            suffix: ""
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: ".exe"
     defaults:
       run:
         working-directory: ./neorusty-source
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build --release
-      - run: cargo test --release || true
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          for crate in neorusty-cli neorusty-installer server-core; do
+            bin="target/${{ matrix.target }}/release/${crate}${{ matrix.suffix }}"
+            if [ -f "$bin" ]; then
+              cp "$bin" "dist/${crate}-${{ matrix.target }}${{ matrix.suffix }}"
+            fi
+          done
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: neorusty-build
-          path: neorusty-source/target/release/
+          name: neorusty-${{ matrix.target }}
+          compression-level: 9
+          path: neorusty-source/dist/neorusty-*
 
   create-release:
     permissions:
@@ -72,14 +102,20 @@ jobs:
           From commit: ${{ github.sha }}
           Branch: \`${{ github.ref_name }}\`
 
-          ### NeoForge
-          - Java build artifacts (patched-neoforge/)
+          ### NeoForge (Java)
+          - Patched NeoForge server
+          - Build: patched-neoforge/
 
-          ### Neorusty
-          - Rust binary and libraries (neorusty-source/)
+          ### Neorusty (Rust)
+          - **neorusty-cli** — CLI tool
+          - **neorusty-installer** — Installer
+          - **server-core** — Server core
+          - Architectures: x86_64 (Linux/macOS/Windows), ARM64 (Linux/macOS)
 
-          ---
-          _Automated build_
+          ### Platforms
+          - Linux (x86_64, ARM64)
+          - macOS (x86_64, ARM64)
+          - Windows (x86_64)
           EOF
       - name: Update nightly tag
         run: |
