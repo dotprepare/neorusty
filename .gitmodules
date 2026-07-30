@@ -1,0 +1,4 @@
+[submodule "neoforge-source"]
+	path = neoforge-source
+	url = https://github.com/neoforged/NeoForge
+	branch = 1.21.1

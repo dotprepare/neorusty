@@ -24,9 +24,9 @@ abstract class RemapJar extends JavaExec {
     @Override
     @TaskAction
     public void exec() {
-        args(getInputJar().get().getAsFile().getAbsolutePath(),
-             getOutputJar().get().getAsFile().getAbsolutePath(),
-             "--mappings", getMappings().get().getAsFile().getAbsolutePath());
+        args("--input", getInputJar().get().getAsFile().getAbsolutePath(),
+             "--output", getOutputJar().get().getAsFile().getAbsolutePath(),
+             "--names", getMappings().get().getAsFile().getAbsolutePath());
         super.exec();
     }
 }

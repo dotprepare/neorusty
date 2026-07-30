@@ -19,6 +19,7 @@ import net.neoforged.nfrtgradle.CreateMinecraftArtifacts;
 import net.neoforged.nfrtgradle.DownloadAssets;
 import net.neoforged.nfrtgradle.NeoFormRuntimePlugin;
 import net.neoforged.nfrtgradle.NeoFormRuntimeTask;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
@@ -37,6 +38,7 @@ import org.gradle.api.tasks.bundling.Zip;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -84,6 +86,17 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getCleanJoinedJar().set(cleanArtifactsDir.map(dir -> dir.file("joined.jar")));
             task.getMergedMappings().set(cleanArtifactsDir.map(dir -> dir.file("merged-mappings.txt")));
             task.getNeoFormArtifact().set(mcAndNeoFormVersion.map(version -> "net.neoforged:neoform:" + version + "@zip"));
+            task.doLast(t -> {
+                for (var fp : java.util.List.of(
+                        (java.util.function.Supplier<java.io.File>) () -> task.getRawClientJar().get().getAsFile(),
+                        () -> task.getRawServerJar().get().getAsFile(),
+                        () -> task.getCleanClientJar().get().getAsFile(),
+                        () -> task.getCleanServerJar().get().getAsFile(),
+                        () -> task.getCleanJoinedJar().get().getAsFile())) {
+                    try { ZipUtil.stripNtfsExtra(fp.get().toPath()); }
+                    catch (Exception e) { t.getLogger().warn("Failed to strip NTFS from {}: {}", fp.get(), e.getMessage()); }
+                }
+            });
         });
 
         // 2. Apply AT to the source jar from 1.
@@ -132,10 +145,44 @@ public class NeoDevPlugin implements Plugin<Project> {
 
         // 5. Unpack jar from 4.
         var mcSourcesPath = project.file("src/main/java");
-        tasks.register("setup", Sync.class, task -> {
+        var patchedJarProvider = applyPatches.flatMap(ApplyPatches::getPatchedJar);
+        tasks.register("setup", DefaultTask.class, task -> {
             task.setGroup(GROUP);
-            task.from(project.zipTree(applyPatches.flatMap(ApplyPatches::getPatchedJar)));
-            task.into(mcSourcesPath);
+            var inputJar = project.getObjects().fileProperty();
+            inputJar.set(patchedJarProvider);
+            task.getInputs().file(inputJar);
+            task.getOutputs().dir(mcSourcesPath);
+            task.doLast(t -> {
+                try {
+                    var jarPath = inputJar.get().getAsFile().toPath();
+                    var outputDir = mcSourcesPath.toPath();
+                    java.nio.file.Files.createDirectories(outputDir);
+                    try (var zis = new java.util.zip.ZipInputStream(java.nio.file.Files.newInputStream(jarPath))) {
+                        java.util.zip.ZipEntry entry;
+                        byte[] buffer = new byte[8192];
+                        while ((entry = zis.getNextEntry()) != null) {
+                            var targetPath = outputDir.resolve(entry.getName()).normalize();
+                            if (!targetPath.startsWith(outputDir)) {
+                                throw new java.io.IOException("ZIP entry outside target: " + entry.getName());
+                            }
+                            if (entry.isDirectory()) {
+                                java.nio.file.Files.createDirectories(targetPath);
+                            } else {
+                                java.nio.file.Files.createDirectories(targetPath.getParent());
+                                try (var out = java.nio.file.Files.newOutputStream(targetPath)) {
+                                    int len;
+                                    while ((len = zis.read(buffer)) > 0) {
+                                        out.write(buffer, 0, len);
+                                    }
+                                }
+                            }
+                            zis.closeEntry();
+                        }
+                    }
+                } catch (java.io.IOException e) {
+                    throw new RuntimeException("Failed to extract patched sources", e);
+                }
+            });
         });
 
         /*

@@ -14,13 +14,13 @@ Pumpkin-master/
 plans.md
 
 # Build artifacts (NeoForge leftovers — canonical source in neoforge-source/)
-build/
-buildSrc/
-coremods/
-patches/
-src/
-tests/
-testframework/
+/build/
+/buildSrc/
+/coremods/
+/patches/
+/src/
+/tests/
+/testframework/
 
 # Allow neorusty source tree
 !neorusty-source/**/src/
