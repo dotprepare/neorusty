@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./neoforge-source
+        working-directory: ./patched-neoforge
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -34,7 +34,7 @@ jobs:
         if: always()
         with:
           name: neoforge-build
-          path: neoforge-source/build/libs/
+          path: patched-neoforge/build/libs/
 
   build-neorusty:
     runs-on: ubuntu-latest

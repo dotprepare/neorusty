@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./neoforge-source
+        working-directory: ./patched-neoforge
     steps:
       - name: Checkout repository
         uses: neoforged/actions/checkout@main
