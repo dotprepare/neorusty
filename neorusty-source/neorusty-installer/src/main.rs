@@ -6,7 +6,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let version = args.get(1).map(|s| s.as_str()).unwrap_or(VERSION);
+    let version = args.get(1).map(|s| s.as_str()).unwrap_or("nightly");
     let target_dir = detect_install_dir();
     let platform = detect_platform();
 
@@ -14,8 +14,13 @@ fn main() {
     println!("  Version:  {version}");
     println!("  Target:   {}", target_dir.display());
 
+    let (tag, asset_version) = if version == "nightly" {
+        ("nightly", VERSION)
+    } else {
+        (&format!("v{version}"), version)
+    };
     let url = format!(
-        "https://github.com/neorusty/neorusty/releases/download/v{version}/neorusty-{version}-{platform}.tar.gz",
+        "https://github.com/neorusty/neorusty/releases/download/{tag}/neorusty-{asset_version}-{platform}.tar.gz",
     );
 
     println!("  Download: {url}");
