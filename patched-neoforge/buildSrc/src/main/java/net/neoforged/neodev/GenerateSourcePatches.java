@@ -40,23 +40,31 @@ abstract class GenerateSourcePatches extends DefaultTask {
 
     @TaskAction
     public void generateSourcePatches() throws IOException {
-        var builder = DiffOperation.builder()
-                .logTo(getLogger()::lifecycle)
-                .baseInput(MultiInput.detectedArchive(getOriginalJar().get().getAsFile().toPath()))
-                .changedInput(MultiInput.folder(getModifiedSources().get().getAsFile().toPath()))
-                .patchesOutput(getPatchesJar().isPresent() ? MultiOutput.detectedArchive(getPatchesJar().get().getAsFile().toPath()) : MultiOutput.folder(getPatchesFolder().getAsFile().get().toPath()))
-                .autoHeader(true)
-                .level(io.codechicken.diffpatch.util.LogLevel.WARN)
-                .summary(false)
-                .aPrefix("a/")
-                .bPrefix("b/")
-                .lineEnding("\n");
+        var originalJar = getOriginalJar().get().getAsFile().toPath();
+        var cleanJar = originalJar.resolveSibling("clean-" + originalJar.getFileName());
+        ZipUtil.copyZipStrippingNtfsExtra(originalJar, cleanJar);
 
-        CliOperation.Result<DiffOperation.DiffSummary> result = builder.build().operate();
+        try {
+            var builder = DiffOperation.builder()
+                    .logTo(getLogger()::lifecycle)
+                    .baseInput(MultiInput.detectedArchive(cleanJar))
+                    .changedInput(MultiInput.folder(getModifiedSources().get().getAsFile().toPath()))
+                    .patchesOutput(getPatchesJar().isPresent() ? MultiOutput.detectedArchive(getPatchesJar().get().getAsFile().toPath()) : MultiOutput.folder(getPatchesFolder().getAsFile().get().toPath()))
+                    .autoHeader(true)
+                    .level(io.codechicken.diffpatch.util.LogLevel.WARN)
+                    .summary(false)
+                    .aPrefix("a/")
+                    .bPrefix("b/")
+                    .lineEnding("\n");
 
-        int exit = result.exit;
-        if (exit != 0 && exit != 1) {
-            throw new RuntimeException("DiffPatch failed with exit code: " + exit);
+            CliOperation.Result<DiffOperation.DiffSummary> result = builder.build().operate();
+
+            int exit = result.exit;
+            if (exit != 0 && exit != 1) {
+                throw new RuntimeException("DiffPatch failed with exit code: " + exit);
+            }
+        } finally {
+            java.nio.file.Files.deleteIfExists(cleanJar);
         }
     }
 }

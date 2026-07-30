@@ -7,6 +7,14 @@ plugins {
     id 'net.neoforged.licenser' version '0.7.5'
     id 'neoforge.formatting-conventions'
     id 'neoforge.versioning'
+    id "org.sonarqube" version "7.3.1.8318"
+}
+
+sonar {
+  properties {
+    property "sonar.projectKey", "dotprepare_neorusty"
+    property "sonar.organization", "dotprepare"
+  }
 }
 
 ext.isPreReleaseVersion = project.minecraft_version.contains('w') || project.minecraft_version.contains('-')

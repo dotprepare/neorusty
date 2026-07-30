@@ -1,0 +1,26 @@
+name: SonarQube Scheduled Scan
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at 00:00 UTC. Change to '0 0 * * 0' for weekly.
+  workflow_dispatch:      # Allows manual trigger from the GitHub Actions UI
+
+jobs:
+  sonarqube:
+    name: SonarQube Scan on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=dotprepare_neorusty
+            -Dsonar.organization=dotprepare
