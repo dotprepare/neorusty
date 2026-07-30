@@ -1,4 +1,3 @@
-[submodule "neoforge-source"]
-	path = neoforge-source
-	url = https://github.com/neoforged/NeoForge
-	branch = 1.21.1
+[submodule "Pumpkin-master"]
+	path = Pumpkin-master
+	url = https://github.com/Pumpkin-MC/Pumpkin

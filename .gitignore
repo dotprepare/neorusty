@@ -3,17 +3,17 @@
 
 # IDE
 .idea/
+.vscode/
 
 # Embedded git repos
 opencode-skills/
 
 # Unrelated projects
-Pumpkin-master/
 
 # Planning docs
 plans.md
 
-# Build artifacts (NeoForge leftovers — canonical source in neoforge-source/)
+# Build artifacts (NeoForge leftovers — canonical source in patched-neoforge/)
 /build/
 /buildSrc/
 /coremods/
