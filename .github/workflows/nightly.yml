@@ -65,9 +65,15 @@ jobs:
         working-directory: ./neorusty-source
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
       - run: rustup target add ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: neorusty-source
       - run: cargo build --release --target ${{ matrix.target }}
       - name: Prepare artifacts
         shell: bash
