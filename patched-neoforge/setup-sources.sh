@@ -23,15 +23,36 @@ if ! git -C "$GIT_DIR" rev-parse --verify upstream/1.21.1 &>/dev/null; then
     git -C "$GIT_DIR" fetch upstream 1.21.1 --depth=1
 fi
 
-# Restore trees from upstream: (upstream path, local target, strip-components)
-# --keep-old-files preserves tracked files (which may have normalized line
-# endings) and only fills in the files that are missing from the working tree.
+# Restore trees from upstream: (upstream path, local target, strip-components).
+# Each tree is extracted to a temp dir, then only the files missing from the
+# working tree are copied in (cp -n). This never overwrites tracked files whose
+# line endings have been normalized, and works the same on GNU and BSD tar/cp.
 RESTORE_TREES=(
     "src/main/java|$SCRIPT_DIR/src/main/java|3"
     "testframework|$SCRIPT_DIR/testframework|1"
     "coremods|$SCRIPT_DIR/coremods|1"
     "tests|$GIT_DIR/tests|1"
 )
+
+TMPDIRS=()
+cleanup() {
+    for dir in "${TMPDIRS[@]:-}"; do rm -rf "$dir"; done
+}
+trap cleanup EXIT
+
+# Copy only the files missing from the working tree. This never overwrites
+# tracked files whose line endings have been normalized, and works the same on
+# macOS and Linux (cp -n and GNU tar's --keep-old-files are not portable).
+copy_missing() {
+    local tmpdir="$1" target="$2"
+    (cd "$tmpdir" && find . -type f -print0) | while IFS= read -r -d '' f; do
+        rel="${f#./}"
+        if [ ! -e "$target/$rel" ]; then
+            mkdir -p "$target/$(dirname "$rel")"
+            cp "$tmpdir/$rel" "$target/$rel"
+        fi
+    done
+}
 
 for spec in "${RESTORE_TREES[@]}"; do
     up_path="${spec%%|*}"
@@ -40,7 +61,10 @@ for spec in "${RESTORE_TREES[@]}"; do
     strip="${rest##*|}"
     echo "Restoring upstream '$up_path' -> $target"
     mkdir -p "$target"
-    git -C "$GIT_DIR" archive upstream/1.21.1 "$up_path/" | tar x --keep-old-files -C "$target" --strip-components="$strip"
+    tmpdir="$(mktemp -d)"
+    TMPDIRS+=("$tmpdir")
+    git -C "$GIT_DIR" archive upstream/1.21.1 "$up_path/" | tar x -C "$tmpdir" --strip-components="$strip"
+    copy_missing "$tmpdir" "$target"
 done
 
 # Remove upstream files overridden by tracked bridge sources
