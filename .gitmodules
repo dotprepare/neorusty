@@ -1,3 +1,7 @@
 [submodule "pumpkin-master"]
 	path = pumpkin-master
 	url = https://github.com/Pumpkin-MC/Pumpkin
+	# Engine pinned to the last 1.21.1-based commit (91ae85ef, protocol 767).
+	# A build-time patch (neorusty-source/scripts/patch-pumpkin.sh) adds the
+	# embeddable lib.rs. Bump deliberately.
+	ignore = dirty

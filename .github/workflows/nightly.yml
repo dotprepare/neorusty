@@ -74,6 +74,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: neorusty-source
+      - name: Patch Pumpkin engine (1.21.1 lib + backports)
+        run: bash scripts/patch-pumpkin.sh
       - run: cargo build --release --target ${{ matrix.target }}
       - name: Prepare artifacts
         shell: bash

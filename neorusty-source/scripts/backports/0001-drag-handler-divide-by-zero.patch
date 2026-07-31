@@ -1,0 +1,32 @@
+commit 991ac37eaeb30d6c66a653c43fc4571141b924e3
+Author: DataModel <183248792+DataM0del@users.noreply.github.com>
+Date:   Wed Dec 25 07:59:44 2024 -0500
+
+    fix(pumpkin-inventory/src/drag_handler.rs): divide by 0 (#393)
+    
+    * fix(pumpkin-inventory/src/drag_handler.rs): divide by 0
+    
+    Please work
+    Also, commit made on mobile using Built-in GitHub editor 🔥
+    
+    * fix(pumpkin-inventory/src/drag_handler.rs): syntax errors
+
+diff --git a/pumpkin-inventory/src/drag_handler.rs b/pumpkin-inventory/src/drag_handler.rs
+index fefcd605..4a6ea438 100644
+--- a/pumpkin-inventory/src/drag_handler.rs
++++ b/pumpkin-inventory/src/drag_handler.rs
+@@ -120,8 +120,12 @@ impl DragHandler {
+                 let changing_slots =
+                     drag.possibly_changing_slots(&slots_cloned, carried_item.item_id);
+                 let amount_of_slots = changing_slots.clone().count();
+-                let (amount_per_slot, remainder) =
+-                    (carried_item.item_count as usize).div_rem_euclid(&amount_of_slots);
++                let (amount_per_slot, remainder) = if amount_of_slots == 0 {
++                    // TODO: please work lol
++                    (1, 0)
++                } else {
++                    (carried_item.item_count as usize).div_rem_euclid(&amount_of_slots)
++                };
+                 let mut item_in_each_slot = *carried_item;
+                 item_in_each_slot.item_count = amount_per_slot as u8;
+                 changing_slots.for_each(|slot| *slots[slot] = Some(item_in_each_slot));

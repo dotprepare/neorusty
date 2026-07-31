@@ -14,6 +14,16 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 - Enable high-performance Rust mods.
 - Take advantage of PumpkinMC's multithreaded server architecture.
 
+## Server engine
+
+The Minecraft server engine (PumpkinMC) is pinned to its last **1.21.1**-based
+commit (`91ae85ef`, protocol **767**) to match the NeoForge 1.21.1 layer. Because
+that upstream commit ships as a binary-only crate, a build-time patch
+(`neorusty-source/scripts/patch-pumpkin.sh`) adds the embeddable `lib.rs` entry
+point and a small set of tracked version-agnostic backport patches
+(`neorusty-source/scripts/backports/`). The submodule is pinned via `.gitmodules`
+(`ignore = dirty`) and is repatched by the CI build.
+
 ## Features
 
 ### Current
