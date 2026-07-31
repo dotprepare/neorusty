@@ -20,6 +20,7 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 - [x] Minecraft server (powered by PumpkinMC)
 - [x] Multithreaded server architecture (via PumpkinMC)
 - [x] Native Rust mod API
+- [x] Event bus (lifecycle + server events)
 - [ ] 
 
 ### Planned
@@ -29,7 +30,6 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 - [ ] Dependency resolution
 - [ ] Mixins / bytecode compatibility (if feasible)
 - [ ] Configuration system
-- [ ] Event bus
 - [ ] Networking API
 - [ ] Data pack integration
 
@@ -43,7 +43,7 @@ A NeoForge-compatible Minecraft mod loader rewritten in Rust, built on top of Pu
 ### Phase 2
 - [ ] NeoForge metadata parser
 - [ ] Dependency resolution
-- [ ] Event system
+- [x] Event system
 
 ### Phase 3
 - [ ] Java mod compatibility

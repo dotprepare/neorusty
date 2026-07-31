@@ -14,7 +14,7 @@ neorusty run -H 0.0.0.0:25565 -P 20 -M "My NeoRusty Server"
 | **API** | `neorusty-api` | Registry, item, fluid, capability, energy, network |
 | **Plugin System** | `neorusty-plugin-system` | Plugin trait, native/WASM loaders, lifecycle |
 | **Macros** | `neorusty-macros` | `#[neoforge_mod]`, `#[event_handler]`, `#[derive(Event)]` |
-| **Server** | `neorusty-server-core` | Server loop, config, lifecycle events |
+| **Server** | `neorusty-server-core` | Server loop (PumpkinMC engine), config, lifecycle events |
 | **CLI** | `neorusty-cli` | Binary — `init`, `build`, `run`, `plugin` commands |
 | **Bridge** | `neorusty-bridge` | JVM invocation, registry/world/event stores, NeoForge bootstrap |
 

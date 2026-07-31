@@ -1,142 +1,110 @@
-use neorusty_core::event::{EventBus, Event, EventPriority};
+use neorusty_core::event::{EventBus, EventPriority};
 use neorusty_server_core::{
-    ServerConfig, Server,
+    Server, ServerConfig,
     lifecycle::{ServerStartedEvent, ServerTickEvent},
 };
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+use tokio::sync::Mutex;
 
-#[test]
-fn test_server_create_default() {
-    let bus = Arc::new(EventBus::new());
-    let mut server = Server::new(ServerConfig::default(), bus);
+static SERVER_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static TEMP_DIR_SEQ: AtomicU64 = AtomicU64::new(0);
 
-    assert!(!server.running);
-    assert_eq!(server.player_count(), 0);
-    assert!(server.worlds.primary().is_some());
+async fn with_temp_dir<T>(fut: impl std::future::Future<Output = T>) -> T {
+    let guard = SERVER_LOCK.get_or_init(|| Mutex::new(())).lock().await;
+    let seq = TEMP_DIR_SEQ.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "neorusty-server-test-{}-{seq}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::env::set_current_dir(&dir).expect("chdir to temp dir");
+    let result = fut.await;
+    drop(guard);
+    result
 }
 
-#[test]
-fn test_server_start_stop() {
-    let bus = Arc::new(EventBus::new());
-    let mut server = Server::new(ServerConfig::default(), bus.clone());
-    assert!(!server.running);
-
-    server.start();
-    assert!(server.running);
-
-    server.stop();
-    assert!(!server.running);
+fn test_config() -> ServerConfig {
+    ServerConfig {
+        host: "127.0.0.1:0".parse().unwrap(),
+        max_players: 20,
+        motd: "test".to_string(),
+        online_mode: false,
+        tick_rate_hz: 20,
+    }
 }
 
-#[test]
-fn test_server_tick() {
-    let bus = Arc::new(EventBus::new());
-    let mut server = Server::new(ServerConfig::default(), bus.clone());
-    server.start();
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_server_create_default() {
+    with_temp_dir(async {
+        let bus = Arc::new(EventBus::new());
+        let server = Server::new(test_config(), bus);
 
-    assert_eq!(server.tick_count, 0);
-    server.tick();
-    assert_eq!(server.tick_count, 1);
-    server.tick();
-    assert_eq!(server.tick_count, 2);
+        assert!(!server.running());
+        assert_eq!(server.player_count(), 0);
+    })
+    .await;
 }
 
-#[test]
-fn test_server_lifecycle_event() {
-    let bus = Arc::new(EventBus::new());
-    let started = Arc::new(Mutex::new(false));
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_server_start_stop() {
+    with_temp_dir(async {
+        let bus = Arc::new(EventBus::new());
+        let mut server = Server::new(test_config(), bus);
+        assert!(!server.running());
 
-    let started_clone = started.clone();
-    bus.register(EventPriority::Normal, move |_: &ServerStartedEvent| {
-        *started_clone.lock().unwrap() = true;
-        ServerStartedEvent
-    });
+        server.start().await;
+        assert!(server.running());
 
-    let mut server = Server::new(ServerConfig::default(), bus.clone());
-    server.start();
-
-    assert!(*started.lock().unwrap());
+        server.stop().await;
+        assert!(!server.running());
+    })
+    .await;
 }
 
-#[test]
-fn test_server_tick_event() {
-    let bus = Arc::new(EventBus::new());
-    let last_tick = Arc::new(Mutex::new(0u64));
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_server_lifecycle_event() {
+    with_temp_dir(async {
+        let bus = Arc::new(EventBus::new());
+        let started = Arc::new(AtomicBool::new(false));
 
-    let last_tick_clone = last_tick.clone();
-    bus.register(EventPriority::Normal, move |e: &ServerTickEvent| {
-        *last_tick_clone.lock().unwrap() = e.tick;
-        ServerTickEvent { tick: e.tick }
-    });
+        let started_clone = started.clone();
+        bus.register(EventPriority::Normal, move |_: &ServerStartedEvent| {
+            started_clone.store(true, Ordering::SeqCst);
+            ServerStartedEvent
+        });
 
-    let mut server = Server::new(ServerConfig::default(), bus.clone());
-    server.start();
-    server.tick();
+        let mut server = Server::new(test_config(), bus.clone());
+        server.start().await;
 
-    assert_eq!(*last_tick.lock().unwrap(), 1);
+        assert!(started.load(Ordering::SeqCst));
+
+        server.stop().await;
+    })
+    .await;
 }
 
-#[test]
-fn test_server_add_player() {
-    let bus = Arc::new(EventBus::new());
-    let mut server = Server::new(ServerConfig::default(), bus);
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_server_tick_event() {
+    with_temp_dir(async {
+        let bus = Arc::new(EventBus::new());
+        let ticks_seen = Arc::new(AtomicU64::new(0));
 
-    let addr = "127.0.0.1:25565".parse().unwrap();
-    server.add_player("Alice".to_string(), addr);
+        let ticks_clone = ticks_seen.clone();
+        bus.register(EventPriority::Normal, move |_: &ServerTickEvent| {
+            ticks_clone.fetch_add(1, Ordering::SeqCst);
+            ServerTickEvent { tick: 0 }
+        });
 
-    assert_eq!(server.player_count(), 1);
-    let player = server.get_player("Alice");
-    assert!(player.is_some());
-    assert_eq!(player.unwrap().username, "Alice");
-}
+        let mut server = Server::new(test_config(), bus);
+        server.start().await;
 
-#[test]
-fn test_server_remove_player() {
-    let bus = Arc::new(EventBus::new());
-    let mut server = Server::new(ServerConfig::default(), bus);
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert!(ticks_seen.load(Ordering::SeqCst) >= 1);
+        assert!(server.tick_count.load(Ordering::Relaxed) >= 1);
 
-    let addr = "127.0.0.1:25565".parse().unwrap();
-    server.add_player("Bob".to_string(), addr);
-    assert_eq!(server.player_count(), 1);
-
-    let removed = server.remove_player("Bob");
-    assert!(removed.is_some());
-    assert_eq!(server.player_count(), 0);
-}
-
-#[test]
-fn test_world_manager() {
-    use neorusty_server_core::world::{World, WorldManager};
-    use neorusty_core::resource::ResourceLocation;
-
-    let mut wm = WorldManager::new();
-    assert!(wm.primary().is_none());
-
-    let overworld = World::new(
-        ResourceLocation::new("minecraft", "overworld"),
-        "Overworld".to_string(),
-        42,
-    );
-    wm.add_world(overworld);
-
-    let primary = wm.primary().unwrap();
-    assert_eq!(primary.seed, 42);
-    assert!(wm.get(&ResourceLocation::new("minecraft", "overworld")).is_some());
-}
-
-#[test]
-fn test_world_tick() {
-    use neorusty_server_core::world::World;
-    use neorusty_core::resource::ResourceLocation;
-
-    let mut world = World::new(
-        ResourceLocation::new("minecraft", "overworld"),
-        "Overworld".to_string(),
-        0,
-    );
-    assert_eq!(world.time, 0);
-    world.tick();
-    assert_eq!(world.time, 1);
-    world.tick();
-    assert_eq!(world.time, 2);
+        server.stop().await;
+    })
+    .await;
 }

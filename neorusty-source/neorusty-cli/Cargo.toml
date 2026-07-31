@@ -12,3 +12,4 @@ neorusty-server-core = { path = "../server-core" }
 neorusty-bridge = { path = "../bridge" }
 jni = { version = "0.22", features = ["invocation"] }
 ctrlc = { version = "3" }
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, atomic::AtomicBool};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "neorusty", version, about = "NeoRusty — Minecraft Modding Server & Toolchain")]
@@ -161,8 +161,9 @@ fn cmd_run(host: &str, max_players: u32, motd: &str, mods_dir: &str, lib_dir: &s
         std::process::exit(1);
     });
 
-    use neorusty_core::event::EventBus;
+    use neorusty_core::event::{EventBus, EventPriority};
     use neorusty_server_core::{Server, ServerConfig};
+    use neorusty_server_core::lifecycle::ServerTickEvent;
 
     // --- Resolve agent JAR ---
     let agent_jar = agent_jar.map(|s| s.to_string()).unwrap_or_else(|| {
@@ -217,6 +218,30 @@ fn cmd_run(host: &str, max_players: u32, motd: &str, mods_dir: &str, lib_dir: &s
         });
     }
 
+    // --- Notify JVM bridge of each tick via the event bus ---
+    if let Ok(jvm) = jvm_manager {
+        let jvm = Arc::new(jvm);
+        let tick_bus = bus.clone();
+        tick_bus.register(EventPriority::Normal, move |event: &ServerTickEvent| {
+            let _ = jvm.with_env(|env| {
+                let cls = jni::strings::JNIString::new("neorusty/agent/BridgeNative");
+                let cls_obj = env.find_class(&*cls)?;
+                let mtd = jni::strings::JNIString::new("nativeOnTick");
+                let sig: jni::signature::RuntimeMethodSignature =
+                    "(J)V".parse().map_err(|_| {
+                        jni::errors::Error::MethodNotFound {
+                            name: "nativeOnTick".into(),
+                            sig: "(J)V".into(),
+                        }
+                    })?;
+                let sig_ms: jni::signature::MethodSignature = (&sig).into();
+                env.call_static_method(&cls_obj, &*mtd, &sig_ms, &[jni::objects::JValue::Long(event.tick as i64)])?;
+                Ok::<_, jni::errors::Error>(())
+            });
+            ServerTickEvent { tick: event.tick }
+        });
+    }
+
     // --- Create server ---
     let config = ServerConfig {
         host: addr,
@@ -225,51 +250,29 @@ fn cmd_run(host: &str, max_players: u32, motd: &str, mods_dir: &str, lib_dir: &s
         ..Default::default()
     };
     let mut server = Server::new(config, bus);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build tokio runtime");
+
     println!("Starting NeoRusty server on {}...", server.config.host);
-    server.start();
 
-    // --- Game loop ---
-    let tick_rate = server.config.tick_rate_hz;
-    let tick_duration = Duration::from_secs_f64(1.0 / tick_rate as f64);
-    let mut last_tick = Instant::now();
+    runtime.block_on(async {
+        server.start().await;
+        println!(
+            "Server running ({} ticks/sec). Press Ctrl+C to stop.",
+            server.config.tick_rate_hz
+        );
 
-    println!("Server running ({} ticks/sec). Press Ctrl+C to stop.", tick_rate);
-
-    while running.load(Ordering::SeqCst) && server.running {
-        let now = Instant::now();
-        let elapsed = now.duration_since(last_tick);
-
-        if elapsed >= tick_duration {
-            last_tick = now;
-            server.tick();
-
-            // Notify JVM bridge of tick
-            if let Ok(ref jvm) = jvm_manager {
-                let tick = server.tick_count as i64;
-                let _ = jvm.with_env(|env| {
-                    let cls = jni::strings::JNIString::new("neorusty/agent/BridgeNative");
-                    let cls_obj = env.find_class(&*cls)?;
-                    let mtd = jni::strings::JNIString::new("nativeOnTick");
-                    let sig: jni::signature::RuntimeMethodSignature =
-                        "(J)V".parse().map_err(|_| {
-                            jni::errors::Error::MethodNotFound {
-                                name: "nativeOnTick".into(),
-                                sig: "(J)V".into(),
-                            }
-                        })?;
-                    let sig_ms: jni::signature::MethodSignature = (&sig).into();
-                    env.call_static_method(&cls_obj, &*mtd, &sig_ms, &[jni::objects::JValue::Long(tick)])?;
-                    Ok::<_, jni::errors::Error>(())
-                });
-            }
-        } else {
-            std::thread::sleep(tick_duration - elapsed);
+        while running.load(Ordering::SeqCst) {
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
-    }
 
-    // --- Shutdown ---
-    println!("Stopping server...");
-    server.stop();
+        println!("Stopping server...");
+        server.stop().await;
+    });
+
     println!("Server stopped.");
 }
 
