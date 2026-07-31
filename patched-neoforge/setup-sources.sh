@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Restores upstream NeoForge source files (gitignored by design).
+# Restores upstream NeoForge source files that are gitignored by design.
 # Run from the repo root, or from patched-neoforge/.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GIT_DIR="$SCRIPT_DIR/.."
-TARGET="$SCRIPT_DIR/src/main/java"
 
-# Pick a file that exists in upstream/1.21.1 but NOT in our tracked sources
-NEEDLE="$TARGET/net/neoforged/neoforge/common/NeoForge.java"
+# Stamp file written on successful restore. It lives in a gitignored location so
+# it is never committed; a tracked file cannot be used as a marker because
+# tracked files already exist before upstream sources are restored.
+STAMP="$SCRIPT_DIR/.sources-restored"
 
-if [ -f "$NEEDLE" ]; then
-    echo "Upstream sources already present ($(find "$TARGET" -name '*.java' | wc -l) files)"
+if [ -f "$STAMP" ]; then
+    echo "Upstream sources already restored"
     exit 0
 fi
 
@@ -22,22 +23,40 @@ if ! git -C "$GIT_DIR" rev-parse --verify upstream/1.21.1 &>/dev/null; then
     git -C "$GIT_DIR" fetch upstream 1.21.1 --depth=1
 fi
 
-echo "Restoring NeoForge source files from upstream/1.21.1..."
-mkdir -p "$TARGET"
+# Restore trees from upstream: (upstream path, local target, strip-components)
+# --keep-old-files preserves tracked files (which may have normalized line
+# endings) and only fills in the files that are missing from the working tree.
+RESTORE_TREES=(
+    "src/main/java|$SCRIPT_DIR/src/main/java|3"
+    "testframework|$SCRIPT_DIR/testframework|1"
+    "coremods|$SCRIPT_DIR/coremods|1"
+    "tests|$GIT_DIR/tests|1"
+)
 
-git -C "$GIT_DIR" archive upstream/1.21.1 src/main/java/ | tar x -C "$TARGET" --strip-components=3
+for spec in "${RESTORE_TREES[@]}"; do
+    up_path="${spec%%|*}"
+    rest="${spec#*|}"
+    target="${rest%%|*}"
+    strip="${rest##*|}"
+    echo "Restoring upstream '$up_path' -> $target"
+    mkdir -p "$target"
+    git -C "$GIT_DIR" archive upstream/1.21.1 "$up_path/" | tar x --keep-old-files -C "$target" --strip-components="$strip"
+done
 
-BRIDGE_DIR="$SCRIPT_DIR/../neorusty-source/bridge/java/src/main/java"
+# Remove upstream files overridden by tracked bridge sources
+BRIDGE_DIR="$GIT_DIR/neorusty-source/bridge/java/src/main/java"
 if [ -d "$BRIDGE_DIR" ]; then
     echo "Removing upstream files overridden by tracked bridge sources..."
     find "$BRIDGE_DIR" -name '*.java' | while read -r bridge_file; do
         rel_path="${bridge_file#$BRIDGE_DIR/}"
-        target_file="$TARGET/$rel_path"
+        target_file="$SCRIPT_DIR/src/main/java/$rel_path"
         if [ -f "$target_file" ]; then
             rm -f "$target_file"
         fi
     done
 fi
 
-COUNT="$(find "$TARGET" -name '*.java' 2>/dev/null | wc -l)"
-echo "Restored $COUNT non-overridden upstream source files"
+COUNT="$(find "$SCRIPT_DIR/src/main/java" "$SCRIPT_DIR/testframework" "$SCRIPT_DIR/coremods" "$GIT_DIR/tests" -name '*.java' 2>/dev/null | wc -l)"
+echo "Restored upstream sources ($COUNT java files)"
+
+touch "$STAMP"

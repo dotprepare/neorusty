@@ -18,6 +18,9 @@ plans.md
 /testframework/
 patched-neoforge/src/main/java/
 patched-neoforge/src/generated/
+patched-neoforge/testframework/
+patched-neoforge/coremods/
+patched-neoforge/.sources-restored
 
 # Allow neorusty source tree
 !neorusty-source/**/src/
