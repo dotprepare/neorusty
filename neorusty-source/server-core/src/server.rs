@@ -49,6 +49,7 @@ impl Server {
         let advanced = build_advanced_config(&self.config);
         let vanilla_data = VanillaData::load();
 
+        pumpkin::SHOULD_STOP.store(false, Ordering::Relaxed);
         if pumpkin::LOGGER_IMPL.get().is_none() {
             pumpkin::init_logger(&advanced);
         }
@@ -108,6 +109,10 @@ impl Server {
 
         self.tick_task = Some(tokio::spawn(async move {
             let mut last = engine.server.tick_count.load(Ordering::Relaxed);
+            if last > 0 {
+                tick_count.store(last as u64, Ordering::Relaxed);
+                let _ = bus.post(ServerTickEvent { tick: last as u64 });
+            }
             loop {
                 let current = engine.server.tick_count.load(Ordering::Relaxed);
                 if current != last {
