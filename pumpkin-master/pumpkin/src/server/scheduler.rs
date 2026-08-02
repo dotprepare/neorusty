@@ -137,11 +137,16 @@ impl TaskScheduler {
         for mut task in tasks_to_run {
             // Run the task
             let plugin = task.plugin.clone();
+
+            #[cfg(feature = "plugin-runtime")]
             let handler_id = task.handler_id;
+            #[cfg(feature = "plugin-runtime")]
             let server_clone = server.clone();
 
             tokio::spawn(async move {
+                #[cfg(feature = "plugin-runtime")]
                 let mut store = plugin.store.lock().await;
+
                 match plugin.plugin_instance {
                     #[cfg(feature = "plugin-runtime")]
                     crate::plugin::loader::wasm::wasm_host::PluginInstance::V0_1(ref instance) => {

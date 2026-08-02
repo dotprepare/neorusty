@@ -1,6 +1,9 @@
 use std::{any::Any, path::Path, sync::Arc};
 
-use wasm_host::{PluginRuntime, WasmPlugin};
+use wasm_host::WasmPlugin;
+
+#[cfg(feature = "plugin-runtime")]
+use wasm_host::PluginRuntime;
 
 use crate::plugin::{
     Context, Plugin, PluginFuture,
@@ -35,15 +38,17 @@ pub struct WasmPluginLoader;
 impl PluginLoader for WasmPluginLoader {
     fn load<'a>(&'a self, path: &'a Path) -> PluginLoadFuture<'a> {
         Box::pin(async {
-            let path = path.to_owned();
-
             #[cfg(not(feature = "plugin-runtime"))]
-            return Err(LoaderError::WasmInitializationError(
-                crate::plugin::loader::wasm::wasm_host::PluginInitError::UnsupportedRuntime,
-            ));
+            {
+                let _ = path;
+                return Err(LoaderError::WasmInitializationError(
+                    crate::plugin::loader::wasm::wasm_host::PluginInitError::UnsupportedRuntime,
+                ));
+            }
 
             #[cfg(feature = "plugin-runtime")]
             {
+                let path = path.to_owned();
                 let runtime = PluginRuntime::new(&path)?;
                 let (plugin, metadata) = runtime.init_plugin(&path).await?;
 

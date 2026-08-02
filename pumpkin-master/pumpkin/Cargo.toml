@@ -124,6 +124,7 @@ tempfile.workspace = true
 
 [features]
 console-subscriber = ["dep:console-subscriber"]
+plugin-runtime = []
 
 [lints]
 workspace = true

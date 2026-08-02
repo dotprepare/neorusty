@@ -1,7 +1,11 @@
 use std::{fs, path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::sync::Mutex;
-use wasmtime::{Cache, CacheConfig, Engine, Store, component::Component, component::Linker};
+#[cfg(feature = "plugin-runtime")]
+use wasmtime::{Cache, CacheConfig};
+#[cfg(feature = "plugin-runtime")]
+use wasmtime::component::Linker;
+use wasmtime::{Engine, Store, component::Component};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder, sockets::SocketAddrUse};
 
 use crate::plugin::{
@@ -194,6 +198,7 @@ impl PluginRuntime {
     }
 }
 
+#[cfg(feature = "plugin-runtime")]
 fn setup_linker(engine: &Engine) -> wasmtime::Result<Linker<PluginHostState>> {
     let mut linker = Linker::<PluginHostState>::new(engine);
     wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
@@ -361,7 +366,10 @@ impl WasmPlugin {
         &self,
         context: Arc<Context>,
     ) -> Result<Result<(), String>, wasmtime::Error> {
+        #[cfg(feature = "plugin-runtime")]
         let mut store = self.store.lock().await;
+        #[cfg(not(feature = "plugin-runtime"))]
+        let store = self.store.lock().await;
 
         if let Some(weak_plugin) = &store.data().plugin
             && let Some(plugin) = weak_plugin.upgrade()
