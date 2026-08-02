@@ -150,7 +150,7 @@ fn build_advanced_config(config: &ServerConfig) -> AdvancedConfiguration {
     advanced.networking.java.online_mode = config.online_mode;
     advanced.networking.java.encryption = config.online_mode;
     advanced.commands.use_console = false;
-    advanced.logging.enabled = false;
+    advanced.logging.enabled = true;
     advanced
 }
 

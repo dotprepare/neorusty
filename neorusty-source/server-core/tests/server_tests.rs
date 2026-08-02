@@ -100,8 +100,17 @@ async fn test_server_tick_event() {
         let mut server = Server::new(test_config(), bus);
         server.start().await;
 
-        tokio::time::sleep(Duration::from_millis(400)).await;
-        assert!(ticks_seen.load(Ordering::SeqCst) >= 1);
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            if ticks_seen.load(Ordering::SeqCst) >= 1 {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "no tick event observed before timeout"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
         assert!(server.tick_count.load(Ordering::Relaxed) >= 1);
 
         server.stop().await;

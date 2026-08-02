@@ -1,6 +1,7 @@
 use crate::WritingError;
 use crate::codec::bit_set::BitSet;
 use crate::{ClientPacket, VarInt, ser::NetworkWriteExt};
+use pumpkin_data::biome::Biome;
 use pumpkin_data::block_state_remap::remap_block_state_for_version;
 use pumpkin_data::packet::CURRENT_MC_VERSION;
 use pumpkin_data::packet::clientbound::PLAY_LEVEL_CHUNK_WITH_LIGHT;
@@ -9,7 +10,37 @@ use pumpkin_util::math::position::get_local_cord;
 use pumpkin_util::version::JavaMinecraftVersion;
 use pumpkin_world::chunk::format::LightContainer;
 use pumpkin_world::chunk::{ChunkData, palette::NetworkPalette};
+use std::collections::HashMap;
 use std::io::Write;
+
+/// Builds a mapping of biome name (without `minecraft:` prefix) to the biome index
+/// the given client version expects, based on that version's synced biome registry.
+fn client_biome_ids_for_version(version: &JavaMinecraftVersion) -> HashMap<String, u8> {
+    let mut ids = HashMap::new();
+    for registry in pumpkin_data::registry::Registry::get_synced(*version) {
+        if registry.registry_id == "minecraft:worldgen/biome" {
+            for (index, entry) in registry.registry_entries.iter().enumerate() {
+                if let Some(name) = entry.entry_id.strip_prefix("minecraft:") {
+                    ids.entry(name.to_string()).or_insert(index as u8);
+                }
+            }
+        }
+    }
+    ids
+}
+
+/// Remaps a server-side biome id (ordered per the newest data version) to the id the
+/// given client version expects. Unknown biomes fall back to plains.
+fn remap_biome_id_for_version(biome_id: u8, client_biome_ids: &HashMap<String, u8>) -> u8 {
+    let fallback = client_biome_ids.get("plains").copied().unwrap_or(0);
+    let Some(biome) = Biome::from_id(biome_id) else {
+        return fallback;
+    };
+    client_biome_ids
+        .get(biome.registry_id)
+        .copied()
+        .unwrap_or(fallback)
+}
 
 /// Sent by the server to provide the client with the full data for a chunk.
 ///
@@ -148,7 +179,40 @@ impl ClientPacket for CChunkData<'_> {
                     }
                 }
 
-                let biome_network = biome_palette.convert_network();
+                let mut biome_network = biome_palette.convert_network();
+                if version < &CURRENT_MC_VERSION {
+                    let client_biome_ids = client_biome_ids_for_version(version);
+                    match &mut biome_network.palette {
+                        NetworkPalette::Single(registry_id) => {
+                            *registry_id =
+                                remap_biome_id_for_version(*registry_id, &client_biome_ids);
+                        }
+                        NetworkPalette::Indirect(palette) => {
+                            for registry_id in palette.iter_mut() {
+                                *registry_id =
+                                    remap_biome_id_for_version(*registry_id, &client_biome_ids);
+                            }
+                        }
+                        NetworkPalette::Direct => {
+                            let bits_per_entry = usize::from(biome_network.bits_per_entry);
+                            let values_per_i64 = 64 / bits_per_entry;
+                            let id_mask = (1u64 << bits_per_entry) - 1;
+
+                            for packed_word in &mut biome_network.packed_data {
+                                let mut remapped_word = 0u64;
+                                let packed_word_u64 = *packed_word as u64;
+                                for index in 0..values_per_i64 {
+                                    let shift = index * bits_per_entry;
+                                    let biome_id = ((packed_word_u64 >> shift) & id_mask) as u8;
+                                    let remapped_id =
+                                        remap_biome_id_for_version(biome_id, &client_biome_ids);
+                                    remapped_word |= u64::from(remapped_id) << shift;
+                                }
+                                *packed_word = remapped_word as i64;
+                            }
+                        }
+                    }
+                }
                 blocks_and_biomes_buf.write_u8(biome_network.bits_per_entry)?;
 
                 match biome_network.palette {
@@ -292,5 +356,31 @@ impl ClientPacket for CChunkData<'_> {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn biome_remap_maps_server_ids_to_client_registry() {
+        let ids = client_biome_ids_for_version(&JavaMinecraftVersion::V_1_21);
+        assert!(ids.contains_key("plains"));
+        assert!(ids.contains_key("badlands"));
+
+        // Server biome id 0 is badlands; in the 1.21 registry it is also index 0.
+        assert_eq!(remap_biome_id_for_version(0, &ids), ids["badlands"]);
+        // Server biome id 5 is cherry_grove; must resolve to its 1.21 client index.
+        assert_eq!(remap_biome_id_for_version(5, &ids), ids["cherry_grove"]);
+        // Every server biome resolves to an id valid for the client (registry < 128).
+        for id in 0..u8::MAX {
+            assert!(remap_biome_id_for_version(id, &ids) < 128);
+        }
+        // Unknown/out-of-range ids fall back to plains.
+        assert_eq!(
+            remap_biome_id_for_version(u8::MAX, &ids),
+            ids["plains"]
+        );
     }
 }

@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          for crate in neorusty-cli neorusty-installer server-core; do
+          for crate in neorusty neorusty-cli neorusty-installer server-core; do
             bin="target/${{ matrix.target }}/release/${crate}${{ matrix.suffix }}"
             if [ -f "$bin" ]; then
               cp "$bin" "dist/${crate}-${{ matrix.target }}${{ matrix.suffix }}"
@@ -115,6 +115,7 @@ jobs:
           - Build: patched-neoforge/
 
           ### Neorusty (Rust)
+          - **neorusty** — Standalone server binary (run directly, no JVM required)
           - **neorusty-cli** — CLI tool
           - **neorusty-installer** — Installer
           - **server-core** — Server core

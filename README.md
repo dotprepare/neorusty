@@ -24,6 +24,37 @@ upstream codebase. The WASM plugin host is compiled out behind the
 `PumpkinServer` (bind listener, tick loop, config) instead of running it as a
 standalone binary.
 
+## Running
+
+Prerequisites: Rust stable toolchain (`rustup`). JDK 21 is only required for the
+CLI's JVM/NeoForge bridge.
+
+```sh
+cd neorusty-source
+cargo build --workspace
+```
+
+**Standalone server (no JVM needed):**
+
+```sh
+cargo run -p neorusty
+```
+
+Binds `127.0.0.1:25565`, offline mode. `world/`, `data/`, and `latest.log` are
+created in the current working directory. Set `RUST_LOG` (e.g. `debug`, `off`)
+to control log verbosity; delete `world/` + `data/` to reset.
+
+**Full CLI (with JVM/NeoForge bridge):**
+
+```sh
+bash scripts/build.sh          # also builds the Java agent jar
+./target/debug/neorusty-cli run
+```
+
+Join with Minecraft Java **1.21.1** via direct connect `127.0.0.1:25565`
+(offline account). CI nightly releases ship the `neorusty` standalone binary for
+Linux/macOS/Windows (x86_64 + ARM64).
+
 ## Features
 
 ### Current
