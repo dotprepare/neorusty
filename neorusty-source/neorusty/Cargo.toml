@@ -9,7 +9,6 @@ neorusty-plugin-system = { path = "../plugin-system" }
 neorusty-api = { path = "../api" }
 neorusty-server-core = { path = "../server-core" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal"] }
-ctrlc = { version = "3" }
 
 [dev-dependencies]
 neorusty-macros = { path = "../neorusty-macros" }

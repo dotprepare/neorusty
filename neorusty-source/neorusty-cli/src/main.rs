@@ -2,9 +2,7 @@ use clap::{Parser, Subcommand};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, atomic::AtomicBool};
-use std::time::Duration;
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "neorusty", version, about = "NeoRusty — Minecraft Modding Server & Toolchain")]
@@ -176,14 +174,6 @@ fn cmd_run(host: &str, max_players: u32, motd: &str, mods_dir: &str, lib_dir: &s
     let bus = Arc::new(EventBus::new());
     let plugin_manager = neorusty_plugin_system::PluginManager::new();
 
-    // --- Game loop shutdown signal ---
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-    ctrlc::set_handler(move || {
-        println!("\nShutdown signal received, stopping server...");
-        r.store(false, Ordering::SeqCst);
-    }).expect("Error setting Ctrl+C handler");
-
     // --- Load native plugins ---
     let loaded = plugin_manager.load_plugins_from_dir(mods_dir);
     if !loaded.is_empty() {
@@ -259,18 +249,7 @@ fn cmd_run(host: &str, max_players: u32, motd: &str, mods_dir: &str, lib_dir: &s
     println!("Starting NeoRusty server on {}...", server.config.host);
 
     runtime.block_on(async {
-        server.start().await;
-        println!(
-            "Server running ({} ticks/sec). Press Ctrl+C to stop.",
-            server.config.tick_rate_hz
-        );
-
-        while running.load(Ordering::SeqCst) {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
-
-        println!("Stopping server...");
-        server.stop().await;
+        server.run().await;
     });
 
     println!("Server stopped.");

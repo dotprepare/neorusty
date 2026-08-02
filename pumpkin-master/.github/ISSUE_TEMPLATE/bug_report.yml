@@ -1,0 +1,61 @@
+name: "Bug Report"
+description: "File a bug report to help us improve"
+labels: ["bug"]
+assignees: ["Snowiiii"]
+body:
+  - type: checkboxes
+    id: duplicate
+    attributes:
+      label: "Before Submitting"
+      options:
+        - label: "I have searched existing issues and confirmed this is not a duplicate."
+          required: true
+
+  - type: dropdown
+    id: edition
+    attributes:
+      label: "Minecraft Edition"
+      description: "Which edition of Minecraft does this bug affect?"
+      options:
+        - "Java Edition"
+        - "Bedrock Edition"
+        - "Both / Crossplay"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Server Version / Commit"
+      description: "Provide your server version (Tip: Run `/pumpkin`)."
+      placeholder: "e.g., 1.0.0/39b4cb3"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: "Operating System"
+      placeholder: "e.g., Windows 11, Ubuntu 22.04, macOS"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description & Expected Behavior"
+      description: "What is currently happening, and what did you expect to happen instead?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: to-reproduce
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Please provide a clear, step-by-step list to replicate the issue."
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true

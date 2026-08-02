@@ -6,10 +6,6 @@ edition = "2024"
 [dependencies]
 neorusty-core = { path = "../core" }
 getrandom = "0.2"
-log = "0.4"
-rayon = "1"
-toml = "0.8"
 pumpkin = { path = "../../pumpkin-master/pumpkin" }
 pumpkin-config = { path = "../../pumpkin-master/pumpkin-config" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "sync"] }
-tokio-util = { version = "0.7", features = ["rt"] }
