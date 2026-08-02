@@ -20,7 +20,7 @@ fn main() {
         (format!("v{version}"), version)
     };
     let url = format!(
-        "https://github.com/neorusty/neorusty/releases/download/{tag}/neorusty-{asset_version}-{platform}.tar.gz",
+        "https://github.com/catlab-design/neorusty/releases/download/{tag}/neorusty-{asset_version}-{platform}.tar.gz",
     );
 
     println!("  Download: {url}");
@@ -59,24 +59,28 @@ fn main() {
 
     // Copy binary
     let bin_src = PathBuf::from(&extract_dir).join("neorusty");
-    let bin_dst = target_dir.join("neorusty");
+    let bin_dst = target_dir.join(if cfg!(windows) { "neorusty.exe" } else { "neorusty" });
 
-    if cfg!(windows) {
-        std::fs::rename(&bin_src, &bin_dst).unwrap_or_else(|e| {
-            eprintln!("Error: failed to install binary: {e}");
+    std::fs::copy(&bin_src, &bin_dst).unwrap_or_else(|e| {
+        eprintln!("Error: failed to install binary: {e}");
+        std::process::exit(1);
+    });
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&bin_dst, std::fs::Permissions::from_mode(0o755))
+            .unwrap_or_else(|e| eprintln!("Warning: could not set executable bit: {e}"));
+    }
+
+    // Copy patched NeoForge jar (included in the release tarball) for modding support
+    let jar_src = PathBuf::from(&extract_dir).join("neoforge.jar");
+    let jar_dst = target_dir.join("neoforge.jar");
+    if jar_src.exists() {
+        std::fs::copy(&jar_src, &jar_dst).unwrap_or_else(|e| {
+            eprintln!("Error: failed to install NeoForge jar: {e}");
             std::process::exit(1);
         });
-    } else {
-        std::fs::copy(&bin_src, &bin_dst).unwrap_or_else(|e| {
-            eprintln!("Error: failed to install binary: {e}");
-            std::process::exit(1);
-        });
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&bin_dst, std::fs::Permissions::from_mode(0o755))
-                .unwrap_or_else(|e| eprintln!("Warning: could not set executable bit: {e}"));
-        }
+        println!("  NeoForge jar: {}", jar_dst.display());
     }
 
     // Cleanup
@@ -89,7 +93,7 @@ fn main() {
     println!("NeoRusty v{version} installed successfully!");
     println!("  Location: {}", bin_dst.display());
     println!();
-    println!("Run `neorusty run` to start the server.");
+    println!("Run `neorusty` to start the server.");
 }
 
 fn tempfile(name: &str) -> String {

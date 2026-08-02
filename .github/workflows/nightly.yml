@@ -126,6 +126,38 @@ jobs:
           - macOS (x86_64, ARM64)
           - Windows (x86_64)
           EOF
+      - name: Package platform tarballs
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' neorusty-source/neorusty-installer/Cargo.toml | head -1)
+          JAR=$(ls dist/neoforge-*-universal.jar 2>/dev/null | head -1 || true)
+          if [ -z "$JAR" ]; then
+            JAR=$(ls dist/neoforge-*.jar 2>/dev/null | grep -Ev 'sources|javadoc|api|dev|userdev|installer' | head -1 || true)
+          fi
+          map_platform() {
+            case "$1" in
+              x86_64-unknown-linux-gnu) echo linux-x86_64 ;;
+              aarch64-unknown-linux-gnu) echo linux-aarch64 ;;
+              x86_64-apple-darwin) echo macos-x86_64 ;;
+              aarch64-apple-darwin) echo macos-aarch64 ;;
+              x86_64-pc-windows-msvc) echo windows-x86_64 ;;
+            esac
+          }
+          for target in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-apple-darwin aarch64-apple-darwin x86_64-pc-windows-msvc; do
+            bin="dist/neorusty-${target}"
+            [ -f "${bin}.exe" ] && bin="${bin}.exe"
+            [ -f "$bin" ] || continue
+            platform=$(map_platform "$target")
+            mkdir -p tmp
+            cp "$bin" tmp/neorusty
+            if [ -n "$JAR" ]; then
+              cp "$JAR" tmp/neoforge.jar
+            fi
+            (cd tmp && tar czf "../dist/neorusty-${VERSION}-${platform}.tar.gz" neorusty neoforge.jar)
+            rm -rf tmp
+            echo "packaged neorusty-${VERSION}-${platform}.tar.gz"
+          done
       - name: Update nightly tag
         run: |
           git config user.name "github-actions[bot]"

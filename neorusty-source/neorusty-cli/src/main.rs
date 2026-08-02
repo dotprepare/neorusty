@@ -77,9 +77,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-neorusty-core = {{ git = "https://github.com/neorusty/neorusty" }}
-neorusty-plugin-system = {{ git = "https://github.com/neorusty/neorusty" }}
-neorusty-macros = {{ git = "https://github.com/neorusty/neorusty" }}
+neorusty-core = {{ git = "https://github.com/catlab-design/neorusty" }}
+neorusty-plugin-system = {{ git = "https://github.com/catlab-design/neorusty" }}
+neorusty-macros = {{ git = "https://github.com/catlab-design/neorusty" }}
 
 [profile.release]
 opt-level = 3
