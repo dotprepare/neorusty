@@ -32,4 +32,5 @@ target/
 ai-skills/
 logs-ai/
 .agents
+.agent
 .claude
