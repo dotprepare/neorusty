@@ -31,4 +31,5 @@ target/
 # AI Stuff
 ai-skills/
 logs-ai/
-.agent
+.agents
+.claude
